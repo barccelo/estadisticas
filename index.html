@@ -13,6 +13,9 @@ header{background:linear-gradient(135deg,#111827,#7f1d1d);color:white;padding:28
 @media(max-width:650px){.actions{grid-column:auto;flex-wrap:wrap;justify-content:flex-start}.actions .btn{width:auto}}
 
 .discipline-box{padding:16px;margin-top:14px}.discipline-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.chips{display:flex;gap:8px;flex-wrap:wrap}.chip{border:1px solid var(--line);padding:8px 10px;border-radius:999px;background:#fff;font-size:13px;cursor:pointer;user-select:none}.chip.active{background:var(--soft);border-color:#fecaca;color:#7f1d1d;font-weight:800}.grid{display:grid;gap:14px}.kpis{grid-template-columns:repeat(5,1fr);margin-top:14px}.kpi{padding:18px}.kpi .label{font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:800;letter-spacing:.06em}.kpi .value{font-size:30px;font-weight:900;margin-top:8px;letter-spacing:-.04em}.kpi .sub{font-size:13px;color:var(--muted);margin-top:4px}.charts{grid-template-columns:1.15fr .85fr;margin-top:14px}.chart-card{padding:18px}.chart-card h2,.table-card h2{margin:0 0 10px;font-size:18px}.canvas-wrap{width:100%;height:360px;position:relative}canvas{width:100%;height:100%;display:block}.table-card{padding:18px;margin-top:14px;overflow:hidden}.table-tools{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:10px;flex-wrap:wrap}.table-scroll{overflow:auto;max-height:430px;border:1px solid var(--line);border-radius:14px}table{width:100%;border-collapse:collapse;background:white;font-size:13px}th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}th{position:sticky;top:0;background:#f9fafb;z-index:2;color:#374151;font-size:12px;text-transform:uppercase;letter-spacing:.04em}td:first-child,th:first-child,td:nth-child(2),th:nth-child(2){text-align:left}.obs{max-width:480px;white-space:normal;text-align:left;color:#374151}.bar-list{display:grid;gap:10px;margin-top:12px}.bar-row{display:grid;grid-template-columns:125px 1fr 70px;gap:10px;align-items:center;font-size:13px}.bar-bg{height:13px;background:#f3f4f6;border-radius:999px;overflow:hidden}.bar-fill{height:100%;background:#991b1b;border-radius:999px}.notice{padding:12px 14px;color:#4b5563;font-size:13px}.small{font-size:12px;color:var(--muted)}
+.admin-box{padding:16px;margin-top:14px}.admin-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.admin-card{border:1px solid var(--line);border-radius:16px;padding:14px;background:#fff}.admin-card h2{font-size:18px;margin:0 0 6px}.admin-card p{margin:0 0 12px;color:var(--muted);font-size:13px}.mini-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.mini-grid .full{grid-column:1 / -1}.num-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:10px}.admin-card input,.admin-card textarea{width:100%;border:1px solid var(--line);border-radius:12px;padding:10px 11px;background:white;color:var(--ink);font-size:14px;min-height:42px}.admin-card textarea{min-height:82px;resize:vertical}.admin-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px}.status{margin-top:10px;font-size:13px;color:var(--muted)}.status.ok{color:var(--good);font-weight:700}.status.err{color:var(--accent);font-weight:700}.edit-results{display:grid;gap:10px;margin-top:12px}.edit-card{border:1px solid var(--line);border-radius:14px;padding:12px;background:#f9fafb}.edit-card-title{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:10px;font-size:13px;color:#374151;font-weight:800}.edit-card .mini-grid,.edit-card .num-grid{grid-template-columns:repeat(3,1fr)}
+@media(max-width:900px){.admin-grid{grid-template-columns:1fr}.edit-card .mini-grid,.edit-card .num-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:650px){.mini-grid,.num-grid,.edit-card .mini-grid,.edit-card .num-grid{grid-template-columns:1fr}.admin-row .btn{width:100%}}
+
 @media(max-width:1050px){.filters{grid-template-columns:repeat(3,1fr)}.kpis{grid-template-columns:repeat(2,1fr)}.charts{grid-template-columns:1fr}.field.wide{grid-column:span 3}.actions{grid-column:1 / -1;justify-content:flex-end}}@media(max-width:650px){.wrap{padding:12px}.filters{grid-template-columns:1fr;margin-top:-24px}.field.wide{grid-column:auto}.kpis{grid-template-columns:1fr}.kpi .value{font-size:26px}header{padding:22px 16px 44px}.bar-row{grid-template-columns:100px 1fr 55px}}
 </style>
 </head>
@@ -30,6 +33,37 @@ header{background:linear-gradient(135deg,#111827,#7f1d1d);color:white;padding:28
   <div class="field wide"><label>Buscar en observaciones</label><input id="searchBox" type="search" placeholder="Ej.: salón, juego, estudiante..."></div>
   <div class="actions"><button class="btn" id="refreshBtn">Actualizar datos</button><button class="btn secondary" id="resetBtn">Reiniciar</button><button class="btn secondary" id="csvBtn">Exportar CSV</button></div>
 </section>
+
+<section class="panel admin-box">
+  <div class="table-tools"><strong>Registro y edición directa</strong><span class="small">Guarda o modifica datos directamente en Google Sheets.</span></div>
+  <div class="admin-grid">
+    <div class="admin-card">
+      <h2>Registrar datos</h2>
+      <p>Usa la contraseña de registro para agregar una nueva fila a la hoja.</p>
+      <div class="mini-grid">
+        <div class="field"><label>Contraseña</label><input id="regPassword" type="password" inputmode="numeric" placeholder="Contraseña de registro"></div>
+        <div class="field"><label>Fecha</label><input id="regFecha" type="date"></div>
+        <div class="field full"><label>Responsable / correo</label><input id="regEmail" type="text" placeholder="Ej.: usuario@losroblesenlinea.com.ve"></div>
+      </div>
+      <div id="regDiscInputs" class="num-grid"></div>
+      <div class="field" style="margin-top:10px"><label>Observaciones</label><textarea id="regObs" placeholder="Observaciones del día"></textarea></div>
+      <div class="admin-row"><button class="btn" id="saveRecordBtn" type="button">Guardar registro</button><button class="btn secondary" id="clearRecordFormBtn" type="button">Limpiar formulario</button></div>
+      <div id="regStatus" class="status"></div>
+    </div>
+    <div class="admin-card">
+      <h2>Editar datos guardados</h2>
+      <p>Usa la contraseña de edición para buscar registros de una fecha y modificarlos.</p>
+      <div class="mini-grid">
+        <div class="field"><label>Contraseña</label><input id="editPassword" type="password" inputmode="numeric" placeholder="Contraseña de edición"></div>
+        <div class="field"><label>Fecha</label><input id="editFecha" type="date"></div>
+      </div>
+      <div class="admin-row"><button class="btn" id="findRecordsBtn" type="button">Buscar registros</button></div>
+      <div id="editStatus" class="status"></div>
+      <div id="editResults" class="edit-results"></div>
+    </div>
+  </div>
+</section>
+
 <section class="panel discipline-box"><div class="table-tools"><strong>Disciplinas visibles</strong><div class="discipline-actions"><span class="small">Selecciona una o varias para comparar.</span><button class="btn secondary" id="clearDiscBtn" type="button">Limpiar disciplinas</button><button class="btn secondary" id="allDiscBtn" type="button">Seleccionar todas</button></div></div><div id="disciplineChips" class="chips"></div></section>
 <section class="grid kpis">
   <div class="panel kpi"><div class="label">Registros</div><div id="kpiRecords" class="value">—</div><div class="sub">días/reportes filtrados</div></div>
@@ -46,6 +80,7 @@ header{background:linear-gradient(135deg,#111827,#7f1d1d);color:white;padding:28
 </main>
 <script>
 const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQi7LJ9GkWvS8xSGabaKdLwMRzhaMXppm8Vt8Z5chsQr92cWEOYF2SKeNPI15SYc1oryFw3eJP1SQkg/pub?gid=590274017&single=true&output=csv";
+const APPS_SCRIPT_URL = "https://script.google.com/a/macros/losroblesenlinea.com.ve/s/AKfycbzHHgoVMHLbCWYYPnPgtWsG3Ipq3Q_5dkMRKBFbJYW5uG3mkhlHWkLwi1DyOuKCDAGh/exec";
 let DATA = [];
 const DISCIPLINES = ["Ajedrez", "Astronomía", "Atletismo", "Baloncesto", "Béisbol", "Fútbol campo", "Fútbol sala", "Música", "Tenis de campo", "Robótica"];
 let selected = new Set(DISCIPLINES);
@@ -182,7 +217,130 @@ function renderBars(rows){const sums=sumByDisc(rows); const max=Math.max(1,...[.
 function renderLine(rows){const canvas=$('lineChart'), rect=canvas.parentElement.getBoundingClientRect(), dpr=window.devicePixelRatio||1; canvas.width=rect.width*dpr; canvas.height=rect.height*dpr; const ctx=canvas.getContext('2d'); ctx.scale(dpr,dpr); const w=rect.width,h=rect.height,p={l:46,r:18,t:18,b:38}; ctx.clearRect(0,0,w,h); ctx.font='12px system-ui'; ctx.strokeStyle='#e5e7eb'; ctx.lineWidth=1; if(selected.size===0){ctx.fillStyle='#6b7280'; ctx.fillText('No hay disciplinas seleccionadas.',p.l+10,h/2); return;} const byDate={}; rows.forEach(r=>{if(!byDate[r.fecha]){byDate[r.fecha]={}; DISCIPLINES.forEach(d=>byDate[r.fecha][d]=0)} DISCIPLINES.forEach(d=>byDate[r.fecha][d]+=Number(r.valores[d]||0));}); const dates=Object.keys(byDate).sort(); const max=Math.max(1,...dates.flatMap(date=>[...selected].map(d=>byDate[date][d]||0))); for(let i=0;i<=4;i++){const y=p.t+(h-p.t-p.b)*i/4; ctx.beginPath(); ctx.moveTo(p.l,y); ctx.lineTo(w-p.r,y); ctx.stroke(); ctx.fillStyle='#6b7280'; ctx.fillText(Math.round(max*(1-i/4)),6,y+4)} if(dates.length===0){ctx.fillStyle='#6b7280';ctx.fillText('No hay datos para mostrar.',p.l+10,h/2);return} const colors=['#991b1b','#111827','#4b5563','#b45309','#166534','#1d4ed8','#7c3aed','#be185d','#0f766e','#92400e']; let ci=0; [...selected].forEach(d=>{ctx.strokeStyle=colors[ci++%colors.length]; ctx.lineWidth=2; ctx.beginPath(); dates.forEach((date,i)=>{const x=p.l+(dates.length===1?0:(w-p.l-p.r)*i/(dates.length-1)); const y=p.t+(h-p.t-p.b)*(1-(byDate[date][d]||0)/max); if(i===0)ctx.moveTo(x,y); else ctx.lineTo(x,y);}); ctx.stroke();}); ctx.fillStyle='#6b7280'; const step=Math.ceil(dates.length/6); dates.forEach((date,i)=>{if(i%step===0||i===dates.length-1){const x=p.l+(dates.length===1?0:(w-p.l-p.r)*i/(dates.length-1)); ctx.save(); ctx.translate(x,h-12); ctx.rotate(-0.45); ctx.fillText(niceDate(date),0,0); ctx.restore();}});}
 function renderTable(rows){const table=$('dataTable'); const heads=['Fecha','Responsable',...DISCIPLINES.filter(d=>selected.has(d)),'Total','Observaciones']; let html='<thead><tr>'+heads.map(h=>`<th>${escapeHtml(h)}</th>`).join('')+'</tr></thead><tbody>'; rows.slice().sort((a,b)=>b.fecha.localeCompare(a.fecha)).forEach(r=>{html+='<tr>'; html+=`<td>${niceDate(r.fecha)}</td><td>${escapeHtml(r.email.replace('@losroblesenlinea.com.ve',''))}</td>`; DISCIPLINES.filter(d=>selected.has(d)).forEach(d=>html+=`<td>${fmt.format(r.valores[d]||0)}</td>`); html+=`<td><strong>${fmt.format(totalSelected(r))}</strong></td><td class="obs">${escapeHtml(r.observaciones)}</td></tr>`;}); html+='</tbody>'; table.innerHTML=html; $('tableCount').textContent=fmt.format(rows.length)+' registros mostrados · fuente: Google Sheets';}
 function downloadCSV(){const rows=filtered(); const visible=DISCIPLINES.filter(d=>selected.has(d)); const cols=['Fecha','Responsable',...visible,'Total','Observaciones']; const csv=[cols.join(',')].concat(rows.map(r=>[r.fecha,r.email,...visible.map(d=>r.valores[d]),totalSelected(r),(r.observaciones||'').replace(/\n/g,' ')].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(','))).join('\n'); const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='club_deportivo_filtrado.csv'; a.click(); URL.revokeObjectURL(a.href);}
+
+function setStatus(id, message, type=''){
+  const el=$(id); if(!el) return; el.textContent=message||''; el.className='status' + (type ? ' '+type : '');
+}
+function todayISO(){const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+function labelForRecordHeader(d){return d;}
+function makeRecordFromPrefix(prefix){
+  const record={};
+  const fecha=$(prefix+'Fecha')?.value || '';
+  const email=$(prefix+'Email')?.value || '';
+  const obs=$(prefix+'Obs')?.value || '';
+  if(prefix==='reg') record['Timestamp'] = new Date().toLocaleString('es-VE');
+  record['Fecha:'] = fecha;
+  record['Email Address'] = email;
+  DISCIPLINES.forEach(d=>{const el=$(prefix+'_'+normalizeKey(d)); record[d]=el ? el.value : '';});
+  record['Observaciones:'] = obs;
+  return record;
+}
+function apiCall(action, payload={}){
+  return new Promise((resolve,reject)=>{
+    const callback='jsonp_cb_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+    const script=document.createElement('script');
+    const params=new URLSearchParams();
+    params.set('action', action);
+    params.set('callback', callback);
+    Object.keys(payload).forEach(k=>{
+      const v=payload[k];
+      params.set(k, typeof v === 'object' ? JSON.stringify(v) : String(v ?? ''));
+    });
+    const timer=setTimeout(()=>{cleanup(); reject(new Error('La solicitud tardó demasiado. Revisa el despliegue del Apps Script.'));}, 30000);
+    function cleanup(){clearTimeout(timer); delete window[callback]; script.remove();}
+    window[callback]=(data)=>{cleanup(); resolve(data);};
+    script.onerror=()=>{cleanup(); reject(new Error('No se pudo conectar con Apps Script. Revisa la URL /exec y el acceso público.'));};
+    script.src=APPS_SCRIPT_URL + '?' + params.toString();
+    document.body.appendChild(script);
+  });
+}
+function buildRegisterInputs(){
+  const box=$('regDiscInputs'); if(!box) return; box.innerHTML='';
+  DISCIPLINES.forEach(d=>{
+    const wrap=document.createElement('div'); wrap.className='field';
+    wrap.innerHTML=`<label>${escapeHtml(d)}</label><input id="reg_${normalizeKey(d)}" type="number" min="0" step="1" placeholder="0">`;
+    box.appendChild(wrap);
+  });
+  if($('regFecha') && !$('regFecha').value) $('regFecha').value=todayISO();
+}
+function clearRecordForm(){
+  $('regFecha').value=todayISO();
+  $('regEmail').value='';
+  $('regObs').value='';
+  DISCIPLINES.forEach(d=>{const el=$('reg_'+normalizeKey(d)); if(el) el.value='';});
+  setStatus('regStatus','');
+}
+async function saveRecord(){
+  const password=$('regPassword').value.trim();
+  if(!password){setStatus('regStatus','Escribe la contraseña de registro.','err'); return;}
+  if(!$('regFecha').value){setStatus('regStatus','Selecciona una fecha.','err'); return;}
+  const btn=$('saveRecordBtn'); btn.disabled=true; setStatus('regStatus','Guardando registro...');
+  try{
+    const result=await apiCall('addRecord', {password, record: makeRecordFromPrefix('reg')});
+    if(!result.ok) throw new Error(result.message || 'No se pudo guardar.');
+    setStatus('regStatus', result.message || 'Registro guardado correctamente.','ok');
+    await loadData({keepFilters:true});
+  }catch(err){setStatus('regStatus', err.message, 'err');}
+  finally{btn.disabled=false;}
+}
+async function findEditableRecords(){
+  const password=$('editPassword').value.trim(), date=$('editFecha').value;
+  if(!password){setStatus('editStatus','Escribe la contraseña de edición.','err'); return;}
+  if(!date){setStatus('editStatus','Selecciona una fecha para buscar.','err'); return;}
+  const btn=$('findRecordsBtn'); btn.disabled=true; $('editResults').innerHTML=''; setStatus('editStatus','Buscando registros...');
+  try{
+    const result=await apiCall('getRecordsByDate', {password, date});
+    if(!result.ok) throw new Error(result.message || 'No se pudo buscar.');
+    renderEditResults(result.records || []);
+    setStatus('editStatus', (result.records || []).length ? `${(result.records || []).length} registro(s) encontrado(s).` : 'No se encontraron registros para esa fecha.', (result.records||[]).length ? 'ok' : '');
+  }catch(err){setStatus('editStatus', err.message, 'err');}
+  finally{btn.disabled=false;}
+}
+function valueFromRecord(rec, ...names){
+  const map={}; Object.keys(rec||{}).forEach(k=>map[normalizeKey(k)]=k);
+  for(const name of names){const k=map[normalizeKey(name)]; if(k!==undefined) return rec[k] ?? '';}
+  return '';
+}
+function renderEditResults(records){
+  const box=$('editResults'); box.innerHTML='';
+  records.forEach((rec, idx)=>{
+    const rowNumber=rec.__rowNumber;
+    const card=document.createElement('div'); card.className='edit-card'; card.dataset.rowNumber=rowNumber;
+    const unique='edit_'+rowNumber+'_'+idx;
+    let html=`<div class="edit-card-title"><span>Registro ${idx+1} · Fila ${rowNumber}</span><span>${escapeHtml(valueFromRecord(rec,'Email Address','Correo electrónico'))}</span></div>`;
+    html+=`<div class="mini-grid"><div class="field"><label>Fecha</label><input id="${unique}_fecha" type="date" value="${escapeHtml(normalizeDate(valueFromRecord(rec,'Fecha:','Fecha')))}"></div><div class="field full"><label>Responsable / correo</label><input id="${unique}_email" type="text" value="${escapeHtml(valueFromRecord(rec,'Email Address','Dirección de correo electrónico','Correo electrónico'))}"></div></div>`;
+    html+=`<div class="num-grid">`;
+    DISCIPLINES.forEach(d=>{html+=`<div class="field"><label>${escapeHtml(d)}</label><input id="${unique}_${normalizeKey(d)}" type="number" min="0" step="1" value="${escapeHtml(valueFromRecord(rec,d))}"></div>`;});
+    html+=`</div><div class="field" style="margin-top:10px"><label>Observaciones</label><textarea id="${unique}_obs">${escapeHtml(valueFromRecord(rec,'Observaciones:','Observaciones'))}</textarea></div>`;
+    html+=`<div class="admin-row"><button class="btn" type="button" data-save-edit="${unique}" data-row="${rowNumber}">Guardar cambios</button><span id="${unique}_status" class="status"></span></div>`;
+    card.innerHTML=html; box.appendChild(card);
+  });
+  box.querySelectorAll('[data-save-edit]').forEach(btn=>btn.onclick=()=>saveEditedRecord(btn.dataset.saveEdit, btn.dataset.row));
+}
+async function saveEditedRecord(unique, rowNumber){
+  const password=$('editPassword').value.trim();
+  const record={'Fecha:':$(unique+'_fecha').value, 'Email Address':$(unique+'_email').value, 'Observaciones:':$(unique+'_obs').value};
+  DISCIPLINES.forEach(d=>{record[d]=$(unique+'_'+normalizeKey(d)).value;});
+  const btn=document.querySelector(`[data-save-edit="${unique}"]`); btn.disabled=true; setStatus(unique+'_status','Guardando...');
+  try{
+    const result=await apiCall('updateRecord', {password, rowNumber, record});
+    if(!result.ok) throw new Error(result.message || 'No se pudo actualizar.');
+    setStatus(unique+'_status', result.message || 'Registro actualizado.','ok');
+    await loadData({keepFilters:true});
+  }catch(err){setStatus(unique+'_status', err.message, 'err');}
+  finally{btn.disabled=false;}
+}
+function initAdminModule(){
+  buildRegisterInputs();
+  if($('regFecha') && !$('regFecha').value) $('regFecha').value=todayISO();
+  if($('editFecha') && !$('editFecha').value) $('editFecha').value=todayISO();
+  $('saveRecordBtn').onclick=saveRecord;
+  $('clearRecordFormBtn').onclick=clearRecordForm;
+  $('findRecordsBtn').onclick=findEditableRecords;
+}
+
 window.addEventListener('resize',()=>{if(DATA.length) renderLine(filtered())});
+initAdminModule();
 loadData();
 </script>
 </body>
