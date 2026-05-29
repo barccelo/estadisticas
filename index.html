@@ -6,7 +6,7 @@
 <title>Dashboard · Club Deportivo</title>
 <style>
 :root{--bg:#f6f7fb;--panel:#ffffff;--ink:#1f2937;--muted:#6b7280;--line:#e5e7eb;--accent:#b91c1c;--accent2:#111827;--soft:#fee2e2;--good:#166534;--warn:#92400e;}
-*{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+*{box-sizing:border-box} html,body{width:100%;max-width:100%;overflow-x:hidden} body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink)} img,canvas,table{max-width:100%}
 header{background:linear-gradient(135deg,#111827,#7f1d1d);color:white;padding:28px 24px 22px} header h1{margin:0;font-size:clamp(24px,4vw,42px);letter-spacing:-.04em} header p{margin:8px 0 0;color:#f3f4f6;max-width:900px}.wrap{max-width:1320px;margin:0 auto;padding:20px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:0 8px 24px rgba(15,23,42,.06)}
 .filters{display:grid;grid-template-columns:repeat(6,minmax(150px,1fr));gap:12px;padding:16px;margin-top:-38px;position:relative}.field{display:flex;flex-direction:column;gap:6px}.field label{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700}.field input,.field select{border:1px solid var(--line);border-radius:12px;padding:10px 11px;background:white;color:var(--ink);font-size:14px;min-height:42px}.field.wide{grid-column:span 2}.actions{display:flex;gap:8px;align-items:end;flex-wrap:wrap}.btn{border:0;background:var(--accent2);color:white;border-radius:12px;padding:11px 14px;font-weight:700;cursor:pointer}.btn.secondary{background:#f3f4f6;color:#111827;border:1px solid var(--line)}.btn:hover{filter:brightness(.95)}
 @media(min-width:651px){.actions{grid-column:4 / -1;align-self:end;align-items:center;justify-content:flex-end;flex-wrap:nowrap;width:100%}.actions .btn{white-space:nowrap}}
@@ -26,7 +26,7 @@ body{background:#f6f7fb;}
 .brand-title{font-size:18px;font-weight:900;letter-spacing:-.03em}.brand-sub{font-size:12px;color:#d1d5db;line-height:1.35}
 .side-nav{display:grid;gap:8px}.side-link{width:100%;text-align:left;border:1px solid transparent;background:transparent;color:#e5e7eb;border-radius:14px;padding:12px 12px;font-weight:800;cursor:pointer}.side-link:hover{background:rgba(255,255,255,.08)}.side-link.active{background:white;color:#111827}
 .sidebar-note{margin-top:auto;font-size:12px;color:#d1d5db;line-height:1.4;padding:10px 6px;border-top:1px solid rgba(255,255,255,.16)}
-.content{min-width:0}.topbar{background:linear-gradient(135deg,#111827,#7f1d1d);color:white;padding:24px 26px 50px}.topbar h1{margin:0;font-size:clamp(24px,3vw,38px);letter-spacing:-.04em}.topbar p{margin:8px 0 0;color:#f3f4f6;max-width:900px}.content .wrap{max-width:1320px;margin:0 auto;padding:0 20px 24px}.view{display:none;margin-top:-32px}.view.active{display:block}.view-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(340px,.95fr);gap:16px;align-items:start}.home-total-card{padding:18px}.section-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}.section-head h2{margin:0;font-size:20px}.section-head p{margin:5px 0 0;color:var(--muted);font-size:13px}.filter-panel{display:none;margin-bottom:16px}.filter-panel.open{display:block}.filters{margin-top:0}.filters .actions{grid-column:1 / -1;justify-content:flex-end}.admin-box{margin-top:0}.admin-box .table-tools{display:none}.admin-grid{grid-template-columns:1fr}.admin-card{border:0;padding:18px}.admin-card h2{font-size:20px}.stats-actions{display:flex;gap:8px;justify-content:flex-end;margin-bottom:12px}.stat-kpis{margin-top:0}.standalone-card{padding:18px;margin-top:14px}.editing-wrap{margin-top:0}.editing-wrap .admin-card{padding:18px}.landing-mini{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:14px}.mini-stat{border:1px solid var(--line);border-radius:14px;padding:14px;background:#fff}.mini-stat .label{font-size:12px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.05em}.mini-stat .value{font-size:28px;font-weight:900;margin-top:6px;letter-spacing:-.04em}
+.content{min-width:0}.topbar{background:linear-gradient(135deg,#111827,#7f1d1d);color:white;padding:24px 26px 50px}.topbar h1{margin:0;font-size:clamp(24px,3vw,38px);letter-spacing:-.04em}.topbar p{margin:8px 0 0;color:#f3f4f6;max-width:900px}.content .wrap{max-width:1320px;margin:0 auto;padding:0 20px 24px}.view{display:none;margin-top:-32px}.view.active{display:block}.view-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(340px,.95fr);gap:16px;align-items:start}.home-total-card{padding:18px}.section-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}.section-head h2{margin:0;font-size:20px}.section-head p{margin:5px 0 0;color:var(--muted);font-size:13px}.filter-panel{display:none;margin:0 0 16px 0}.filter-panel.open{display:block}.home-total-card>.filter-panel{margin:8px 0 14px}.stats-actions+.filter-panel{margin-top:0}.filters{margin-top:0}.filters .actions{grid-column:1 / -1;justify-content:flex-end}.admin-box{margin-top:0}.admin-box .table-tools{display:none}.admin-grid{grid-template-columns:1fr}.admin-card{border:0;padding:18px}.admin-card h2{font-size:20px}.stats-actions{display:flex;gap:8px;justify-content:flex-end;margin-bottom:12px}.stat-kpis{margin-top:0}.standalone-card{padding:18px;margin-top:14px}.editing-wrap{margin-top:0}.editing-wrap .admin-card{padding:18px}.landing-mini{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:14px}.mini-stat{border:1px solid var(--line);border-radius:14px;padding:14px;background:#fff}.mini-stat .label{font-size:12px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.05em}.mini-stat .value{font-size:28px;font-weight:900;margin-top:6px;letter-spacing:-.04em}
 
 .total-card-actions{display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
 .export-area{border:1px solid var(--line);border-radius:16px;padding:14px;background:#fff;margin-top:8px}
@@ -40,7 +40,7 @@ body{background:#f6f7fb;}
 @media(max-width:650px){.total-card-actions{width:100%;justify-content:flex-start}.total-card-actions .btn{width:100%}.export-area{padding:12px}}
 
 @media(max-width:1050px){.app-shell{grid-template-columns:1fr}.sidebar{position:relative;height:auto;display:block}.brand{margin-bottom:10px}.side-nav{grid-template-columns:repeat(3,1fr)}.sidebar-note{display:none}.view-grid{grid-template-columns:1fr}.content .wrap{padding:0 12px 18px}.topbar{padding:22px 16px 44px}.view{margin-top:-24px}.stats-actions{justify-content:flex-start}.landing-mini{grid-template-columns:1fr 1fr}}
-@media(max-width:650px){.side-nav{grid-template-columns:1fr}.side-link{text-align:center}.filters{grid-template-columns:1fr}.landing-mini{grid-template-columns:1fr}.home-total-card .section-head{flex-direction:column}.stats-actions{flex-wrap:wrap}.stats-actions .btn{width:100%}}
+@media(max-width:650px){.app-shell,.content,.content .wrap,.view,.panel{width:100%;max-width:100%;min-width:0}.sidebar{width:100%;padding:18px 14px}.side-nav{grid-template-columns:1fr}.side-link{text-align:center}.filters{grid-template-columns:1fr;padding:14px}.filters .actions{grid-column:1 / -1;justify-content:stretch}.filters .actions .btn{flex:1 1 100%;width:100%}.landing-mini{grid-template-columns:1fr}.home-total-card .section-head{flex-direction:column}.stats-actions{flex-wrap:wrap}.stats-actions .btn{width:100%}.view-grid{grid-template-columns:minmax(0,1fr);gap:12px}.topbar h1{font-size:26px}.topbar p{font-size:16px}.bar-row{grid-template-columns:96px minmax(0,1fr) 48px}.bar-row strong{overflow:hidden;text-overflow:ellipsis}.admin-card{padding:14px}.home-total-card{padding:14px}.table-scroll{max-width:100%}}
 
 </style>
 </head>
@@ -48,19 +48,18 @@ body{background:#f6f7fb;}
 <div class="app-shell">
   <aside class="sidebar">
     <div class="brand">
-      <div class="brand-title">Club Deportivo</div>
-      <div class="brand-sub">Estadísticas, registro y edición directa</div>
+      <div class="brand-title">Menú</div>
     </div>
     <nav class="side-nav" aria-label="Menú principal">
       <button class="side-link active" type="button" data-view="inicio">Inicio</button>
       <button class="side-link" type="button" data-view="estadisticas">Estadísticas</button>
       <button class="side-link" type="button" data-view="edicion">Editar datos</button>
     </nav>
-    <div class="sidebar-note">Vista por defecto: año escolar actual. Usa filtros para cambiar el rango de consulta.</div>
+    
   </aside>
 
   <div class="content">
-    <header class="topbar"><div class="wrap"><h1>Dashboard · Club Deportivo</h1><p>Registro directo y visualización estadística de asistencia por disciplina, fecha, año escolar y responsable.</p></div></header>
+    <header class="topbar"><div class="wrap"><h1>Dashboard · Club Deportivo</h1><p>Estadísticas y registro de asistencias por disciplina.</p></div></header>
     <main class="wrap">
 
       <section id="filterPanel" class="panel filter-panel">
@@ -108,9 +107,8 @@ body{background:#f6f7fb;}
             </div>
             <div id="totalExportArea" class="export-area">
               <div class="export-title">Total por disciplina</div>
-              <div id="totalSummaryDate" class="summary-meta">Fecha del registro: —</div>
+              <div id="totalSummaryDate" class="summary-meta">Rango: —</div>
               <div id="barList" class="bar-list"></div>
-              <div class="summary-table-scroll"><table id="totalDisciplineTable" class="summary-table"></table></div>
             </div>
             <div class="landing-mini">
               <div class="mini-stat"><div class="label">Registros</div><div id="kpiRecords" class="value">—</div></div>
@@ -121,7 +119,7 @@ body{background:#f6f7fb;}
       </section>
 
       <section id="view-estadisticas" class="view">
-        <div class="stats-actions"><button class="btn secondary" type="button" data-toggle-filters>Mostrar/ocultar filtros</button></div>
+        <div class="stats-actions"><button class="btn secondary" type="button" data-toggle-filters>Filtros</button></div>
         <section class="panel discipline-box"><div class="table-tools"><strong>Disciplinas visibles</strong><div class="discipline-actions"><span class="small">Selecciona una o varias para comparar.</span><button class="btn secondary" id="clearDiscBtn" type="button">Limpiar disciplinas</button><button class="btn secondary" id="allDiscBtn" type="button">Seleccionar todas</button></div></div><div id="disciplineChips" class="chips"></div></section>
         <section class="grid kpis stat-kpis">
           <div class="panel kpi"><div class="label">Promedio diario</div><div id="kpiAvg" class="value">—</div><div class="sub">asistentes por reporte</div></div>
@@ -130,7 +128,7 @@ body{background:#f6f7fb;}
         </section>
         <section class="grid charts">
           <div class="panel chart-card"><h2>Tendencia diaria</h2><div class="canvas-wrap"><canvas id="lineChart"></canvas></div><div class="small">Cada línea representa una disciplina visible.</div></div>
-          <div class="panel standalone-card"><h2>Resumen estadístico</h2><p class="small">Usa el menú de filtros para segmentar por año escolar, mes, semana, responsable, día u observaciones. Los indicadores se actualizan automáticamente.</p></div>
+          <div class="panel standalone-card"><h2>Total por disciplina</h2><p class="small">Resumen según los filtros activos.</p><div id="statsBarList" class="bar-list"></div></div>
         </section>
         <section class="panel table-card"><div class="table-tools"><h2>Tabla de registros</h2><span id="tableCount" class="small"></span></div><div class="table-scroll"><table id="dataTable"></table></div></section>
       </section>
@@ -280,7 +278,7 @@ function transformRows(rows){
     return {timestamp, email: String(get('Email Address', 'Dirección de correo electrónico', 'Correo electrónico') || '').trim(), fecha, observaciones: String(get('Observaciones:', 'Observaciones') || '').trim(), valores, total};
   }).filter(r=>r.fecha);
 }
-function setLoading(message){$('tableCount').textContent = message; $('barList').innerHTML = `<div class="notice">${escapeHtml(message)}</div>`; if($('totalDisciplineTable')) $('totalDisciplineTable').innerHTML=`<tbody><tr><td>${escapeHtml(message)}</td></tr></tbody>`; if($('totalSummaryDate')) $('totalSummaryDate').textContent='Fecha del registro: —';}
+function setLoading(message){if($('tableCount')) $('tableCount').textContent = message; if($('barList')) $('barList').innerHTML = `<div class="notice">${escapeHtml(message)}</div>`; if($('statsBarList')) $('statsBarList').innerHTML = `<div class="notice">${escapeHtml(message)}</div>`; if($('totalSummaryDate')) $('totalSummaryDate').textContent='Rango: —';}
 async function loadData({keepFilters=false}={}){
   setLoading('Cargando datos desde Google Sheets...');
   try{
@@ -328,7 +326,23 @@ function init(keepFilters=false){
 }
 function render(){const rows=filtered(); renderKPIs(rows); renderBars(rows); renderTotalDisciplineSummary(rows); renderLine(rows); renderTable(rows);}
 function renderKPIs(rows){const total=rows.reduce((a,r)=>a+totalSelected(r),0); const avg=rows.length?total/rows.length:0; const sums=sumByDisc(rows); const visible=[...selected]; const leader=visible.map(d=>[d,sums[d]]).sort((a,b)=>b[1]-a[1])[0]||['—',0]; const best=rows.map(r=>[r.fecha,totalSelected(r)]).sort((a,b)=>b[1]-a[1])[0]||['—',0]; $('kpiRecords').textContent=fmt.format(rows.length); $('kpiTotal').textContent=fmt.format(total); $('kpiAvg').textContent=fmt.format(Math.round(avg)); $('kpiLeader').textContent=leader[0]; $('kpiLeaderSub').textContent=fmt.format(leader[1])+' asistentes'; $('kpiBestDay').textContent=best[0]==='—'?'—':niceDate(best[0]); $('kpiBestDaySub').textContent=fmt.format(best[1])+' asistentes';}
-function renderBars(rows){const sums=sumByDisc(rows); const max=Math.max(1,...[...selected].map(d=>sums[d])); const box=$('barList'); box.innerHTML=''; if(selected.size===0){box.innerHTML='<div class="notice">No hay disciplinas seleccionadas. Usa “Seleccionar todas” o activa una disciplina.</div>'; return;} [...selected].sort((a,b)=>sums[b]-sums[a]).forEach(d=>{const row=document.createElement('div'); row.className='bar-row'; row.innerHTML=`<strong>${d}</strong><div class="bar-bg"><div class="bar-fill" style="width:${(sums[d]/max*100).toFixed(1)}%"></div></div><span>${fmt.format(sums[d])}</span>`; box.appendChild(row);}); if(!rows.length) box.innerHTML='<div class="notice">No hay datos para los filtros seleccionados.</div>';}
+function renderBarList(containerId, rows){
+  const sums=sumByDisc(rows);
+  const visible=[...selected].sort((a,b)=>sums[b]-sums[a]);
+  const max=Math.max(1,...visible.map(d=>sums[d]));
+  const box=$(containerId);
+  if(!box) return;
+  box.innerHTML='';
+  if(selected.size===0){box.innerHTML='<div class="notice">No hay disciplinas seleccionadas. Usa “Seleccionar todas” o activa una disciplina.</div>'; return;}
+  if(!rows.length){box.innerHTML='<div class="notice">No hay datos para los filtros seleccionados.</div>'; return;}
+  visible.forEach(d=>{
+    const row=document.createElement('div');
+    row.className='bar-row';
+    row.innerHTML=`<strong>${escapeHtml(d)}</strong><div class="bar-bg"><div class="bar-fill" style="width:${(sums[d]/max*100).toFixed(1)}%"></div></div><span>${fmt.format(sums[d])}</span>`;
+    box.appendChild(row);
+  });
+}
+function renderBars(rows){renderBarList('barList', rows); renderBarList('statsBarList', rows);}
 function totalSummaryData(rows){
   const sums=sumByDisc(rows);
   const visible=DISCIPLINES.filter(d=>selected.has(d)).sort((a,b)=>sums[b]-sums[a]);
@@ -349,43 +363,41 @@ function totalSummaryData(rows){
 }
 function renderTotalDisciplineSummary(rows){
   const summary=totalSummaryData(rows);
-  const meta=$('totalSummaryDate'); if(meta) meta.textContent=`Fecha del registro: ${summary.dateLabel}`;
-  const table=$('totalDisciplineTable'); if(!table) return;
-  if(selected.size===0){table.innerHTML='<tbody><tr><td>No hay disciplinas seleccionadas.</td></tr></tbody>'; return;}
-  if(!rows.length){table.innerHTML='<tbody><tr><td>No hay datos para los filtros seleccionados.</td></tr></tbody>'; return;}
-  let html='<thead><tr><th>Fecha del registro</th><th>Disciplina</th><th>Total</th></tr></thead><tbody>';
-  summary.rows.forEach(item=>{html+=`<tr><td>${escapeHtml(item.fecha)}</td><td>${escapeHtml(item.disciplina)}</td><td>${fmt.format(item.total)}</td></tr>`;});
-  html+='</tbody>';
-  table.innerHTML=html;
+  const meta=$('totalSummaryDate');
+  if(meta) meta.textContent=`Rango: ${summary.dateLabel}`;
 }
 function downloadTotalImage(){
   const summary=totalSummaryData(filtered());
   if(!summary.rows.length){alert('No hay datos para exportar.'); return;}
-  const scale=2, width=920, rowH=38, headerH=132, footerH=54, height=headerH+rowH*(summary.rows.length+1)+footerH;
+  const rows=summary.rows;
+  const scale=2, width=920, rowH=40, headerH=126, footerH=48, height=headerH+(rowH*rows.length)+footerH;
   const canvas=document.createElement('canvas'); canvas.width=width*scale; canvas.height=height*scale;
   const ctx=canvas.getContext('2d'); ctx.scale(scale,scale);
   ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,width,height);
-  ctx.fillStyle='#111827'; ctx.font='800 28px Arial, sans-serif'; ctx.fillText('Total por disciplina',32,46);
-  ctx.fillStyle='#6b7280'; ctx.font='14px Arial, sans-serif'; ctx.fillText('Fecha del registro: '+summary.dateLabel,32,74);
-  ctx.fillText(`Registros: ${fmt.format(summary.registros)} · Asistencia total: ${fmt.format(summary.total)}`,32,98);
-  const x=32, y=122, col1=460, col2=270, col3=120;
-  ctx.fillStyle='#f3f4f6'; ctx.fillRect(x,y,col1+col2+col3,rowH);
-  ctx.strokeStyle='#e5e7eb'; ctx.lineWidth=1; ctx.strokeRect(x,y,col1+col2+col3,rowH);
-  ctx.fillStyle='#374151'; ctx.font='800 13px Arial, sans-serif';
-  ctx.fillText('FECHA DEL REGISTRO',x+12,y+24); ctx.fillText('DISCIPLINA',x+col1+12,y+24); ctx.fillText('TOTAL',x+col1+col2+12,y+24);
-  ctx.font='14px Arial, sans-serif';
-  summary.rows.forEach((item,i)=>{
-    const yy=y+rowH*(i+1); ctx.fillStyle=i%2?'#ffffff':'#f9fafb'; ctx.fillRect(x,yy,col1+col2+col3,rowH); ctx.strokeStyle='#e5e7eb'; ctx.strokeRect(x,yy,col1+col2+col3,rowH);
-    ctx.fillStyle='#111827'; ctx.fillText(item.fecha,x+12,yy+24); ctx.fillText(item.disciplina,x+col1+12,yy+24); ctx.font='800 14px Arial, sans-serif'; ctx.fillText(fmt.format(item.total),x+col1+col2+12,yy+24); ctx.font='14px Arial, sans-serif';
+  ctx.fillStyle='#111827'; ctx.font='800 30px Arial, sans-serif'; ctx.fillText('Total por disciplina',32,44);
+  ctx.fillStyle='#6b7280'; ctx.font='14px Arial, sans-serif'; ctx.fillText('Rango: '+summary.dateLabel,32,72);
+  ctx.fillText(`Registros: ${fmt.format(summary.registros)} · Asistencia total: ${fmt.format(summary.total)}`,32,96);
+  const max=Math.max(1,...rows.map(r=>r.total));
+  const x=32, labelW=190, barX=x+labelW, barW=560, valX=barX+barW+28, y0=124;
+  rows.forEach((item,i)=>{
+    const y=y0+i*rowH;
+    ctx.fillStyle='#111827'; ctx.font='700 15px Arial, sans-serif'; ctx.fillText(item.disciplina,x,y+24);
+    ctx.fillStyle='#f3f4f6'; roundRect(ctx,barX,y+10,barW,14,7); ctx.fill();
+    ctx.fillStyle='#991b1b'; roundRect(ctx,barX,y+10,Math.max(2,barW*(item.total/max)),14,7); ctx.fill();
+    ctx.fillStyle='#111827'; ctx.font='800 15px Arial, sans-serif'; ctx.fillText(fmt.format(item.total),valX,y+24);
   });
-  ctx.fillStyle='#6b7280'; ctx.font='12px Arial, sans-serif'; ctx.fillText('Fuente: Google Sheets · Club Deportivo',32,height-24);
+  ctx.fillStyle='#6b7280'; ctx.font='12px Arial, sans-serif'; ctx.fillText('Fuente: Google Sheets · Club Deportivo',32,height-22);
   const a=document.createElement('a'); a.href=canvas.toDataURL('image/png'); a.download='total_por_disciplina.png'; a.click();
+}
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
 }
 function downloadTotalPDF(){
   const summary=totalSummaryData(filtered());
   if(!summary.rows.length){alert('No hay datos para exportar.'); return;}
-  const rowsHtml=summary.rows.map(item=>`<tr><td>${escapeHtml(item.fecha)}</td><td>${escapeHtml(item.disciplina)}</td><td>${fmt.format(item.total)}</td></tr>`).join('');
-  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Total por disciplina</title><style>body{font-family:Arial,sans-serif;color:#111827;margin:32px}h1{margin:0 0 6px;font-size:26px}.meta{color:#6b7280;margin-bottom:18px;font-size:13px}table{width:100%;border-collapse:collapse;font-size:13px}th,td{border:1px solid #e5e7eb;padding:10px;text-align:left}th{background:#f3f4f6;text-transform:uppercase;font-size:11px;letter-spacing:.05em}td:last-child,th:last-child{text-align:right;font-weight:700}.footer{margin-top:20px;color:#6b7280;font-size:12px}@media print{body{margin:20mm}}</style></head><body><h1>Total por disciplina</h1><div class="meta">Fecha del registro: ${escapeHtml(summary.dateLabel)}<br>Registros: ${fmt.format(summary.registros)} · Asistencia total: ${fmt.format(summary.total)}</div><table><thead><tr><th>Fecha del registro</th><th>Disciplina</th><th>Total</th></tr></thead><tbody>${rowsHtml}</tbody></table><div class="footer">Fuente: Google Sheets · Club Deportivo</div><script>window.onload=function(){window.print();};<\/script></body></html>`;
+  const max=Math.max(1,...summary.rows.map(r=>r.total));
+  const barsHtml=summary.rows.map(item=>`<div class="bar-row"><strong>${escapeHtml(item.disciplina)}</strong><div class="bar-bg"><div class="bar-fill" style="width:${(item.total/max*100).toFixed(1)}%"></div></div><span>${fmt.format(item.total)}</span></div>`).join('');
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Total por disciplina</title><style>body{font-family:Arial,sans-serif;color:#111827;margin:32px}h1{margin:0 0 6px;font-size:28px}.meta{color:#6b7280;margin-bottom:18px;font-size:13px}.bar-list{display:grid;gap:12px;margin-top:16px}.bar-row{display:grid;grid-template-columns:160px 1fr 70px;gap:12px;align-items:center;font-size:14px}.bar-bg{height:14px;background:#f3f4f6;border-radius:999px;overflow:hidden}.bar-fill{height:100%;background:#991b1b;border-radius:999px}.bar-row span{font-weight:800;text-align:right}.footer{margin-top:24px;color:#6b7280;font-size:12px}@media print{body{margin:20mm}}</style></head><body><h1>Total por disciplina</h1><div class="meta">Rango: ${escapeHtml(summary.dateLabel)}<br>Registros: ${fmt.format(summary.registros)} · Asistencia total: ${fmt.format(summary.total)}</div><div class="bar-list">${barsHtml}</div><div class="footer">Fuente: Google Sheets · Club Deportivo</div><script>window.onload=function(){window.print();};<\/script></body></html>`;
   const win=window.open('', '_blank');
   if(!win){alert('El navegador bloqueó la ventana emergente. Permite pop-ups para exportar PDF.'); return;}
   win.document.open(); win.document.write(html); win.document.close();
@@ -525,13 +537,23 @@ function showView(viewName){
   document.querySelectorAll('.side-link').forEach(btn=>btn.classList.toggle('active', btn.dataset.view===viewName));
   if(viewName==='estadisticas' && DATA.length) setTimeout(()=>renderLine(filtered()), 50);
 }
-function toggleFilterPanel(){
+function toggleFilterPanel(trigger){
   const panel=document.getElementById('filterPanel');
-  if(panel) panel.classList.toggle('open');
+  if(!panel) return;
+  const homeCard = trigger.closest('.home-total-card');
+  const statsView = trigger.closest('#view-estadisticas');
+  const targetContainer = homeCard || statsView || document.querySelector('main.wrap');
+  const beforeNode = homeCard ? document.getElementById('totalExportArea') : (statsView ? statsView.querySelector('.discipline-box') : null);
+  const alreadyHere = panel.parentNode === targetContainer;
+  const isOpen = panel.classList.contains('open');
+  if(isOpen && alreadyHere){panel.classList.remove('open'); return;}
+  if(beforeNode) targetContainer.insertBefore(panel, beforeNode);
+  else targetContainer.appendChild(panel);
+  panel.classList.add('open');
 }
 function initLayoutNavigation(){
   document.querySelectorAll('.side-link').forEach(btn=>btn.onclick=()=>showView(btn.dataset.view));
-  document.querySelectorAll('[data-toggle-filters]').forEach(btn=>btn.onclick=toggleFilterPanel);
+  document.querySelectorAll('[data-toggle-filters]').forEach(btn=>btn.onclick=()=>toggleFilterPanel(btn));
 }
 initLayoutNavigation();
 
