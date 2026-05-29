@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Dashboard · Club Deportivo 2024-2025</title>
+<title>Dashboard · Club Deportivo</title>
 <style>
 :root{--bg:#f6f7fb;--panel:#ffffff;--ink:#1f2937;--muted:#6b7280;--line:#e5e7eb;--accent:#b91c1c;--accent2:#111827;--soft:#fee2e2;--good:#166534;--warn:#92400e;}
 *{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink)}
@@ -13,19 +13,19 @@ header{background:linear-gradient(135deg,#111827,#7f1d1d);color:white;padding:28
 @media(max-width:650px){.actions{grid-column:auto;flex-wrap:wrap;justify-content:flex-start}.actions .btn{width:auto}}
 
 .discipline-box{padding:16px;margin-top:14px}.discipline-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.chips{display:flex;gap:8px;flex-wrap:wrap}.chip{border:1px solid var(--line);padding:8px 10px;border-radius:999px;background:#fff;font-size:13px;cursor:pointer;user-select:none}.chip.active{background:var(--soft);border-color:#fecaca;color:#7f1d1d;font-weight:800}.grid{display:grid;gap:14px}.kpis{grid-template-columns:repeat(5,1fr);margin-top:14px}.kpi{padding:18px}.kpi .label{font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:800;letter-spacing:.06em}.kpi .value{font-size:30px;font-weight:900;margin-top:8px;letter-spacing:-.04em}.kpi .sub{font-size:13px;color:var(--muted);margin-top:4px}.charts{grid-template-columns:1.15fr .85fr;margin-top:14px}.chart-card{padding:18px}.chart-card h2,.table-card h2{margin:0 0 10px;font-size:18px}.canvas-wrap{width:100%;height:360px;position:relative}canvas{width:100%;height:100%;display:block}.table-card{padding:18px;margin-top:14px;overflow:hidden}.table-tools{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:10px;flex-wrap:wrap}.table-scroll{overflow:auto;max-height:430px;border:1px solid var(--line);border-radius:14px}table{width:100%;border-collapse:collapse;background:white;font-size:13px}th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}th{position:sticky;top:0;background:#f9fafb;z-index:2;color:#374151;font-size:12px;text-transform:uppercase;letter-spacing:.04em}td:first-child,th:first-child,td:nth-child(2),th:nth-child(2){text-align:left}.obs{max-width:480px;white-space:normal;text-align:left;color:#374151}.bar-list{display:grid;gap:10px;margin-top:12px}.bar-row{display:grid;grid-template-columns:125px 1fr 70px;gap:10px;align-items:center;font-size:13px}.bar-bg{height:13px;background:#f3f4f6;border-radius:999px;overflow:hidden}.bar-fill{height:100%;background:#991b1b;border-radius:999px}.notice{padding:12px 14px;color:#4b5563;font-size:13px}.small{font-size:12px;color:var(--muted)}
-.admin-box{padding:16px;margin-top:14px}.admin-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.admin-card{border:1px solid var(--line);border-radius:16px;padding:14px;background:#fff}.admin-card h2{font-size:18px;margin:0 0 6px}.admin-card p{margin:0 0 12px;color:var(--muted);font-size:13px}.mini-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.mini-grid .full{grid-column:1 / -1}.num-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:10px}.admin-card input,.admin-card textarea{width:100%;border:1px solid var(--line);border-radius:12px;padding:10px 11px;background:white;color:var(--ink);font-size:14px;min-height:42px}.admin-card textarea{min-height:82px;resize:vertical}.admin-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px}.status{margin-top:10px;font-size:13px;color:var(--muted)}.status.ok{color:var(--good);font-weight:700}.status.err{color:var(--accent);font-weight:700}.edit-results{display:grid;gap:10px;margin-top:12px}.edit-card{border:1px solid var(--line);border-radius:14px;padding:12px;background:#f9fafb}.edit-card-title{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:10px;font-size:13px;color:#374151;font-weight:800}.edit-card .mini-grid,.edit-card .num-grid{grid-template-columns:repeat(3,1fr)}
+.admin-box{padding:16px;margin-top:14px}.admin-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.admin-card{border:1px solid var(--line);border-radius:16px;padding:14px;background:#fff}.admin-card h2{font-size:18px;margin:0 0 6px}.admin-card p{margin:0 0 12px;color:var(--muted);font-size:13px}.mini-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.mini-grid .full{grid-column:1 / -1}.num-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:10px}.admin-card input,.admin-card select,.admin-card textarea{width:100%;border:1px solid var(--line);border-radius:12px;padding:10px 11px;background:white;color:var(--ink);font-size:14px;min-height:42px}.admin-card textarea{min-height:82px;resize:vertical}.admin-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px}.status{margin-top:10px;font-size:13px;color:var(--muted)}.status.ok{color:var(--good);font-weight:700}.status.err{color:var(--accent);font-weight:700}.edit-results{display:grid;gap:10px;margin-top:12px}.edit-card{border:1px solid var(--line);border-radius:14px;padding:12px;background:#f9fafb}.edit-card-title{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:10px;font-size:13px;color:#374151;font-weight:800}.edit-card .mini-grid,.edit-card .num-grid{grid-template-columns:repeat(3,1fr)}
 @media(max-width:900px){.admin-grid{grid-template-columns:1fr}.edit-card .mini-grid,.edit-card .num-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:650px){.mini-grid,.num-grid,.edit-card .mini-grid,.edit-card .num-grid{grid-template-columns:1fr}.admin-row .btn{width:100%}}
 
 @media(max-width:1050px){.filters{grid-template-columns:repeat(3,1fr)}.kpis{grid-template-columns:repeat(2,1fr)}.charts{grid-template-columns:1fr}.field.wide{grid-column:span 3}.actions{grid-column:1 / -1;justify-content:flex-end}}@media(max-width:650px){.wrap{padding:12px}.filters{grid-template-columns:1fr;margin-top:-24px}.field.wide{grid-column:auto}.kpis{grid-template-columns:1fr}.kpi .value{font-size:26px}header{padding:22px 16px 44px}.bar-row{grid-template-columns:100px 1fr 55px}}
 </style>
 </head>
 <body>
-<header><div class="wrap"><h1>Dashboard · Club Deportivo 2024-2025</h1><p>Visualización estadística y segmentada de asistencia por disciplina, fecha, año, mes, semana y responsable de registro.</p></div></header>
+<header><div class="wrap"><h1>Dashboard · Club Deportivo</h1><p>Visualización estadística y segmentada de asistencia por disciplina, año escolar, mes, semana y responsable de registro.</p></div></header>
 <main class="wrap">
 <section class="panel filters">
   <div class="field"><label>Desde</label><input id="fromDate" type="date"></div>
   <div class="field"><label>Hasta</label><input id="toDate" type="date"></div>
-  <div class="field"><label>Año</label><select id="yearFilter"><option value="">Todos</option></select></div>
+  <div class="field"><label>Año escolar</label><select id="yearFilter"><option value="">Todos</option></select></div>
   <div class="field"><label>Mes</label><select id="monthFilter"><option value="">Todos</option></select></div>
   <div class="field"><label>Semana</label><select id="weekFilter"><option value="">Todas</option></select></div>
   <div class="field"><label>Responsable</label><select id="emailFilter"><option value="">Todos</option></select></div>
@@ -43,7 +43,7 @@ header{background:linear-gradient(135deg,#111827,#7f1d1d);color:white;padding:28
       <div class="mini-grid">
         <div class="field"><label>Contraseña</label><input id="regPassword" type="password" inputmode="numeric" placeholder="Contraseña de registro"></div>
         <div class="field"><label>Fecha</label><input id="regFecha" type="date"></div>
-        <div class="field full"><label>Responsable / correo</label><input id="regEmail" type="text" placeholder="Ej.: usuario@losroblesenlinea.com.ve"></div>
+        <div class="field full"><label>Responsable / correo</label><select id="regEmail"><option value="">Selecciona responsable</option></select></div>
       </div>
       <div id="regDiscInputs" class="num-grid"></div>
       <div class="field" style="margin-top:10px"><label>Observaciones</label><textarea id="regObs" placeholder="Observaciones del día"></textarea></div>
@@ -80,9 +80,10 @@ header{background:linear-gradient(135deg,#111827,#7f1d1d);color:white;padding:28
 </main>
 <script>
 const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQi7LJ9GkWvS8xSGabaKdLwMRzhaMXppm8Vt8Z5chsQr92cWEOYF2SKeNPI15SYc1oryFw3eJP1SQkg/pub?gid=590274017&single=true&output=csv";
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzHHgoVMHLbCWYYPnPgtWsG3Ipq3Q_5dkMRKBFbJYW5uG3mkhlHWkLwi1DyOuKCDAGh/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/a/macros/losroblesenlinea.com.ve/s/AKfycbzHHgoVMHLbCWYYPnPgtWsG3Ipq3Q_5dkMRKBFbJYW5uG3mkhlHWkLwi1DyOuKCDAGh/exec";
 let DATA = [];
 const DISCIPLINES = ["Ajedrez", "Astronomía", "Atletismo", "Baloncesto", "Béisbol", "Fútbol campo", "Fútbol sala", "Música", "Tenis de campo", "Robótica"];
+const RESPONSIBLES = ["cesarperozo@losroblesenlinea.com.ve", "alexandropolanco@losroblesenlinea.com.ve", "inrifereira@losroblesenlinea.com.ve", "davidbarcelo@losroblesenlinea.com.ve"];
 let selected = new Set(DISCIPLINES);
 let defaultDates = {from:'', to:''};
 const fmt = new Intl.NumberFormat('es-VE');
@@ -133,6 +134,44 @@ function toDate(s){const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1
 function weekday(s){return s ? String(toDate(s).getDay()) : ''}
 function niceDate(s){if(!s)return ''; const [y,m,d]=s.split('-'); return `${d}/${m}/${y}`}
 function monthName(m){return ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][Number(m)-1] || m}
+
+function schoolYearForDate(s){
+  if(!s) return '';
+  const [y,m,d] = s.split('-').map(Number);
+  if(!y || !m || !d) return '';
+  if(m >= 9) return `${y}-${y+1}`;
+  if(m < 7 || (m === 7 && d <= 15)) return `${y-1}-${y}`;
+  return `${y}-${y+1}`;
+}
+function currentSchoolYear(){
+  const now = new Date();
+  const y = now.getFullYear(), m = now.getMonth()+1, d = now.getDate();
+  if(m >= 9) return `${y}-${y+1}`;
+  if(m < 7 || (m === 7 && d <= 15)) return `${y-1}-${y}`;
+  return `${y}-${y+1}`;
+}
+function schoolYearRange(sy){
+  const start = Number(String(sy).slice(0,4));
+  if(!start) return {from:'', to:''};
+  return {from:`${start}-09-01`, to:`${start+1}-07-15`};
+}
+function schoolYearLabel(sy){return sy || 'Todos';}
+function responsibleShort(email){return String(email||'').replace('@losroblesenlinea.com.ve','');}
+function responsibleOptions(selectedValue=''){
+  const selected = String(selectedValue||'').trim();
+  let html = '<option value="">Selecciona responsable</option>';
+  const all = selected && !RESPONSIBLES.includes(selected) ? [selected, ...RESPONSIBLES] : RESPONSIBLES;
+  all.forEach(email=>{html += `<option value="${escapeHtml(email)}" ${email===selected?'selected':''}>${escapeHtml(email)}</option>`;});
+  return html;
+}
+function fillResponsibleSelect(id, includeAll=false, selectedValue=''){
+  const el=$(id); if(!el) return;
+  let html = includeAll ? '<option value="">Todos</option>' : '<option value="">Selecciona responsable</option>';
+  const selected = String(selectedValue||'').trim();
+  const all = selected && !RESPONSIBLES.includes(selected) ? [selected, ...RESPONSIBLES] : RESPONSIBLES;
+  all.forEach(email=>{html += `<option value="${escapeHtml(email)}" ${email===selected?'selected':''}>${escapeHtml(email)}</option>`;});
+  el.innerHTML = html;
+}
 function isoWeekInfo(s){
   const date = toDate(s);
   const target = new Date(date.valueOf());
@@ -185,37 +224,41 @@ async function loadData({keepFilters=false}={}){
 }
 function filtered(){
  const from=$('fromDate').value, to=$('toDate').value, year=$('yearFilter').value, month=$('monthFilter').value, week=$('weekFilter').value, email=$('emailFilter').value, wd=$('weekdayFilter').value, q=$('searchBox').value.trim().toLowerCase();
- return DATA.filter(r => (!from || r.fecha>=from) && (!to || r.fecha<=to) && (!year || r.fecha.slice(0,4)===year) && (!month || r.fecha.slice(5,7)===month) && (!week || isoWeekInfo(r.fecha).key===week) && (!email || r.email===email) && (!wd || weekday(r.fecha)===wd) && (!q || (r.observaciones||'').toLowerCase().includes(q)));
+ return DATA.filter(r => (!from || r.fecha>=from) && (!to || r.fecha<=to) && (!year || schoolYearForDate(r.fecha)===year) && (!month || r.fecha.slice(5,7)===month) && (!week || isoWeekInfo(r.fecha).key===week) && (!email || r.email===email) && (!wd || weekday(r.fecha)===wd) && (!q || (r.observaciones||'').toLowerCase().includes(q)));
 }
 function sumByDisc(rows){const o={}; DISCIPLINES.forEach(d=>o[d]=0); rows.forEach(r=>DISCIPLINES.forEach(d=>o[d]+=Number(r.valores[d]||0))); return o;}
 function totalSelected(r){let s=0; selected.forEach(d=>s += Number(r.valores[d]||0)); return s;}
 function init(keepFilters=false){
+ const currentSY = currentSchoolYear();
+ const currentRange = schoolYearRange(currentSY);
  const previous = keepFilters ? {from:$('fromDate').value, to:$('toDate').value, year:$('yearFilter').value, month:$('monthFilter').value, week:$('weekFilter').value, email:$('emailFilter').value, wd:$('weekdayFilter').value, q:$('searchBox').value, selected:new Set(selected)} : null;
- const dates=DATA.map(r=>r.fecha).filter(Boolean).sort(); defaultDates = {from:dates[0] || '', to:dates[dates.length-1] || ''};
+ const dates=DATA.map(r=>r.fecha).filter(Boolean).sort();
+ defaultDates = {from:currentRange.from || dates[0] || '', to:currentRange.to || dates[dates.length-1] || ''};
  $('yearFilter').innerHTML='<option value="">Todos</option>';
- [...new Set(DATA.map(r=>r.fecha.slice(0,4)).filter(Boolean))].sort().forEach(y=>{const op=document.createElement('option'); op.value=y; op.textContent=y; $('yearFilter').appendChild(op)});
+ const schoolYears = new Set(DATA.map(r=>schoolYearForDate(r.fecha)).filter(Boolean));
+ schoolYears.add(currentSY);
+ [...schoolYears].sort().forEach(y=>{const op=document.createElement('option'); op.value=y; op.textContent=schoolYearLabel(y); $('yearFilter').appendChild(op)});
  $('monthFilter').innerHTML='<option value="">Todos</option>';
  Array.from({length:12},(_,i)=>String(i+1).padStart(2,'0')).forEach(m=>{const op=document.createElement('option'); op.value=m; op.textContent=monthName(m); $('monthFilter').appendChild(op)});
  $('weekFilter').innerHTML='<option value="">Todas</option>';
  [...new Set(DATA.map(r=>isoWeekInfo(r.fecha).key).filter(Boolean))].sort().forEach(w=>{const op=document.createElement('option'); op.value=w; op.textContent=isoWeekRangeLabel(w); $('weekFilter').appendChild(op)});
- $('emailFilter').innerHTML='<option value="">Todos</option>';
- [...new Set(DATA.map(r=>r.email).filter(Boolean))].sort().forEach(e=>{const op=document.createElement('option'); op.value=e; op.textContent=e.replace('@losroblesenlinea.com.ve',''); $('emailFilter').appendChild(op)});
+ fillResponsibleSelect('emailFilter', true, previous ? previous.email : '');
+ fillResponsibleSelect('regEmail', false, $('regEmail')?.value || '');
  const chips=$('disciplineChips'); chips.innerHTML=''; if(!keepFilters) selected = new Set(DISCIPLINES);
  DISCIPLINES.forEach(d=>{const c=document.createElement('span'); c.className='chip' + (selected.has(d)?' active':''); c.textContent=d; c.onclick=()=>{if(selected.has(d)){selected.delete(d); c.classList.remove('active')}else{selected.add(d); c.classList.add('active')} render();}; chips.appendChild(c)});
- if(previous){$('fromDate').value = previous.from || defaultDates.from; $('toDate').value = previous.to || defaultDates.to; $('yearFilter').value = previous.year || ''; $('monthFilter').value = previous.month || ''; $('weekFilter').value = previous.week || ''; $('emailFilter').value = previous.email || ''; $('weekdayFilter').value = previous.wd || ''; $('searchBox').value = previous.q || ''; selected = previous.selected;}else{$('fromDate').value=defaultDates.from; $('toDate').value=defaultDates.to; $('yearFilter').value=''; $('monthFilter').value=''; $('weekFilter').value=''; $('emailFilter').value=''; $('weekdayFilter').value=''; $('searchBox').value='';}
+ if(previous){$('fromDate').value = previous.from || defaultDates.from; $('toDate').value = previous.to || defaultDates.to; $('yearFilter').value = previous.year || currentSY; $('monthFilter').value = previous.month || ''; $('weekFilter').value = previous.week || ''; $('emailFilter').value = previous.email || ''; $('weekdayFilter').value = previous.wd || ''; $('searchBox').value = previous.q || ''; selected = previous.selected;}else{$('fromDate').value=defaultDates.from; $('toDate').value=defaultDates.to; $('yearFilter').value=currentSY; $('monthFilter').value=''; $('weekFilter').value=''; $('emailFilter').value=''; $('weekdayFilter').value=''; $('searchBox').value='';}
  function syncDisciplineChips(){document.querySelectorAll('.chip').forEach(chip=>chip.classList.toggle('active', selected.has(chip.textContent)));}
- ['fromDate','toDate','yearFilter','monthFilter','weekFilter','emailFilter','weekdayFilter','searchBox'].forEach(id=>{const el=$(id); el.oninput=render; el.onchange=render;});
+ ['fromDate','toDate','monthFilter','weekFilter','emailFilter','weekdayFilter','searchBox'].forEach(id=>{const el=$(id); el.oninput=render; el.onchange=render;});
+ $('yearFilter').onchange=()=>{const sy=$('yearFilter').value; if(sy){const r=schoolYearRange(sy); $('fromDate').value=r.from; $('toDate').value=r.to;}else{$('fromDate').value=dates[0] || ''; $('toDate').value=dates[dates.length-1] || '';} render();};
  $('clearDiscBtn').onclick=()=>{selected.clear(); syncDisciplineChips(); render();};
  $('allDiscBtn').onclick=()=>{selected=new Set(DISCIPLINES); syncDisciplineChips(); render();};
- $('resetBtn').onclick=()=>{selected=new Set(DISCIPLINES); syncDisciplineChips(); $('fromDate').value=defaultDates.from; $('toDate').value=defaultDates.to; $('yearFilter').value=''; $('monthFilter').value=''; $('weekFilter').value=''; $('emailFilter').value=''; $('weekdayFilter').value=''; $('searchBox').value=''; render();};
- syncDisciplineChips();
- $('csvBtn').onclick=downloadCSV; $('refreshBtn').onclick=()=>loadData({keepFilters:true}); render();
+ $('resetBtn').onclick=()=>{selected=new Set(DISCIPLINES); syncDisciplineChips(); const r=schoolYearRange(currentSchoolYear()); $('fromDate').value=r.from; $('toDate').value=r.to; $('yearFilter').value=currentSchoolYear(); $('monthFilter').value=''; $('weekFilter').value=''; $('emailFilter').value=''; $('weekdayFilter').value=''; $('searchBox').value=''; render();};
+ $('refreshBtn').onclick=()=>loadData({keepFilters:true}); $('csvBtn').onclick=downloadCSV; syncDisciplineChips(); render();
 }
-function render(){const rows=filtered(); renderKPIs(rows); renderBars(rows); renderLine(rows); renderTable(rows);}
 function renderKPIs(rows){const total=rows.reduce((a,r)=>a+totalSelected(r),0); const avg=rows.length?total/rows.length:0; const sums=sumByDisc(rows); const visible=[...selected]; const leader=visible.map(d=>[d,sums[d]]).sort((a,b)=>b[1]-a[1])[0]||['—',0]; const best=rows.map(r=>[r.fecha,totalSelected(r)]).sort((a,b)=>b[1]-a[1])[0]||['—',0]; $('kpiRecords').textContent=fmt.format(rows.length); $('kpiTotal').textContent=fmt.format(total); $('kpiAvg').textContent=fmt.format(Math.round(avg)); $('kpiLeader').textContent=leader[0]; $('kpiLeaderSub').textContent=fmt.format(leader[1])+' asistentes'; $('kpiBestDay').textContent=best[0]==='—'?'—':niceDate(best[0]); $('kpiBestDaySub').textContent=fmt.format(best[1])+' asistentes';}
 function renderBars(rows){const sums=sumByDisc(rows); const max=Math.max(1,...[...selected].map(d=>sums[d])); const box=$('barList'); box.innerHTML=''; if(selected.size===0){box.innerHTML='<div class="notice">No hay disciplinas seleccionadas. Usa “Seleccionar todas” o activa una disciplina.</div>'; return;} [...selected].sort((a,b)=>sums[b]-sums[a]).forEach(d=>{const row=document.createElement('div'); row.className='bar-row'; row.innerHTML=`<strong>${d}</strong><div class="bar-bg"><div class="bar-fill" style="width:${(sums[d]/max*100).toFixed(1)}%"></div></div><span>${fmt.format(sums[d])}</span>`; box.appendChild(row);}); if(!rows.length) box.innerHTML='<div class="notice">No hay datos para los filtros seleccionados.</div>';}
 function renderLine(rows){const canvas=$('lineChart'), rect=canvas.parentElement.getBoundingClientRect(), dpr=window.devicePixelRatio||1; canvas.width=rect.width*dpr; canvas.height=rect.height*dpr; const ctx=canvas.getContext('2d'); ctx.scale(dpr,dpr); const w=rect.width,h=rect.height,p={l:46,r:18,t:18,b:38}; ctx.clearRect(0,0,w,h); ctx.font='12px system-ui'; ctx.strokeStyle='#e5e7eb'; ctx.lineWidth=1; if(selected.size===0){ctx.fillStyle='#6b7280'; ctx.fillText('No hay disciplinas seleccionadas.',p.l+10,h/2); return;} const byDate={}; rows.forEach(r=>{if(!byDate[r.fecha]){byDate[r.fecha]={}; DISCIPLINES.forEach(d=>byDate[r.fecha][d]=0)} DISCIPLINES.forEach(d=>byDate[r.fecha][d]+=Number(r.valores[d]||0));}); const dates=Object.keys(byDate).sort(); const max=Math.max(1,...dates.flatMap(date=>[...selected].map(d=>byDate[date][d]||0))); for(let i=0;i<=4;i++){const y=p.t+(h-p.t-p.b)*i/4; ctx.beginPath(); ctx.moveTo(p.l,y); ctx.lineTo(w-p.r,y); ctx.stroke(); ctx.fillStyle='#6b7280'; ctx.fillText(Math.round(max*(1-i/4)),6,y+4)} if(dates.length===0){ctx.fillStyle='#6b7280';ctx.fillText('No hay datos para mostrar.',p.l+10,h/2);return} const colors=['#991b1b','#111827','#4b5563','#b45309','#166534','#1d4ed8','#7c3aed','#be185d','#0f766e','#92400e']; let ci=0; [...selected].forEach(d=>{ctx.strokeStyle=colors[ci++%colors.length]; ctx.lineWidth=2; ctx.beginPath(); dates.forEach((date,i)=>{const x=p.l+(dates.length===1?0:(w-p.l-p.r)*i/(dates.length-1)); const y=p.t+(h-p.t-p.b)*(1-(byDate[date][d]||0)/max); if(i===0)ctx.moveTo(x,y); else ctx.lineTo(x,y);}); ctx.stroke();}); ctx.fillStyle='#6b7280'; const step=Math.ceil(dates.length/6); dates.forEach((date,i)=>{if(i%step===0||i===dates.length-1){const x=p.l+(dates.length===1?0:(w-p.l-p.r)*i/(dates.length-1)); ctx.save(); ctx.translate(x,h-12); ctx.rotate(-0.45); ctx.fillText(niceDate(date),0,0); ctx.restore();}});}
-function renderTable(rows){const table=$('dataTable'); const heads=['Fecha','Responsable',...DISCIPLINES.filter(d=>selected.has(d)),'Total','Observaciones']; let html='<thead><tr>'+heads.map(h=>`<th>${escapeHtml(h)}</th>`).join('')+'</tr></thead><tbody>'; rows.slice().sort((a,b)=>b.fecha.localeCompare(a.fecha)).forEach(r=>{html+='<tr>'; html+=`<td>${niceDate(r.fecha)}</td><td>${escapeHtml(r.email.replace('@losroblesenlinea.com.ve',''))}</td>`; DISCIPLINES.filter(d=>selected.has(d)).forEach(d=>html+=`<td>${fmt.format(r.valores[d]||0)}</td>`); html+=`<td><strong>${fmt.format(totalSelected(r))}</strong></td><td class="obs">${escapeHtml(r.observaciones)}</td></tr>`;}); html+='</tbody>'; table.innerHTML=html; $('tableCount').textContent=fmt.format(rows.length)+' registros mostrados · fuente: Google Sheets';}
+function renderTable(rows){const table=$('dataTable'); const heads=['Fecha','Responsable',...DISCIPLINES.filter(d=>selected.has(d)),'Total','Observaciones']; let html='<thead><tr>'+heads.map(h=>`<th>${escapeHtml(h)}</th>`).join('')+'</tr></thead><tbody>'; rows.slice().sort((a,b)=>b.fecha.localeCompare(a.fecha)).forEach(r=>{html+='<tr>'; html+=`<td>${niceDate(r.fecha)}</td><td>${escapeHtml(responsibleShort(r.email))}</td>`; DISCIPLINES.filter(d=>selected.has(d)).forEach(d=>html+=`<td>${fmt.format(r.valores[d]||0)}</td>`); html+=`<td><strong>${fmt.format(totalSelected(r))}</strong></td><td class="obs">${escapeHtml(r.observaciones)}</td></tr>`;}); html+='</tbody>'; table.innerHTML=html; $('tableCount').textContent=fmt.format(rows.length)+' registros mostrados · fuente: Google Sheets';}
 function downloadCSV(){const rows=filtered(); const visible=DISCIPLINES.filter(d=>selected.has(d)); const cols=['Fecha','Responsable',...visible,'Total','Observaciones']; const csv=[cols.join(',')].concat(rows.map(r=>[r.fecha,r.email,...visible.map(d=>r.valores[d]),totalSelected(r),(r.observaciones||'').replace(/\n/g,' ')].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(','))).join('\n'); const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='club_deportivo_filtrado.csv'; a.click(); URL.revokeObjectURL(a.href);}
 
 function setStatus(id, message, type=''){
@@ -308,7 +351,7 @@ function renderEditResults(records){
     const card=document.createElement('div'); card.className='edit-card'; card.dataset.rowNumber=rowNumber;
     const unique='edit_'+rowNumber+'_'+idx;
     let html=`<div class="edit-card-title"><span>Registro ${idx+1} · Fila ${rowNumber}</span><span>${escapeHtml(valueFromRecord(rec,'Email Address','Correo electrónico'))}</span></div>`;
-    html+=`<div class="mini-grid"><div class="field"><label>Fecha</label><input id="${unique}_fecha" type="date" value="${escapeHtml(normalizeDate(valueFromRecord(rec,'Fecha:','Fecha')))}"></div><div class="field full"><label>Responsable / correo</label><input id="${unique}_email" type="text" value="${escapeHtml(valueFromRecord(rec,'Email Address','Dirección de correo electrónico','Correo electrónico'))}"></div></div>`;
+    html+=`<div class="mini-grid"><div class="field"><label>Fecha</label><input id="${unique}_fecha" type="date" value="${escapeHtml(normalizeDate(valueFromRecord(rec,'Fecha:','Fecha')))}"></div><div class="field full"><label>Responsable / correo</label><select id="${unique}_email">${responsibleOptions(valueFromRecord(rec,'Email Address','Dirección de correo electrónico','Correo electrónico'))}</select></div></div>`;
     html+=`<div class="num-grid">`;
     DISCIPLINES.forEach(d=>{html+=`<div class="field"><label>${escapeHtml(d)}</label><input id="${unique}_${normalizeKey(d)}" type="number" min="0" step="1" value="${escapeHtml(valueFromRecord(rec,d))}"></div>`;});
     html+=`</div><div class="field" style="margin-top:10px"><label>Observaciones</label><textarea id="${unique}_obs">${escapeHtml(valueFromRecord(rec,'Observaciones:','Observaciones'))}</textarea></div>`;
@@ -332,6 +375,7 @@ async function saveEditedRecord(unique, rowNumber){
 }
 function initAdminModule(){
   buildRegisterInputs();
+  fillResponsibleSelect('regEmail', false, $('regEmail')?.value || '');
   if($('regFecha') && !$('regFecha').value) $('regFecha').value=todayISO();
   if($('editFecha') && !$('editFecha').value) $('editFecha').value=todayISO();
   $('saveRecordBtn').onclick=saveRecord;
