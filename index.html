@@ -27,6 +27,18 @@ body{background:#f6f7fb;}
 .side-nav{display:grid;gap:8px}.side-link{width:100%;text-align:left;border:1px solid transparent;background:transparent;color:#e5e7eb;border-radius:14px;padding:12px 12px;font-weight:800;cursor:pointer}.side-link:hover{background:rgba(255,255,255,.08)}.side-link.active{background:white;color:#111827}
 .sidebar-note{margin-top:auto;font-size:12px;color:#d1d5db;line-height:1.4;padding:10px 6px;border-top:1px solid rgba(255,255,255,.16)}
 .content{min-width:0}.topbar{background:linear-gradient(135deg,#111827,#7f1d1d);color:white;padding:24px 26px 50px}.topbar h1{margin:0;font-size:clamp(24px,3vw,38px);letter-spacing:-.04em}.topbar p{margin:8px 0 0;color:#f3f4f6;max-width:900px}.content .wrap{max-width:1320px;margin:0 auto;padding:0 20px 24px}.view{display:none;margin-top:-32px}.view.active{display:block}.view-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(340px,.95fr);gap:16px;align-items:start}.home-total-card{padding:18px}.section-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}.section-head h2{margin:0;font-size:20px}.section-head p{margin:5px 0 0;color:var(--muted);font-size:13px}.filter-panel{display:none;margin-bottom:16px}.filter-panel.open{display:block}.filters{margin-top:0}.filters .actions{grid-column:1 / -1;justify-content:flex-end}.admin-box{margin-top:0}.admin-box .table-tools{display:none}.admin-grid{grid-template-columns:1fr}.admin-card{border:0;padding:18px}.admin-card h2{font-size:20px}.stats-actions{display:flex;gap:8px;justify-content:flex-end;margin-bottom:12px}.stat-kpis{margin-top:0}.standalone-card{padding:18px;margin-top:14px}.editing-wrap{margin-top:0}.editing-wrap .admin-card{padding:18px}.landing-mini{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:14px}.mini-stat{border:1px solid var(--line);border-radius:14px;padding:14px;background:#fff}.mini-stat .label{font-size:12px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.05em}.mini-stat .value{font-size:28px;font-weight:900;margin-top:6px;letter-spacing:-.04em}
+
+.total-card-actions{display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
+.export-area{border:1px solid var(--line);border-radius:16px;padding:14px;background:#fff;margin-top:8px}
+.export-title{font-size:16px;font-weight:900;margin-bottom:4px;color:#111827}
+.summary-meta{font-size:12px;color:var(--muted);margin-bottom:12px;font-weight:700}
+.summary-table-scroll{overflow:auto;border:1px solid var(--line);border-radius:14px;margin-top:14px;background:white}
+.summary-table{width:100%;border-collapse:collapse;font-size:13px}
+.summary-table th,.summary-table td{padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap;text-align:left}
+.summary-table th{background:#f9fafb;color:#374151;text-transform:uppercase;font-size:11px;letter-spacing:.05em;position:static}
+.summary-table td:last-child,.summary-table th:last-child{text-align:right;font-weight:800}
+@media(max-width:650px){.total-card-actions{width:100%;justify-content:flex-start}.total-card-actions .btn{width:100%}.export-area{padding:12px}}
+
 @media(max-width:1050px){.app-shell{grid-template-columns:1fr}.sidebar{position:relative;height:auto;display:block}.brand{margin-bottom:10px}.side-nav{grid-template-columns:repeat(3,1fr)}.sidebar-note{display:none}.view-grid{grid-template-columns:1fr}.content .wrap{padding:0 12px 18px}.topbar{padding:22px 16px 44px}.view{margin-top:-24px}.stats-actions{justify-content:flex-start}.landing-mini{grid-template-columns:1fr 1fr}}
 @media(max-width:650px){.side-nav{grid-template-columns:1fr}.side-link{text-align:center}.filters{grid-template-columns:1fr}.landing-mini{grid-template-columns:1fr}.home-total-card .section-head{flex-direction:column}.stats-actions{flex-wrap:wrap}.stats-actions .btn{width:100%}}
 
@@ -88,9 +100,18 @@ body{background:#f6f7fb;}
           <section class="panel home-total-card">
             <div class="section-head">
               <div><h2>Total por disciplina</h2><p>Resumen según los filtros activos.</p></div>
-              <button class="btn secondary" type="button" data-toggle-filters>Filtros</button>
+              <div class="total-card-actions">
+                <button class="btn secondary" type="button" data-toggle-filters>Filtros</button>
+                <button class="btn secondary" id="exportTotalImageBtn" type="button">Exportar imagen</button>
+                <button class="btn secondary" id="exportTotalPdfBtn" type="button">Exportar PDF</button>
+              </div>
             </div>
-            <div id="barList" class="bar-list"></div>
+            <div id="totalExportArea" class="export-area">
+              <div class="export-title">Total por disciplina</div>
+              <div id="totalSummaryDate" class="summary-meta">Fecha del registro: —</div>
+              <div id="barList" class="bar-list"></div>
+              <div class="summary-table-scroll"><table id="totalDisciplineTable" class="summary-table"></table></div>
+            </div>
             <div class="landing-mini">
               <div class="mini-stat"><div class="label">Registros</div><div id="kpiRecords" class="value">—</div></div>
               <div class="mini-stat"><div class="label">Asistencia total</div><div id="kpiTotal" class="value">—</div></div>
@@ -259,7 +280,7 @@ function transformRows(rows){
     return {timestamp, email: String(get('Email Address', 'Dirección de correo electrónico', 'Correo electrónico') || '').trim(), fecha, observaciones: String(get('Observaciones:', 'Observaciones') || '').trim(), valores, total};
   }).filter(r=>r.fecha);
 }
-function setLoading(message){$('tableCount').textContent = message; $('barList').innerHTML = `<div class="notice">${escapeHtml(message)}</div>`;}
+function setLoading(message){$('tableCount').textContent = message; $('barList').innerHTML = `<div class="notice">${escapeHtml(message)}</div>`; if($('totalDisciplineTable')) $('totalDisciplineTable').innerHTML=`<tbody><tr><td>${escapeHtml(message)}</td></tr></tbody>`; if($('totalSummaryDate')) $('totalSummaryDate').textContent='Fecha del registro: —';}
 async function loadData({keepFilters=false}={}){
   setLoading('Cargando datos desde Google Sheets...');
   try{
@@ -303,11 +324,73 @@ function init(keepFilters=false){
  $('allDiscBtn').onclick=()=>{selected=new Set(DISCIPLINES); syncDisciplineChips(); render();};
  $('resetBtn').onclick=()=>{selected=new Set(DISCIPLINES); syncDisciplineChips(); const r=schoolYearRange(currentSchoolYear()); $('fromDate').value=r.from; $('toDate').value=r.to; $('yearFilter').value=currentSchoolYear(); $('monthFilter').value=''; $('weekFilter').value=''; $('emailFilter').value=''; $('weekdayFilter').value=''; $('searchBox').value=''; render();};
  syncDisciplineChips();
- $('csvBtn').onclick=downloadCSV; $('refreshBtn').onclick=()=>loadData({keepFilters:true}); render();
+ $('csvBtn').onclick=downloadCSV; $('refreshBtn').onclick=()=>loadData({keepFilters:true}); if($('exportTotalImageBtn')) $('exportTotalImageBtn').onclick=downloadTotalImage; if($('exportTotalPdfBtn')) $('exportTotalPdfBtn').onclick=downloadTotalPDF; render();
 }
-function render(){const rows=filtered(); renderKPIs(rows); renderBars(rows); renderLine(rows); renderTable(rows);}
+function render(){const rows=filtered(); renderKPIs(rows); renderBars(rows); renderTotalDisciplineSummary(rows); renderLine(rows); renderTable(rows);}
 function renderKPIs(rows){const total=rows.reduce((a,r)=>a+totalSelected(r),0); const avg=rows.length?total/rows.length:0; const sums=sumByDisc(rows); const visible=[...selected]; const leader=visible.map(d=>[d,sums[d]]).sort((a,b)=>b[1]-a[1])[0]||['—',0]; const best=rows.map(r=>[r.fecha,totalSelected(r)]).sort((a,b)=>b[1]-a[1])[0]||['—',0]; $('kpiRecords').textContent=fmt.format(rows.length); $('kpiTotal').textContent=fmt.format(total); $('kpiAvg').textContent=fmt.format(Math.round(avg)); $('kpiLeader').textContent=leader[0]; $('kpiLeaderSub').textContent=fmt.format(leader[1])+' asistentes'; $('kpiBestDay').textContent=best[0]==='—'?'—':niceDate(best[0]); $('kpiBestDaySub').textContent=fmt.format(best[1])+' asistentes';}
 function renderBars(rows){const sums=sumByDisc(rows); const max=Math.max(1,...[...selected].map(d=>sums[d])); const box=$('barList'); box.innerHTML=''; if(selected.size===0){box.innerHTML='<div class="notice">No hay disciplinas seleccionadas. Usa “Seleccionar todas” o activa una disciplina.</div>'; return;} [...selected].sort((a,b)=>sums[b]-sums[a]).forEach(d=>{const row=document.createElement('div'); row.className='bar-row'; row.innerHTML=`<strong>${d}</strong><div class="bar-bg"><div class="bar-fill" style="width:${(sums[d]/max*100).toFixed(1)}%"></div></div><span>${fmt.format(sums[d])}</span>`; box.appendChild(row);}); if(!rows.length) box.innerHTML='<div class="notice">No hay datos para los filtros seleccionados.</div>';}
+function totalSummaryData(rows){
+  const sums=sumByDisc(rows);
+  const visible=DISCIPLINES.filter(d=>selected.has(d)).sort((a,b)=>sums[b]-sums[a]);
+  const dates=rows.map(r=>r.fecha).filter(Boolean).sort();
+  let dateLabel='—';
+  if(rows.length===1){dateLabel=niceDate(rows[0].fecha);}
+  else if($('fromDate') && $('toDate') && $('fromDate').value && $('toDate').value){dateLabel=($('fromDate').value===$('toDate').value) ? niceDate($('fromDate').value) : `${niceDate($('fromDate').value)} – ${niceDate($('toDate').value)}`;}
+  else if(dates.length){dateLabel=dates[0]===dates[dates.length-1] ? niceDate(dates[0]) : `${niceDate(dates[0])} – ${niceDate(dates[dates.length-1])}`;}
+  const schoolYear=$('yearFilter')?.value || '';
+  const month=$('monthFilter')?.value || '';
+  const week=$('weekFilter')?.value || '';
+  const filterParts=[];
+  if(schoolYear) filterParts.push(`Año escolar ${schoolYear}`);
+  if(month) filterParts.push(monthName(month));
+  if(week) filterParts.push(isoWeekRangeLabel(week));
+  const descriptor=filterParts.length ? `${filterParts.join(' · ')} · ${dateLabel}` : dateLabel;
+  return {dateLabel:descriptor, rows:visible.map(d=>({fecha:descriptor, disciplina:d, total:Number(sums[d]||0)})), registros:rows.length, total:rows.reduce((a,r)=>a+totalSelected(r),0)};
+}
+function renderTotalDisciplineSummary(rows){
+  const summary=totalSummaryData(rows);
+  const meta=$('totalSummaryDate'); if(meta) meta.textContent=`Fecha del registro: ${summary.dateLabel}`;
+  const table=$('totalDisciplineTable'); if(!table) return;
+  if(selected.size===0){table.innerHTML='<tbody><tr><td>No hay disciplinas seleccionadas.</td></tr></tbody>'; return;}
+  if(!rows.length){table.innerHTML='<tbody><tr><td>No hay datos para los filtros seleccionados.</td></tr></tbody>'; return;}
+  let html='<thead><tr><th>Fecha del registro</th><th>Disciplina</th><th>Total</th></tr></thead><tbody>';
+  summary.rows.forEach(item=>{html+=`<tr><td>${escapeHtml(item.fecha)}</td><td>${escapeHtml(item.disciplina)}</td><td>${fmt.format(item.total)}</td></tr>`;});
+  html+='</tbody>';
+  table.innerHTML=html;
+}
+function downloadTotalImage(){
+  const summary=totalSummaryData(filtered());
+  if(!summary.rows.length){alert('No hay datos para exportar.'); return;}
+  const scale=2, width=920, rowH=38, headerH=132, footerH=54, height=headerH+rowH*(summary.rows.length+1)+footerH;
+  const canvas=document.createElement('canvas'); canvas.width=width*scale; canvas.height=height*scale;
+  const ctx=canvas.getContext('2d'); ctx.scale(scale,scale);
+  ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,width,height);
+  ctx.fillStyle='#111827'; ctx.font='800 28px Arial, sans-serif'; ctx.fillText('Total por disciplina',32,46);
+  ctx.fillStyle='#6b7280'; ctx.font='14px Arial, sans-serif'; ctx.fillText('Fecha del registro: '+summary.dateLabel,32,74);
+  ctx.fillText(`Registros: ${fmt.format(summary.registros)} · Asistencia total: ${fmt.format(summary.total)}`,32,98);
+  const x=32, y=122, col1=460, col2=270, col3=120;
+  ctx.fillStyle='#f3f4f6'; ctx.fillRect(x,y,col1+col2+col3,rowH);
+  ctx.strokeStyle='#e5e7eb'; ctx.lineWidth=1; ctx.strokeRect(x,y,col1+col2+col3,rowH);
+  ctx.fillStyle='#374151'; ctx.font='800 13px Arial, sans-serif';
+  ctx.fillText('FECHA DEL REGISTRO',x+12,y+24); ctx.fillText('DISCIPLINA',x+col1+12,y+24); ctx.fillText('TOTAL',x+col1+col2+12,y+24);
+  ctx.font='14px Arial, sans-serif';
+  summary.rows.forEach((item,i)=>{
+    const yy=y+rowH*(i+1); ctx.fillStyle=i%2?'#ffffff':'#f9fafb'; ctx.fillRect(x,yy,col1+col2+col3,rowH); ctx.strokeStyle='#e5e7eb'; ctx.strokeRect(x,yy,col1+col2+col3,rowH);
+    ctx.fillStyle='#111827'; ctx.fillText(item.fecha,x+12,yy+24); ctx.fillText(item.disciplina,x+col1+12,yy+24); ctx.font='800 14px Arial, sans-serif'; ctx.fillText(fmt.format(item.total),x+col1+col2+12,yy+24); ctx.font='14px Arial, sans-serif';
+  });
+  ctx.fillStyle='#6b7280'; ctx.font='12px Arial, sans-serif'; ctx.fillText('Fuente: Google Sheets · Club Deportivo',32,height-24);
+  const a=document.createElement('a'); a.href=canvas.toDataURL('image/png'); a.download='total_por_disciplina.png'; a.click();
+}
+function downloadTotalPDF(){
+  const summary=totalSummaryData(filtered());
+  if(!summary.rows.length){alert('No hay datos para exportar.'); return;}
+  const rowsHtml=summary.rows.map(item=>`<tr><td>${escapeHtml(item.fecha)}</td><td>${escapeHtml(item.disciplina)}</td><td>${fmt.format(item.total)}</td></tr>`).join('');
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Total por disciplina</title><style>body{font-family:Arial,sans-serif;color:#111827;margin:32px}h1{margin:0 0 6px;font-size:26px}.meta{color:#6b7280;margin-bottom:18px;font-size:13px}table{width:100%;border-collapse:collapse;font-size:13px}th,td{border:1px solid #e5e7eb;padding:10px;text-align:left}th{background:#f3f4f6;text-transform:uppercase;font-size:11px;letter-spacing:.05em}td:last-child,th:last-child{text-align:right;font-weight:700}.footer{margin-top:20px;color:#6b7280;font-size:12px}@media print{body{margin:20mm}}</style></head><body><h1>Total por disciplina</h1><div class="meta">Fecha del registro: ${escapeHtml(summary.dateLabel)}<br>Registros: ${fmt.format(summary.registros)} · Asistencia total: ${fmt.format(summary.total)}</div><table><thead><tr><th>Fecha del registro</th><th>Disciplina</th><th>Total</th></tr></thead><tbody>${rowsHtml}</tbody></table><div class="footer">Fuente: Google Sheets · Club Deportivo</div><script>window.onload=function(){window.print();};<\/script></body></html>`;
+  const win=window.open('', '_blank');
+  if(!win){alert('El navegador bloqueó la ventana emergente. Permite pop-ups para exportar PDF.'); return;}
+  win.document.open(); win.document.write(html); win.document.close();
+}
+
 function renderLine(rows){const canvas=$('lineChart'), rect=canvas.parentElement.getBoundingClientRect(), dpr=window.devicePixelRatio||1; canvas.width=rect.width*dpr; canvas.height=rect.height*dpr; const ctx=canvas.getContext('2d'); ctx.scale(dpr,dpr); const w=rect.width,h=rect.height,p={l:46,r:18,t:18,b:38}; ctx.clearRect(0,0,w,h); ctx.font='12px system-ui'; ctx.strokeStyle='#e5e7eb'; ctx.lineWidth=1; if(selected.size===0){ctx.fillStyle='#6b7280'; ctx.fillText('No hay disciplinas seleccionadas.',p.l+10,h/2); return;} const byDate={}; rows.forEach(r=>{if(!byDate[r.fecha]){byDate[r.fecha]={}; DISCIPLINES.forEach(d=>byDate[r.fecha][d]=0)} DISCIPLINES.forEach(d=>byDate[r.fecha][d]+=Number(r.valores[d]||0));}); const dates=Object.keys(byDate).sort(); const max=Math.max(1,...dates.flatMap(date=>[...selected].map(d=>byDate[date][d]||0))); for(let i=0;i<=4;i++){const y=p.t+(h-p.t-p.b)*i/4; ctx.beginPath(); ctx.moveTo(p.l,y); ctx.lineTo(w-p.r,y); ctx.stroke(); ctx.fillStyle='#6b7280'; ctx.fillText(Math.round(max*(1-i/4)),6,y+4)} if(dates.length===0){ctx.fillStyle='#6b7280';ctx.fillText('No hay datos para mostrar.',p.l+10,h/2);return} const colors=['#991b1b','#111827','#4b5563','#b45309','#166534','#1d4ed8','#7c3aed','#be185d','#0f766e','#92400e']; let ci=0; [...selected].forEach(d=>{ctx.strokeStyle=colors[ci++%colors.length]; ctx.lineWidth=2; ctx.beginPath(); dates.forEach((date,i)=>{const x=p.l+(dates.length===1?0:(w-p.l-p.r)*i/(dates.length-1)); const y=p.t+(h-p.t-p.b)*(1-(byDate[date][d]||0)/max); if(i===0)ctx.moveTo(x,y); else ctx.lineTo(x,y);}); ctx.stroke();}); ctx.fillStyle='#6b7280'; const step=Math.ceil(dates.length/6); dates.forEach((date,i)=>{if(i%step===0||i===dates.length-1){const x=p.l+(dates.length===1?0:(w-p.l-p.r)*i/(dates.length-1)); ctx.save(); ctx.translate(x,h-12); ctx.rotate(-0.45); ctx.fillText(niceDate(date),0,0); ctx.restore();}});}
 function renderTable(rows){const table=$('dataTable'); const heads=['Fecha','Responsable',...DISCIPLINES.filter(d=>selected.has(d)),'Total','Observaciones']; let html='<thead><tr>'+heads.map(h=>`<th>${escapeHtml(h)}</th>`).join('')+'</tr></thead><tbody>'; rows.slice().sort((a,b)=>b.fecha.localeCompare(a.fecha)).forEach(r=>{html+='<tr>'; html+=`<td>${niceDate(r.fecha)}</td><td>${escapeHtml(responsibleShort(r.email))}</td>`; DISCIPLINES.filter(d=>selected.has(d)).forEach(d=>html+=`<td>${fmt.format(r.valores[d]||0)}</td>`); html+=`<td><strong>${fmt.format(totalSelected(r))}</strong></td><td class="obs">${escapeHtml(r.observaciones)}</td></tr>`;}); html+='</tbody>'; table.innerHTML=html; $('tableCount').textContent=fmt.format(rows.length)+' registros mostrados · fuente: Google Sheets';}
 function downloadCSV(){const rows=filtered(); const visible=DISCIPLINES.filter(d=>selected.has(d)); const cols=['Fecha','Responsable',...visible,'Total','Observaciones']; const csv=[cols.join(',')].concat(rows.map(r=>[r.fecha,r.email,...visible.map(d=>r.valores[d]),totalSelected(r),(r.observaciones||'').replace(/\n/g,' ')].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(','))).join('\n'); const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='club_deportivo_filtrado.csv'; a.click(); URL.revokeObjectURL(a.href);}
