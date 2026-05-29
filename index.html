@@ -42,7 +42,7 @@ body{background:#f6f7fb;}
 @media(max-width:1050px){.app-shell{grid-template-columns:1fr}.sidebar{position:relative;height:auto;display:block}.brand{margin-bottom:10px}.side-nav{grid-template-columns:repeat(3,1fr)}.sidebar-note{display:none}.view-grid{grid-template-columns:1fr}.content .wrap{padding:0 12px 18px}.topbar{padding:22px 16px 44px}.view{margin-top:-24px}.stats-actions{justify-content:flex-start}.landing-mini{grid-template-columns:1fr 1fr}}
 @media(max-width:650px){.app-shell,.content,.content .wrap,.view,.panel{width:100%;max-width:100%;min-width:0}.sidebar{width:100%;padding:18px 14px}.side-nav{grid-template-columns:1fr}.side-link{text-align:center}.filters{grid-template-columns:1fr;padding:14px}.filters .actions{grid-column:1 / -1;justify-content:stretch}.filters .actions .btn{flex:1 1 100%;width:100%}.landing-mini{grid-template-columns:1fr}.home-total-card .section-head{flex-direction:column}.stats-actions{flex-wrap:wrap}.stats-actions .btn{width:100%}.view-grid{grid-template-columns:minmax(0,1fr);gap:12px}.topbar h1{font-size:26px}.topbar p{font-size:16px}.bar-row{grid-template-columns:96px minmax(0,1fr) 48px}.bar-row strong{overflow:hidden;text-overflow:ellipsis}.admin-card{padding:14px}.home-total-card{padding:14px}.table-scroll{max-width:100%}}
 
-/* Ajustes 2026-05-29: filtros dentro del recuadro y recarga fresca */
+/* Ajuste visual: filtros contenidos en escritorio, sin tocar la carga de datos */
 .home-total-card .filter-panel{width:100%;max-width:100%;overflow:hidden;border-radius:16px}
 .home-total-card .filters{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:14px;width:100%;max-width:100%;overflow:hidden}
 .home-total-card .filters .field{min-width:0}
@@ -299,20 +299,15 @@ function transformRows(rows){
 function setLoading(message){if($('tableCount')) $('tableCount').textContent = message; if($('barList')) $('barList').innerHTML = `<div class="notice">${escapeHtml(message)}</div>`; if($('statsBarList')) $('statsBarList').innerHTML = `<div class="notice">${escapeHtml(message)}</div>`; if($('totalSummaryDate')) $('totalSummaryDate').textContent='Rango: —';}
 async function loadData({keepFilters=false}={}){
   setLoading('Cargando datos desde Google Sheets...');
-  DATA = [];
   try{
-    const freshToken = Date.now() + '_' + Math.random().toString(36).slice(2);
-    const url = SHEET_URL + (SHEET_URL.includes('?') ? '&' : '?') + 'cacheBust=' + freshToken;
-    const response = await fetch(url, {
-      cache:'reload',
-      headers:{'Cache-Control':'no-cache, no-store, must-revalidate','Pragma':'no-cache','Expires':'0'}
-    });
+    const url = SHEET_URL + (SHEET_URL.includes('?') ? '&' : '?') + 'cacheBust=' + Date.now();
+    const response = await fetch(url, {cache:'no-store'});
     if(!response.ok) throw new Error('No se pudo leer la hoja publicada.');
     const csvText = await response.text();
     DATA = transformRows(parseCSV(csvText));
     if(!DATA.length) throw new Error('La hoja no devolvió registros válidos.');
     init(keepFilters);
-  }catch(error){console.error(error); setLoading('No se pudieron cargar los datos. Revisa que la hoja siga publicada como CSV y que el enlace sea público.'); render();}
+  }catch(error){console.error(error); setLoading('No se pudieron cargar los datos. Revisa que la hoja siga publicada como CSV y que el enlace sea público.');}
 }
 function filtered(){
  const from=$('fromDate').value, to=$('toDate').value, year=$('yearFilter').value, month=$('monthFilter').value, week=$('weekFilter').value, email=$('emailFilter').value, wd=$('weekdayFilter').value, q=$('searchBox').value.trim().toLowerCase();
