@@ -309,8 +309,7 @@ async function loadData({keepFilters=false}={}){
     });
     if(!response.ok) throw new Error('No se pudo leer la hoja publicada.');
     const csvText = await response.text();
-    const parsed = transformRows(parseCSV(csvText));
-    DATA = parsed.filter(r => r.fecha && Number(r.total || 0) > 0);
+    DATA = transformRows(parseCSV(csvText));
     if(!DATA.length) throw new Error('La hoja no devolvió registros válidos.');
     init(keepFilters);
   }catch(error){console.error(error); setLoading('No se pudieron cargar los datos. Revisa que la hoja siga publicada como CSV y que el enlace sea público.'); render();}
