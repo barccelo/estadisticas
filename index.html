@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Dashboard · Club Deportivo </title>
+<title>Dashboard · Club Deportivo</title>
 <style>
 :root{--bg:#f6f7fb;--panel:#ffffff;--ink:#1f2937;--muted:#6b7280;--line:#e5e7eb;--accent:#b91c1c;--accent2:#111827;--soft:#fee2e2;--good:#166534;--warn:#92400e;}
 *{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink)}
@@ -17,67 +17,122 @@ header{background:linear-gradient(135deg,#111827,#7f1d1d);color:white;padding:28
 @media(max-width:900px){.admin-grid{grid-template-columns:1fr}.edit-card .mini-grid,.edit-card .num-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:650px){.mini-grid,.num-grid,.edit-card .mini-grid,.edit-card .num-grid{grid-template-columns:1fr}.admin-row .btn{width:100%}}
 
 @media(max-width:1050px){.filters{grid-template-columns:repeat(3,1fr)}.kpis{grid-template-columns:repeat(2,1fr)}.charts{grid-template-columns:1fr}.field.wide{grid-column:span 3}.actions{grid-column:1 / -1;justify-content:flex-end}}@media(max-width:650px){.wrap{padding:12px}.filters{grid-template-columns:1fr;margin-top:-24px}.field.wide{grid-column:auto}.kpis{grid-template-columns:1fr}.kpi .value{font-size:26px}header{padding:22px 16px 44px}.bar-row{grid-template-columns:100px 1fr 55px}}
+
+/* Layout con menú lateral */
+body{background:#f6f7fb;}
+.app-shell{display:grid;grid-template-columns:260px 1fr;min-height:100vh;}
+.sidebar{position:sticky;top:0;height:100vh;background:#111827;color:white;padding:22px 16px;display:flex;flex-direction:column;gap:18px;z-index:10;}
+.brand{display:flex;flex-direction:column;gap:4px;padding:4px 6px 14px;border-bottom:1px solid rgba(255,255,255,.16)}
+.brand-title{font-size:18px;font-weight:900;letter-spacing:-.03em}.brand-sub{font-size:12px;color:#d1d5db;line-height:1.35}
+.side-nav{display:grid;gap:8px}.side-link{width:100%;text-align:left;border:1px solid transparent;background:transparent;color:#e5e7eb;border-radius:14px;padding:12px 12px;font-weight:800;cursor:pointer}.side-link:hover{background:rgba(255,255,255,.08)}.side-link.active{background:white;color:#111827}
+.sidebar-note{margin-top:auto;font-size:12px;color:#d1d5db;line-height:1.4;padding:10px 6px;border-top:1px solid rgba(255,255,255,.16)}
+.content{min-width:0}.topbar{background:linear-gradient(135deg,#111827,#7f1d1d);color:white;padding:24px 26px 50px}.topbar h1{margin:0;font-size:clamp(24px,3vw,38px);letter-spacing:-.04em}.topbar p{margin:8px 0 0;color:#f3f4f6;max-width:900px}.content .wrap{max-width:1320px;margin:0 auto;padding:0 20px 24px}.view{display:none;margin-top:-32px}.view.active{display:block}.view-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(340px,.95fr);gap:16px;align-items:start}.home-total-card{padding:18px}.section-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}.section-head h2{margin:0;font-size:20px}.section-head p{margin:5px 0 0;color:var(--muted);font-size:13px}.filter-panel{display:none;margin-bottom:16px}.filter-panel.open{display:block}.filters{margin-top:0}.filters .actions{grid-column:1 / -1;justify-content:flex-end}.admin-box{margin-top:0}.admin-box .table-tools{display:none}.admin-grid{grid-template-columns:1fr}.admin-card{border:0;padding:18px}.admin-card h2{font-size:20px}.stats-actions{display:flex;gap:8px;justify-content:flex-end;margin-bottom:12px}.stat-kpis{margin-top:0}.standalone-card{padding:18px;margin-top:14px}.editing-wrap{margin-top:0}.editing-wrap .admin-card{padding:18px}.landing-mini{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:14px}.mini-stat{border:1px solid var(--line);border-radius:14px;padding:14px;background:#fff}.mini-stat .label{font-size:12px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.05em}.mini-stat .value{font-size:28px;font-weight:900;margin-top:6px;letter-spacing:-.04em}
+@media(max-width:1050px){.app-shell{grid-template-columns:1fr}.sidebar{position:relative;height:auto;display:block}.brand{margin-bottom:10px}.side-nav{grid-template-columns:repeat(3,1fr)}.sidebar-note{display:none}.view-grid{grid-template-columns:1fr}.content .wrap{padding:0 12px 18px}.topbar{padding:22px 16px 44px}.view{margin-top:-24px}.stats-actions{justify-content:flex-start}.landing-mini{grid-template-columns:1fr 1fr}}
+@media(max-width:650px){.side-nav{grid-template-columns:1fr}.side-link{text-align:center}.filters{grid-template-columns:1fr}.landing-mini{grid-template-columns:1fr}.home-total-card .section-head{flex-direction:column}.stats-actions{flex-wrap:wrap}.stats-actions .btn{width:100%}}
+
 </style>
 </head>
 <body>
-<header><div class="wrap"><h1>Dashboard · Club Deportivo </h1><p>Visualización estadística y segmentada de asistencia por disciplina.</p></div></header>
-<main class="wrap">
-<section class="panel filters">
-  <div class="field"><label>Desde</label><input id="fromDate" type="date"></div>
-  <div class="field"><label>Hasta</label><input id="toDate" type="date"></div>
-  <div class="field"><label>Año escolar</label><select id="yearFilter"><option value="">Todos</option></select></div>
-  <div class="field"><label>Mes</label><select id="monthFilter"><option value="">Todos</option></select></div>
-  <div class="field"><label>Semana</label><select id="weekFilter"><option value="">Todas</option></select></div>
-  <div class="field"><label>Responsable</label><select id="emailFilter"><option value="">Todos</option></select></div>
-  <div class="field"><label>Día</label><select id="weekdayFilter"><option value="">Todos</option><option value="1">Lunes</option><option value="2">Martes</option><option value="3">Miércoles</option><option value="4">Jueves</option><option value="5">Viernes</option><option value="6">Sábado</option><option value="0">Domingo</option></select></div>
-  <div class="field wide"><label>Buscar en observaciones</label><input id="searchBox" type="search" placeholder="Ej.: salón, juego, estudiante..."></div>
-  <div class="actions"><button class="btn" id="refreshBtn">Actualizar datos</button><button class="btn secondary" id="resetBtn">Reiniciar</button><button class="btn secondary" id="csvBtn">Exportar CSV</button></div>
-</section>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-title">Club Deportivo</div>
+      <div class="brand-sub">Estadísticas, registro y edición directa</div>
+    </div>
+    <nav class="side-nav" aria-label="Menú principal">
+      <button class="side-link active" type="button" data-view="inicio">Inicio</button>
+      <button class="side-link" type="button" data-view="estadisticas">Estadísticas</button>
+      <button class="side-link" type="button" data-view="edicion">Editar datos</button>
+    </nav>
+    <div class="sidebar-note">Vista por defecto: año escolar actual. Usa filtros para cambiar el rango de consulta.</div>
+  </aside>
 
-<section class="panel admin-box">
-  <div class="table-tools"><strong>Registro y edición directa</strong><span class="small">Guarda o modifica datos directamente en Google Sheets.</span></div>
-  <div class="admin-grid">
-    <div class="admin-card">
-      <h2>Registrar datos</h2>
-      <p>Usa la contraseña de registro para agregar una nueva fila a la hoja.</p>
-      <div class="mini-grid">
-        <div class="field"><label>Contraseña</label><input id="regPassword" type="password" inputmode="numeric" placeholder="Contraseña de registro"></div>
-        <div class="field"><label>Fecha</label><input id="regFecha" type="date"></div>
-        <div class="field full"><label>Responsable / correo</label><select id="regEmail"><option value="">Selecciona responsable</option></select></div>
-      </div>
-      <div id="regDiscInputs" class="num-grid"></div>
-      <div class="field" style="margin-top:10px"><label>Observaciones</label><textarea id="regObs" placeholder="Observaciones del día"></textarea></div>
-      <div class="admin-row"><button class="btn" id="saveRecordBtn" type="button">Guardar registro</button><button class="btn secondary" id="clearRecordFormBtn" type="button">Limpiar formulario</button></div>
-      <div id="regStatus" class="status"></div>
-    </div>
-    <div class="admin-card">
-      <h2>Editar datos guardados</h2>
-      <p>Usa la contraseña de edición para buscar registros de una fecha y modificarlos.</p>
-      <div class="mini-grid">
-        <div class="field"><label>Contraseña</label><input id="editPassword" type="password" inputmode="numeric" placeholder="Contraseña de edición"></div>
-        <div class="field"><label>Fecha</label><input id="editFecha" type="date"></div>
-      </div>
-      <div class="admin-row"><button class="btn" id="findRecordsBtn" type="button">Buscar registros</button></div>
-      <div id="editStatus" class="status"></div>
-      <div id="editResults" class="edit-results"></div>
-    </div>
+  <div class="content">
+    <header class="topbar"><div class="wrap"><h1>Dashboard · Club Deportivo</h1><p>Registro directo y visualización estadística de asistencia por disciplina, fecha, año escolar y responsable.</p></div></header>
+    <main class="wrap">
+
+      <section id="filterPanel" class="panel filter-panel">
+        <section class="filters">
+          <div class="field"><label>Desde</label><input id="fromDate" type="date"></div>
+          <div class="field"><label>Hasta</label><input id="toDate" type="date"></div>
+          <div class="field"><label>Año escolar</label><select id="yearFilter"><option value="">Todos</option></select></div>
+          <div class="field"><label>Mes</label><select id="monthFilter"><option value="">Todos</option></select></div>
+          <div class="field"><label>Semana</label><select id="weekFilter"><option value="">Todas</option></select></div>
+          <div class="field"><label>Responsable</label><select id="emailFilter"><option value="">Todos</option></select></div>
+          <div class="field"><label>Día</label><select id="weekdayFilter"><option value="">Todos</option><option value="1">Lunes</option><option value="2">Martes</option><option value="3">Miércoles</option><option value="4">Jueves</option><option value="5">Viernes</option><option value="6">Sábado</option><option value="0">Domingo</option></select></div>
+          <div class="field wide"><label>Buscar en observaciones</label><input id="searchBox" type="search" placeholder="Ej.: salón, juego, estudiante..."></div>
+          <div class="actions"><button class="btn" id="refreshBtn">Actualizar datos</button><button class="btn secondary" id="resetBtn">Reiniciar</button><button class="btn secondary" id="csvBtn">Exportar CSV</button></div>
+        </section>
+      </section>
+
+      <section id="view-inicio" class="view active">
+        <div class="view-grid">
+          <section class="panel admin-box">
+            <div class="admin-grid">
+              <div class="admin-card">
+                <h2>Registrar datos</h2>
+                <p>Agrega el reporte diario directamente en Google Sheets.</p>
+                <div class="mini-grid">
+                  <div class="field"><label>Contraseña</label><input id="regPassword" type="password" inputmode="numeric" placeholder="Contraseña de registro"></div>
+                  <div class="field"><label>Fecha</label><input id="regFecha" type="date"></div>
+                  <div class="field full"><label>Responsable / correo</label><select id="regEmail"><option value="">Selecciona responsable</option></select></div>
+                </div>
+                <div id="regDiscInputs" class="num-grid"></div>
+                <div class="field" style="margin-top:10px"><label>Observaciones</label><textarea id="regObs" placeholder="Observaciones del día"></textarea></div>
+                <div class="admin-row"><button class="btn" id="saveRecordBtn" type="button">Guardar registro</button><button class="btn secondary" id="clearRecordFormBtn" type="button">Limpiar formulario</button></div>
+                <div id="regStatus" class="status"></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel home-total-card">
+            <div class="section-head">
+              <div><h2>Total por disciplina</h2><p>Resumen según los filtros activos.</p></div>
+              <button class="btn secondary" type="button" data-toggle-filters>Filtros</button>
+            </div>
+            <div id="barList" class="bar-list"></div>
+            <div class="landing-mini">
+              <div class="mini-stat"><div class="label">Registros</div><div id="kpiRecords" class="value">—</div></div>
+              <div class="mini-stat"><div class="label">Asistencia total</div><div id="kpiTotal" class="value">—</div></div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section id="view-estadisticas" class="view">
+        <div class="stats-actions"><button class="btn secondary" type="button" data-toggle-filters>Mostrar/ocultar filtros</button></div>
+        <section class="panel discipline-box"><div class="table-tools"><strong>Disciplinas visibles</strong><div class="discipline-actions"><span class="small">Selecciona una o varias para comparar.</span><button class="btn secondary" id="clearDiscBtn" type="button">Limpiar disciplinas</button><button class="btn secondary" id="allDiscBtn" type="button">Seleccionar todas</button></div></div><div id="disciplineChips" class="chips"></div></section>
+        <section class="grid kpis stat-kpis">
+          <div class="panel kpi"><div class="label">Promedio diario</div><div id="kpiAvg" class="value">—</div><div class="sub">asistentes por reporte</div></div>
+          <div class="panel kpi"><div class="label">Disciplina líder</div><div id="kpiLeader" class="value">—</div><div id="kpiLeaderSub" class="sub">—</div></div>
+          <div class="panel kpi"><div class="label">Mayor día</div><div id="kpiBestDay" class="value">—</div><div id="kpiBestDaySub" class="sub">—</div></div>
+        </section>
+        <section class="grid charts">
+          <div class="panel chart-card"><h2>Tendencia diaria</h2><div class="canvas-wrap"><canvas id="lineChart"></canvas></div><div class="small">Cada línea representa una disciplina visible.</div></div>
+          <div class="panel standalone-card"><h2>Resumen estadístico</h2><p class="small">Usa el menú de filtros para segmentar por año escolar, mes, semana, responsable, día u observaciones. Los indicadores se actualizan automáticamente.</p></div>
+        </section>
+        <section class="panel table-card"><div class="table-tools"><h2>Tabla de registros</h2><span id="tableCount" class="small"></span></div><div class="table-scroll"><table id="dataTable"></table></div></section>
+      </section>
+
+      <section id="view-edicion" class="view">
+        <section class="panel editing-wrap">
+          <div class="admin-card">
+            <h2>Editar datos guardados</h2>
+            <p>Usa la contraseña de edición para buscar registros de una fecha y modificarlos.</p>
+            <div class="mini-grid">
+              <div class="field"><label>Contraseña</label><input id="editPassword" type="password" inputmode="numeric" placeholder="Contraseña de edición"></div>
+              <div class="field"><label>Fecha</label><input id="editFecha" type="date"></div>
+            </div>
+            <div class="admin-row"><button class="btn" id="findRecordsBtn" type="button">Buscar registros</button></div>
+            <div id="editStatus" class="status"></div>
+            <div id="editResults" class="edit-results"></div>
+          </div>
+        </section>
+      </section>
+
+    </main>
   </div>
-</section>
-
-<section class="panel discipline-box"><div class="table-tools"><strong>Disciplinas visibles</strong><div class="discipline-actions"><span class="small">Selecciona una o varias para comparar.</span><button class="btn secondary" id="clearDiscBtn" type="button">Limpiar disciplinas</button><button class="btn secondary" id="allDiscBtn" type="button">Seleccionar todas</button></div></div><div id="disciplineChips" class="chips"></div></section>
-<section class="grid kpis">
-  <div class="panel kpi"><div class="label">Registros</div><div id="kpiRecords" class="value">—</div><div class="sub">días/reportes filtrados</div></div>
-  <div class="panel kpi"><div class="label">Asistencia total</div><div id="kpiTotal" class="value">—</div><div class="sub">suma de disciplinas</div></div>
-  <div class="panel kpi"><div class="label">Promedio diario</div><div id="kpiAvg" class="value">—</div><div class="sub">asistentes por reporte</div></div>
-  <div class="panel kpi"><div class="label">Disciplina líder</div><div id="kpiLeader" class="value">—</div><div id="kpiLeaderSub" class="sub">—</div></div>
-  <div class="panel kpi"><div class="label">Mayor día</div><div id="kpiBestDay" class="value">—</div><div id="kpiBestDaySub" class="sub">—</div></div>
-</section>
-<section class="grid charts">
-  <div class="panel chart-card"><h2>Tendencia diaria</h2><div class="canvas-wrap"><canvas id="lineChart"></canvas></div><div class="small">Cada línea representa una disciplina visible.</div></div>
-  <div class="panel chart-card"><h2>Total por disciplina</h2><div id="barList" class="bar-list"></div></div>
-</section>
-<section class="panel table-card"><div class="table-tools"><h2>Tabla de registros</h2><span id="tableCount" class="small"></span></div><div class="table-scroll"><table id="dataTable"></table></div></section>
-</main>
+</div>
 <script>
 const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQi7LJ9GkWvS8xSGabaKdLwMRzhaMXppm8Vt8Z5chsQr92cWEOYF2SKeNPI15SYc1oryFw3eJP1SQkg/pub?gid=590274017&single=true&output=csv";
 const APPS_SCRIPT_URL = "https://script.google.com/a/macros/losroblesenlinea.com.ve/s/AKfycbzHHgoVMHLbCWYYPnPgtWsG3Ipq3Q_5dkMRKBFbJYW5uG3mkhlHWkLwi1DyOuKCDAGh/exec";
@@ -378,6 +433,24 @@ function initAdminModule(){
   $('clearRecordFormBtn').onclick=clearRecordForm;
   $('findRecordsBtn').onclick=findEditableRecords;
 }
+
+
+function showView(viewName){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  const target=document.getElementById('view-'+viewName);
+  if(target) target.classList.add('active');
+  document.querySelectorAll('.side-link').forEach(btn=>btn.classList.toggle('active', btn.dataset.view===viewName));
+  if(viewName==='estadisticas' && DATA.length) setTimeout(()=>renderLine(filtered()), 50);
+}
+function toggleFilterPanel(){
+  const panel=document.getElementById('filterPanel');
+  if(panel) panel.classList.toggle('open');
+}
+function initLayoutNavigation(){
+  document.querySelectorAll('.side-link').forEach(btn=>btn.onclick=()=>showView(btn.dataset.view));
+  document.querySelectorAll('[data-toggle-filters]').forEach(btn=>btn.onclick=toggleFilterPanel);
+}
+initLayoutNavigation();
 
 window.addEventListener('resize',()=>{if(DATA.length) renderLine(filtered())});
 initAdminModule();
