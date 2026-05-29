@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dashboard · Club Deportivo 2024-2025</title>
+<style>
+:root{--bg:#f6f7fb;--panel:#ffffff;--ink:#1f2937;--muted:#6b7280;--line:#e5e7eb;--accent:#b91c1c;--accent2:#111827;--soft:#fee2e2;--good:#166534;--warn:#92400e;}
+*{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+header{background:linear-gradient(135deg,#111827,#7f1d1d);color:white;padding:28px 24px 22px} header h1{margin:0;font-size:clamp(24px,4vw,42px);letter-spacing:-.04em} header p{margin:8px 0 0;color:#f3f4f6;max-width:900px}.wrap{max-width:1320px;margin:0 auto;padding:20px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:0 8px 24px rgba(15,23,42,.06)}
+.filters{display:grid;grid-template-columns:repeat(6,minmax(150px,1fr));gap:12px;padding:16px;margin-top:-38px;position:relative}.field{display:flex;flex-direction:column;gap:6px}.field label{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700}.field input,.field select{border:1px solid var(--line);border-radius:12px;padding:10px 11px;background:white;color:var(--ink);font-size:14px;min-height:42px}.field.wide{grid-column:span 2}.actions{display:flex;gap:8px;align-items:end;flex-wrap:wrap}.btn{border:0;background:var(--accent2);color:white;border-radius:12px;padding:11px 14px;font-weight:700;cursor:pointer}.btn.secondary{background:#f3f4f6;color:#111827;border:1px solid var(--line)}.btn:hover{filter:brightness(.95)}
+.discipline-box{padding:16px;margin-top:14px}.chips{display:flex;gap:8px;flex-wrap:wrap}.chip{border:1px solid var(--line);padding:8px 10px;border-radius:999px;background:#fff;font-size:13px;cursor:pointer;user-select:none}.chip.active{background:var(--soft);border-color:#fecaca;color:#7f1d1d;font-weight:800}.grid{display:grid;gap:14px}.kpis{grid-template-columns:repeat(5,1fr);margin-top:14px}.kpi{padding:18px}.kpi .label{font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:800;letter-spacing:.06em}.kpi .value{font-size:30px;font-weight:900;margin-top:8px;letter-spacing:-.04em}.kpi .sub{font-size:13px;color:var(--muted);margin-top:4px}.charts{grid-template-columns:1.15fr .85fr;margin-top:14px}.chart-card{padding:18px}.chart-card h2,.table-card h2{margin:0 0 10px;font-size:18px}.canvas-wrap{width:100%;height:360px;position:relative}canvas{width:100%;height:100%;display:block}.table-card{padding:18px;margin-top:14px;overflow:hidden}.table-tools{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:10px;flex-wrap:wrap}.table-scroll{overflow:auto;max-height:430px;border:1px solid var(--line);border-radius:14px}table{width:100%;border-collapse:collapse;background:white;font-size:13px}th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}th{position:sticky;top:0;background:#f9fafb;z-index:2;color:#374151;font-size:12px;text-transform:uppercase;letter-spacing:.04em}td:first-child,th:first-child,td:nth-child(2),th:nth-child(2){text-align:left}.obs{max-width:480px;white-space:normal;text-align:left;color:#374151}.bar-list{display:grid;gap:10px;margin-top:12px}.bar-row{display:grid;grid-template-columns:125px 1fr 70px;gap:10px;align-items:center;font-size:13px}.bar-bg{height:13px;background:#f3f4f6;border-radius:999px;overflow:hidden}.bar-fill{height:100%;background:#991b1b;border-radius:999px}.notice{padding:12px 14px;color:#4b5563;font-size:13px}.small{font-size:12px;color:var(--muted)}
+@media(max-width:1050px){.filters{grid-template-columns:repeat(3,1fr)}.kpis{grid-template-columns:repeat(2,1fr)}.charts{grid-template-columns:1fr}.field.wide{grid-column:span 3}}@media(max-width:650px){.wrap{padding:12px}.filters{grid-template-columns:1fr;margin-top:-24px}.field.wide{grid-column:auto}.kpis{grid-template-columns:1fr}.kpi .value{font-size:26px}header{padding:22px 16px 44px}.bar-row{grid-template-columns:100px 1fr 55px}}
+</style>
+</head>
+<body>
+<header><div class="wrap"><h1>Dashboard · Club Deportivo 2024-2025</h1><p>Visualización estadística y segmentada de asistencia por disciplina, fecha y responsable de registro.</p></div></header>
+<main class="wrap">
+<section class="panel filters">
+  <div class="field"><label>Desde</label><input id="fromDate" type="date"></div>
+  <div class="field"><label>Hasta</label><input id="toDate" type="date"></div>
+  <div class="field"><label>Responsable</label><select id="emailFilter"><option value="">Todos</option></select></div>
+  <div class="field"><label>Día</label><select id="weekdayFilter"><option value="">Todos</option><option value="1">Lunes</option><option value="2">Martes</option><option value="3">Miércoles</option><option value="4">Jueves</option><option value="5">Viernes</option><option value="6">Sábado</option><option value="0">Domingo</option></select></div>
+  <div class="field wide"><label>Buscar en observaciones</label><input id="searchBox" type="search" placeholder="Ej.: salón, juego, estudiante..."></div>
+  <div class="actions"><button class="btn" id="refreshBtn">Actualizar datos</button><button class="btn secondary" id="resetBtn">Reiniciar</button><button class="btn secondary" id="csvBtn">Exportar CSV</button></div>
+</section>
+<section class="panel discipline-box"><div class="table-tools"><strong>Disciplinas visibles</strong><span class="small">Selecciona una o varias para comparar.</span></div><div id="disciplineChips" class="chips"></div></section>
+<section class="grid kpis">
+  <div class="panel kpi"><div class="label">Registros</div><div id="kpiRecords" class="value">—</div><div class="sub">días/reportes filtrados</div></div>
+  <div class="panel kpi"><div class="label">Asistencia total</div><div id="kpiTotal" class="value">—</div><div class="sub">suma de disciplinas</div></div>
+  <div class="panel kpi"><div class="label">Promedio diario</div><div id="kpiAvg" class="value">—</div><div class="sub">asistentes por reporte</div></div>
+  <div class="panel kpi"><div class="label">Disciplina líder</div><div id="kpiLeader" class="value">—</div><div id="kpiLeaderSub" class="sub">—</div></div>
+  <div class="panel kpi"><div class="label">Mayor día</div><div id="kpiBestDay" class="value">—</div><div id="kpiBestDaySub" class="sub">—</div></div>
+</section>
+<section class="grid charts">
+  <div class="panel chart-card"><h2>Tendencia diaria</h2><div class="canvas-wrap"><canvas id="lineChart"></canvas></div><div class="small">Cada línea representa una disciplina visible.</div></div>
+  <div class="panel chart-card"><h2>Total por disciplina</h2><div id="barList" class="bar-list"></div></div>
+</section>
+<section class="panel table-card"><div class="table-tools"><h2>Tabla de registros</h2><span id="tableCount" class="small"></span></div><div class="table-scroll"><table id="dataTable"></table></div></section>
+</main>
+<script>
+const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQi7LJ9GkWvS8xSGabaKdLwMRzhaMXppm8Vt8Z5chsQr92cWEOYF2SKeNPI15SYc1oryFw3eJP1SQkg/pub?gid=590274017&single=true&output=csv";
+let DATA = [];
+const DISCIPLINES = ["Ajedrez", "Astronomía", "Atletismo", "Baloncesto", "Béisbol", "Fútbol campo", "Fútbol sala", "Música", "Tenis de campo", "Robótica"];
+let selected = new Set(DISCIPLINES);
+let defaultDates = {from:'', to:''};
+const fmt = new Intl.NumberFormat('es-VE');
+function $(id){return document.getElementById(id)}
+function escapeHtml(v){return String(v ?? '').replace(/[<>&]/g, m=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[m]))}
+function parseNumber(v){
+  if(v === null || v === undefined) return 0;
+  let s = String(v).trim();
+  if(!s) return 0;
+  s = s.replace(/\s/g,'');
+  if(s.includes(',') && !s.includes('.')) s = s.replace(',', '.');
+  const n = Number(s.replace(/[^0-9.-]/g,''));
+  return Number.isFinite(n) ? n : 0;
+}
+function normalizeKey(s){return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'')}
+function makeGetter(row){const map = {}; Object.keys(row).forEach(k => map[normalizeKey(k)] = k); return function(...names){for(const name of names){const key = map[normalizeKey(name)]; if(key !== undefined) return row[key];} return ''}}
+function parseCSV(text){
+  const rows=[]; let row=[], value='', quoted=false;
+  for(let i=0;i<text.length;i++){
+    const ch=text[i], next=text[i+1];
+    if(ch==='"'){
+      if(quoted && next==='"'){value+='"'; i++;}
+      else quoted=!quoted;
+    }else if(ch===',' && !quoted){row.push(value); value='';}
+    else if((ch==='\n' || ch==='\r') && !quoted){if(ch==='\r' && next==='\n') i++; row.push(value); value=''; if(row.some(cell=>String(cell).trim()!=='')) rows.push(row); row=[];}
+    else value+=ch;
+  }
+  row.push(value); if(row.some(cell=>String(cell).trim()!=='')) rows.push(row);
+  if(!rows.length) return [];
+  const headers = rows[0].map(h=>String(h).trim());
+  return rows.slice(1).map(r=>{const obj={}; headers.forEach((h,i)=>obj[h]=r[i] ?? ''); return obj;});
+}
+function inferDateOrder(values){let dmy=0, mdy=0; values.forEach(v=>{const s=String(v||'').trim().split(/\s+/)[0]; const p=s.split(/[\/.-]/).map(Number); if(p.length<3) return; if(p[0]>12) dmy++; if(p[1]>12) mdy++;}); return mdy>dmy ? 'MDY' : 'DMY'}
+function normalizeDate(value, order='DMY'){
+  if(value === null || value === undefined) return '';
+  let s = String(value).trim(); if(!s) return ''; s = s.split(/\s+/)[0];
+  const parts = s.split(/[\/.-]/).map(x=>parseInt(x,10));
+  if(parts.length < 3 || parts.some(Number.isNaN)) return '';
+  let y, m, d;
+  if(String(parts[0]).length === 4){ [y,m,d] = parts; }
+  else if(order === 'MDY'){ [m,d,y] = parts; }
+  else { [d,m,y] = parts; }
+  if(y < 100) y += 2000;
+  if(!y || !m || !d) return '';
+  return `${String(y).padStart(4,'0')}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+}
+function toDate(s){const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d)}
+function weekday(s){return s ? String(toDate(s).getDay()) : ''}
+function niceDate(s){if(!s)return ''; const [y,m,d]=s.split('-'); return `${d}/${m}/${y}`}
+function transformRows(rows){
+  const dateValues = rows.map(row => makeGetter(row)('Fecha:', 'Fecha'));
+  const order = inferDateOrder(dateValues);
+  return rows.map(row=>{
+    const get = makeGetter(row);
+    const valores = {};
+    DISCIPLINES.forEach(d => valores[d] = parseNumber(get(d)));
+    const fecha = normalizeDate(get('Fecha:', 'Fecha'), order);
+    const timestamp = normalizeDate(get('Timestamp', 'Marca temporal'), order);
+    const total = DISCIPLINES.reduce((acc,d)=>acc+Number(valores[d]||0),0);
+    return {timestamp, email: String(get('Email Address', 'Dirección de correo electrónico', 'Correo electrónico') || '').trim(), fecha, observaciones: String(get('Observaciones:', 'Observaciones') || '').trim(), valores, total};
+  }).filter(r=>r.fecha);
+}
+function setLoading(message){$('tableCount').textContent = message; $('barList').innerHTML = `<div class="notice">${escapeHtml(message)}</div>`;}
+async function loadData({keepFilters=false}={}){
+  setLoading('Cargando datos desde Google Sheets...');
+  try{
+    const url = SHEET_URL + (SHEET_URL.includes('?') ? '&' : '?') + 'cacheBust=' + Date.now();
+    const response = await fetch(url, {cache:'no-store'});
+    if(!response.ok) throw new Error('No se pudo leer la hoja publicada.');
+    const csvText = await response.text();
+    DATA = transformRows(parseCSV(csvText));
+    if(!DATA.length) throw new Error('La hoja no devolvió registros válidos.');
+    init(keepFilters);
+  }catch(error){console.error(error); setLoading('No se pudieron cargar los datos. Revisa que la hoja siga publicada como CSV y que el enlace sea público.');}
+}
+function filtered(){const from=$('fromDate').value, to=$('toDate').value, email=$('emailFilter').value, wd=$('weekdayFilter').value, q=$('searchBox').value.trim().toLowerCase(); return DATA.filter(r => (!from || r.fecha>=from) && (!to || r.fecha<=to) && (!email || r.email===email) && (!wd || weekday(r.fecha)===wd) && (!q || (r.observaciones||'').toLowerCase().includes(q)));}
+function sumByDisc(rows){const o={}; DISCIPLINES.forEach(d=>o[d]=0); rows.forEach(r=>DISCIPLINES.forEach(d=>o[d]+=Number(r.valores[d]||0))); return o;}
+function totalSelected(r){let s=0; selected.forEach(d=>s += Number(r.valores[d]||0)); return s;}
+function init(keepFilters=false){
+ const previous = keepFilters ? {from:$('fromDate').value, to:$('toDate').value, email:$('emailFilter').value, wd:$('weekdayFilter').value, q:$('searchBox').value, selected:new Set(selected)} : null;
+ const dates=DATA.map(r=>r.fecha).filter(Boolean).sort(); defaultDates = {from:dates[0] || '', to:dates[dates.length-1] || ''};
+ $('emailFilter').innerHTML='<option value="">Todos</option>';
+ [...new Set(DATA.map(r=>r.email).filter(Boolean))].sort().forEach(e=>{const op=document.createElement('option'); op.value=e; op.textContent=e.replace('@losroblesenlinea.com.ve',''); $('emailFilter').appendChild(op)});
+ const chips=$('disciplineChips'); chips.innerHTML=''; if(!keepFilters) selected = new Set(DISCIPLINES);
+ DISCIPLINES.forEach(d=>{const c=document.createElement('span'); c.className='chip' + (selected.has(d)?' active':''); c.textContent=d; c.onclick=()=>{if(selected.has(d)){selected.delete(d); c.classList.remove('active')}else{selected.add(d); c.classList.add('active')} if(selected.size===0){selected.add(d); c.classList.add('active')} render();}; chips.appendChild(c)});
+ if(previous){$('fromDate').value = previous.from || defaultDates.from; $('toDate').value = previous.to || defaultDates.to; $('emailFilter').value = previous.email || ''; $('weekdayFilter').value = previous.wd || ''; $('searchBox').value = previous.q || ''; selected = previous.selected.size ? previous.selected : new Set(DISCIPLINES);}else{$('fromDate').value=defaultDates.from; $('toDate').value=defaultDates.to; $('emailFilter').value=''; $('weekdayFilter').value=''; $('searchBox').value='';}
+ ['fromDate','toDate','emailFilter','weekdayFilter','searchBox'].forEach(id=>{const el=$(id); el.oninput=render; el.onchange=render;});
+ $('resetBtn').onclick=()=>{selected=new Set(DISCIPLINES); document.querySelectorAll('.chip').forEach(x=>x.classList.add('active')); $('fromDate').value=defaultDates.from; $('toDate').value=defaultDates.to; $('emailFilter').value=''; $('weekdayFilter').value=''; $('searchBox').value=''; render();};
+ $('csvBtn').onclick=downloadCSV; $('refreshBtn').onclick=()=>loadData({keepFilters:true}); render();
+}
+function render(){const rows=filtered(); renderKPIs(rows); renderBars(rows); renderLine(rows); renderTable(rows);}
+function renderKPIs(rows){const total=rows.reduce((a,r)=>a+totalSelected(r),0); const avg=rows.length?total/rows.length:0; const sums=sumByDisc(rows); const visible=[...selected]; const leader=visible.map(d=>[d,sums[d]]).sort((a,b)=>b[1]-a[1])[0]||['—',0]; const best=rows.map(r=>[r.fecha,totalSelected(r)]).sort((a,b)=>b[1]-a[1])[0]||['—',0]; $('kpiRecords').textContent=fmt.format(rows.length); $('kpiTotal').textContent=fmt.format(total); $('kpiAvg').textContent=fmt.format(Math.round(avg)); $('kpiLeader').textContent=leader[0]; $('kpiLeaderSub').textContent=fmt.format(leader[1])+' asistentes'; $('kpiBestDay').textContent=best[0]==='—'?'—':niceDate(best[0]); $('kpiBestDaySub').textContent=fmt.format(best[1])+' asistentes';}
+function renderBars(rows){const sums=sumByDisc(rows); const max=Math.max(1,...[...selected].map(d=>sums[d])); const box=$('barList'); box.innerHTML=''; [...selected].sort((a,b)=>sums[b]-sums[a]).forEach(d=>{const row=document.createElement('div'); row.className='bar-row'; row.innerHTML=`<strong>${d}</strong><div class="bar-bg"><div class="bar-fill" style="width:${(sums[d]/max*100).toFixed(1)}%"></div></div><span>${fmt.format(sums[d])}</span>`; box.appendChild(row);}); if(!rows.length) box.innerHTML='<div class="notice">No hay datos para los filtros seleccionados.</div>';}
+function renderLine(rows){const canvas=$('lineChart'), rect=canvas.parentElement.getBoundingClientRect(), dpr=window.devicePixelRatio||1; canvas.width=rect.width*dpr; canvas.height=rect.height*dpr; const ctx=canvas.getContext('2d'); ctx.scale(dpr,dpr); const w=rect.width,h=rect.height,p={l:46,r:18,t:18,b:38}; ctx.clearRect(0,0,w,h); ctx.font='12px system-ui'; ctx.strokeStyle='#e5e7eb'; ctx.lineWidth=1; const byDate={}; rows.forEach(r=>{if(!byDate[r.fecha]){byDate[r.fecha]={}; DISCIPLINES.forEach(d=>byDate[r.fecha][d]=0)} DISCIPLINES.forEach(d=>byDate[r.fecha][d]+=Number(r.valores[d]||0));}); const dates=Object.keys(byDate).sort(); const max=Math.max(1,...dates.flatMap(date=>[...selected].map(d=>byDate[date][d]||0))); for(let i=0;i<=4;i++){const y=p.t+(h-p.t-p.b)*i/4; ctx.beginPath(); ctx.moveTo(p.l,y); ctx.lineTo(w-p.r,y); ctx.stroke(); ctx.fillStyle='#6b7280'; ctx.fillText(Math.round(max*(1-i/4)),6,y+4)} if(dates.length===0){ctx.fillStyle='#6b7280';ctx.fillText('No hay datos para mostrar.',p.l+10,h/2);return} const colors=['#991b1b','#111827','#4b5563','#b45309','#166534','#1d4ed8','#7c3aed','#be185d','#0f766e','#92400e']; let ci=0; [...selected].forEach(d=>{ctx.strokeStyle=colors[ci++%colors.length]; ctx.lineWidth=2; ctx.beginPath(); dates.forEach((date,i)=>{const x=p.l+(dates.length===1?0:(w-p.l-p.r)*i/(dates.length-1)); const y=p.t+(h-p.t-p.b)*(1-(byDate[date][d]||0)/max); if(i===0)ctx.moveTo(x,y); else ctx.lineTo(x,y);}); ctx.stroke();}); ctx.fillStyle='#6b7280'; const step=Math.ceil(dates.length/6); dates.forEach((date,i)=>{if(i%step===0||i===dates.length-1){const x=p.l+(dates.length===1?0:(w-p.l-p.r)*i/(dates.length-1)); ctx.save(); ctx.translate(x,h-12); ctx.rotate(-0.45); ctx.fillText(niceDate(date),0,0); ctx.restore();}});}
+function renderTable(rows){const table=$('dataTable'); const heads=['Fecha','Responsable',...DISCIPLINES.filter(d=>selected.has(d)),'Total','Observaciones']; let html='<thead><tr>'+heads.map(h=>`<th>${escapeHtml(h)}</th>`).join('')+'</tr></thead><tbody>'; rows.slice().sort((a,b)=>b.fecha.localeCompare(a.fecha)).forEach(r=>{html+='<tr>'; html+=`<td>${niceDate(r.fecha)}</td><td>${escapeHtml(r.email.replace('@losroblesenlinea.com.ve',''))}</td>`; DISCIPLINES.filter(d=>selected.has(d)).forEach(d=>html+=`<td>${fmt.format(r.valores[d]||0)}</td>`); html+=`<td><strong>${fmt.format(totalSelected(r))}</strong></td><td class="obs">${escapeHtml(r.observaciones)}</td></tr>`;}); html+='</tbody>'; table.innerHTML=html; $('tableCount').textContent=fmt.format(rows.length)+' registros mostrados · fuente: Google Sheets';}
+function downloadCSV(){const rows=filtered(); const visible=DISCIPLINES.filter(d=>selected.has(d)); const cols=['Fecha','Responsable',...visible,'Total','Observaciones']; const csv=[cols.join(',')].concat(rows.map(r=>[r.fecha,r.email,...visible.map(d=>r.valores[d]),totalSelected(r),(r.observaciones||'').replace(/\n/g,' ')].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(','))).join('\n'); const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='club_deportivo_filtrado.csv'; a.click(); URL.revokeObjectURL(a.href);}
+window.addEventListener('resize',()=>{if(DATA.length) renderLine(filtered())});
+loadData();
+</script>
+</body>
+</html>
