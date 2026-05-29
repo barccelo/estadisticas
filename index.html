@@ -14,11 +14,14 @@ header{background:linear-gradient(135deg,#111827,#7f1d1d);color:white;padding:28
 </style>
 </head>
 <body>
-<header><div class="wrap"><h1>Dashboard · Club Deportivo 2024-2025</h1><p>Visualización estadística y segmentada de asistencia por disciplina, fecha y responsable de registro.</p></div></header>
+<header><div class="wrap"><h1>Dashboard · Club Deportivo 2024-2025</h1><p>Visualización estadística y segmentada de asistencia por disciplina, fecha, año, mes, semana y responsable de registro.</p></div></header>
 <main class="wrap">
 <section class="panel filters">
   <div class="field"><label>Desde</label><input id="fromDate" type="date"></div>
   <div class="field"><label>Hasta</label><input id="toDate" type="date"></div>
+  <div class="field"><label>Año</label><select id="yearFilter"><option value="">Todos</option></select></div>
+  <div class="field"><label>Mes</label><select id="monthFilter"><option value="">Todos</option></select></div>
+  <div class="field"><label>Semana</label><select id="weekFilter"><option value="">Todas</option></select></div>
   <div class="field"><label>Responsable</label><select id="emailFilter"><option value="">Todos</option></select></div>
   <div class="field"><label>Día</label><select id="weekdayFilter"><option value="">Todos</option><option value="1">Lunes</option><option value="2">Martes</option><option value="3">Miércoles</option><option value="4">Jueves</option><option value="5">Viernes</option><option value="6">Sábado</option><option value="0">Domingo</option></select></div>
   <div class="field wide"><label>Buscar en observaciones</label><input id="searchBox" type="search" placeholder="Ej.: salón, juego, estudiante..."></div>
@@ -91,6 +94,31 @@ function normalizeDate(value, order='DMY'){
 function toDate(s){const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d)}
 function weekday(s){return s ? String(toDate(s).getDay()) : ''}
 function niceDate(s){if(!s)return ''; const [y,m,d]=s.split('-'); return `${d}/${m}/${y}`}
+function monthName(m){return ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][Number(m)-1] || m}
+function isoWeekInfo(s){
+  const date = toDate(s);
+  const target = new Date(date.valueOf());
+  const dayNr = (date.getDay() + 6) % 7;
+  target.setDate(target.getDate() - dayNr + 3);
+  const firstThursday = new Date(target.getFullYear(), 0, 4);
+  const firstDayNr = (firstThursday.getDay() + 6) % 7;
+  firstThursday.setDate(firstThursday.getDate() - firstDayNr + 3);
+  const week = 1 + Math.round((target - firstThursday) / 604800000);
+  const year = target.getFullYear();
+  return {year, week, key:`${year}-W${String(week).padStart(2,'0')}`};
+}
+function isoWeekRangeLabel(key){
+  const [yearPart, weekPart] = key.split('-W');
+  const year = Number(yearPart), week = Number(weekPart);
+  const simple = new Date(year, 0, 1 + (week - 1) * 7);
+  const day = simple.getDay();
+  const monday = new Date(simple);
+  if(day <= 4) monday.setDate(simple.getDate() - simple.getDay() + 1);
+  else monday.setDate(simple.getDate() + 8 - simple.getDay());
+  const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
+  const f = d => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
+  return `${year} · Semana ${String(week).padStart(2,'0')} (${f(monday)}–${f(sunday)})`;
+}
 function transformRows(rows){
   const dateValues = rows.map(row => makeGetter(row)('Fecha:', 'Fecha'));
   const order = inferDateOrder(dateValues);
@@ -117,22 +145,31 @@ async function loadData({keepFilters=false}={}){
     init(keepFilters);
   }catch(error){console.error(error); setLoading('No se pudieron cargar los datos. Revisa que la hoja siga publicada como CSV y que el enlace sea público.');}
 }
-function filtered(){const from=$('fromDate').value, to=$('toDate').value, email=$('emailFilter').value, wd=$('weekdayFilter').value, q=$('searchBox').value.trim().toLowerCase(); return DATA.filter(r => (!from || r.fecha>=from) && (!to || r.fecha<=to) && (!email || r.email===email) && (!wd || weekday(r.fecha)===wd) && (!q || (r.observaciones||'').toLowerCase().includes(q)));}
+function filtered(){
+ const from=$('fromDate').value, to=$('toDate').value, year=$('yearFilter').value, month=$('monthFilter').value, week=$('weekFilter').value, email=$('emailFilter').value, wd=$('weekdayFilter').value, q=$('searchBox').value.trim().toLowerCase();
+ return DATA.filter(r => (!from || r.fecha>=from) && (!to || r.fecha<=to) && (!year || r.fecha.slice(0,4)===year) && (!month || r.fecha.slice(5,7)===month) && (!week || isoWeekInfo(r.fecha).key===week) && (!email || r.email===email) && (!wd || weekday(r.fecha)===wd) && (!q || (r.observaciones||'').toLowerCase().includes(q)));
+}
 function sumByDisc(rows){const o={}; DISCIPLINES.forEach(d=>o[d]=0); rows.forEach(r=>DISCIPLINES.forEach(d=>o[d]+=Number(r.valores[d]||0))); return o;}
 function totalSelected(r){let s=0; selected.forEach(d=>s += Number(r.valores[d]||0)); return s;}
 function init(keepFilters=false){
- const previous = keepFilters ? {from:$('fromDate').value, to:$('toDate').value, email:$('emailFilter').value, wd:$('weekdayFilter').value, q:$('searchBox').value, selected:new Set(selected)} : null;
+ const previous = keepFilters ? {from:$('fromDate').value, to:$('toDate').value, year:$('yearFilter').value, month:$('monthFilter').value, week:$('weekFilter').value, email:$('emailFilter').value, wd:$('weekdayFilter').value, q:$('searchBox').value, selected:new Set(selected)} : null;
  const dates=DATA.map(r=>r.fecha).filter(Boolean).sort(); defaultDates = {from:dates[0] || '', to:dates[dates.length-1] || ''};
+ $('yearFilter').innerHTML='<option value="">Todos</option>';
+ [...new Set(DATA.map(r=>r.fecha.slice(0,4)).filter(Boolean))].sort().forEach(y=>{const op=document.createElement('option'); op.value=y; op.textContent=y; $('yearFilter').appendChild(op)});
+ $('monthFilter').innerHTML='<option value="">Todos</option>';
+ Array.from({length:12},(_,i)=>String(i+1).padStart(2,'0')).forEach(m=>{const op=document.createElement('option'); op.value=m; op.textContent=monthName(m); $('monthFilter').appendChild(op)});
+ $('weekFilter').innerHTML='<option value="">Todas</option>';
+ [...new Set(DATA.map(r=>isoWeekInfo(r.fecha).key).filter(Boolean))].sort().forEach(w=>{const op=document.createElement('option'); op.value=w; op.textContent=isoWeekRangeLabel(w); $('weekFilter').appendChild(op)});
  $('emailFilter').innerHTML='<option value="">Todos</option>';
  [...new Set(DATA.map(r=>r.email).filter(Boolean))].sort().forEach(e=>{const op=document.createElement('option'); op.value=e; op.textContent=e.replace('@losroblesenlinea.com.ve',''); $('emailFilter').appendChild(op)});
  const chips=$('disciplineChips'); chips.innerHTML=''; if(!keepFilters) selected = new Set(DISCIPLINES);
  DISCIPLINES.forEach(d=>{const c=document.createElement('span'); c.className='chip' + (selected.has(d)?' active':''); c.textContent=d; c.onclick=()=>{if(selected.has(d)){selected.delete(d); c.classList.remove('active')}else{selected.add(d); c.classList.add('active')} render();}; chips.appendChild(c)});
- if(previous){$('fromDate').value = previous.from || defaultDates.from; $('toDate').value = previous.to || defaultDates.to; $('emailFilter').value = previous.email || ''; $('weekdayFilter').value = previous.wd || ''; $('searchBox').value = previous.q || ''; selected = previous.selected;}else{$('fromDate').value=defaultDates.from; $('toDate').value=defaultDates.to; $('emailFilter').value=''; $('weekdayFilter').value=''; $('searchBox').value='';}
+ if(previous){$('fromDate').value = previous.from || defaultDates.from; $('toDate').value = previous.to || defaultDates.to; $('yearFilter').value = previous.year || ''; $('monthFilter').value = previous.month || ''; $('weekFilter').value = previous.week || ''; $('emailFilter').value = previous.email || ''; $('weekdayFilter').value = previous.wd || ''; $('searchBox').value = previous.q || ''; selected = previous.selected;}else{$('fromDate').value=defaultDates.from; $('toDate').value=defaultDates.to; $('yearFilter').value=''; $('monthFilter').value=''; $('weekFilter').value=''; $('emailFilter').value=''; $('weekdayFilter').value=''; $('searchBox').value='';}
  function syncDisciplineChips(){document.querySelectorAll('.chip').forEach(chip=>chip.classList.toggle('active', selected.has(chip.textContent)));}
- ['fromDate','toDate','emailFilter','weekdayFilter','searchBox'].forEach(id=>{const el=$(id); el.oninput=render; el.onchange=render;});
+ ['fromDate','toDate','yearFilter','monthFilter','weekFilter','emailFilter','weekdayFilter','searchBox'].forEach(id=>{const el=$(id); el.oninput=render; el.onchange=render;});
  $('clearDiscBtn').onclick=()=>{selected.clear(); syncDisciplineChips(); render();};
  $('allDiscBtn').onclick=()=>{selected=new Set(DISCIPLINES); syncDisciplineChips(); render();};
- $('resetBtn').onclick=()=>{selected=new Set(DISCIPLINES); syncDisciplineChips(); $('fromDate').value=defaultDates.from; $('toDate').value=defaultDates.to; $('emailFilter').value=''; $('weekdayFilter').value=''; $('searchBox').value=''; render();};
+ $('resetBtn').onclick=()=>{selected=new Set(DISCIPLINES); syncDisciplineChips(); $('fromDate').value=defaultDates.from; $('toDate').value=defaultDates.to; $('yearFilter').value=''; $('monthFilter').value=''; $('weekFilter').value=''; $('emailFilter').value=''; $('weekdayFilter').value=''; $('searchBox').value=''; render();};
  syncDisciplineChips();
  $('csvBtn').onclick=downloadCSV; $('refreshBtn').onclick=()=>loadData({keepFilters:true}); render();
 }
