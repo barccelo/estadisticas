@@ -60,6 +60,30 @@ body{background:#f6f7fb;}
   .home-total-card .filters .actions .btn{width:100%;flex:1 1 100%}
 }
 
+
+/* Módulo Horarios */
+.schedule-card{padding:18px;margin-top:0}
+.schedule-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px}
+.schedule-head h2{margin:0;font-size:22px;letter-spacing:-.03em}
+.schedule-head p{margin:5px 0 0;color:var(--muted);font-size:13px}
+.schedule-reset{white-space:nowrap}
+.schedule-filter-panel{padding:16px;margin-bottom:16px}
+.schedule-quick-groups{display:grid;gap:10px;margin-top:12px}
+.schedule-chip-row{display:flex;flex-wrap:wrap;gap:8px}
+.schedule-chip{border:1px solid var(--line);padding:8px 10px;border-radius:999px;background:#fff;font-size:13px;cursor:pointer;user-select:none;color:#1f2937;font-weight:700}
+.schedule-chip:hover{background:#f9fafb}
+.schedule-chip.active{background:var(--soft);border-color:#fecaca;color:#7f1d1d;font-weight:900}
+.schedule-results{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.schedule-card-item{background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:10px;box-shadow:0 8px 24px rgba(15,23,42,.04)}
+.schedule-card-item h3{margin:0;font-size:18px;color:#111827}
+.schedule-day{display:inline-flex;width:max-content;background:#f3f4f6;border:1px solid var(--line);border-radius:999px;padding:5px 9px;font-size:13px;font-weight:900;color:#374151}
+.schedule-tags{display:flex;flex-wrap:wrap;gap:8px}
+.schedule-tag{background:#b91c1c;border:1px solid #b91c1c;border-radius:10px;padding:6px 9px;font-size:13px;color:#fff;font-weight:800;cursor:pointer}
+.schedule-empty{color:var(--muted);text-align:center;padding:24px}
+.schedule-hint{color:var(--muted);font-size:13px;margin-top:14px}
+@media(max-width:1050px){.side-nav{grid-template-columns:repeat(4,1fr)}.schedule-results{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.side-nav{grid-template-columns:1fr}.schedule-head{flex-direction:column}.schedule-reset{width:100%}.schedule-results{grid-template-columns:1fr}.schedule-card{padding:14px}.schedule-chip{font-size:12px;padding:7px 9px}.schedule-filter-panel{padding:14px}}
+
 </style>
 </head>
 <body>
@@ -71,6 +95,7 @@ body{background:#f6f7fb;}
     <nav class="side-nav" aria-label="Menú principal">
       <button class="side-link active" type="button" data-view="inicio">Inicio</button>
       <button class="side-link" type="button" data-view="estadisticas">Estadísticas</button>
+      <button class="side-link" type="button" data-view="horarios">Horarios</button>
       <button class="side-link" type="button" data-view="edicion">Editar datos</button>
     </nav>
     
@@ -149,6 +174,33 @@ body{background:#f6f7fb;}
           <div class="panel standalone-card"><h2>Total por disciplina</h2><p class="small">Resumen según los filtros activos.</p><div id="statsBarList" class="bar-list"></div></div>
         </section>
         <section class="panel table-card"><div class="table-tools"><h2>Tabla de registros</h2><span id="tableCount" class="small"></span></div><div class="table-scroll"><table id="dataTable"></table></div></section>
+      </section>
+
+
+      <section id="view-horarios" class="view">
+        <section class="panel schedule-card">
+          <div class="schedule-head">
+            <div>
+              <h2>Horarios · Club Deportivo</h2>
+              <p>Busca por disciplina, grado/año o día de la semana.</p>
+            </div>
+            <button class="btn secondary schedule-reset" id="scheduleResetBtn" type="button">Reiniciar filtros</button>
+          </div>
+          <section class="panel schedule-filter-panel">
+            <div class="field">
+              <label for="scheduleSearch">Búsqueda rápida</label>
+              <input id="scheduleSearch" type="search" placeholder="Escribe: ajedrez, 3er, futsal…">
+            </div>
+            <div class="schedule-quick-groups">
+              <div class="schedule-chip-row" id="scheduleDiscChips"></div>
+              <div class="schedule-chip-row" id="scheduleGradeChips"></div>
+              <div class="schedule-chip-row" id="scheduleDayChips"></div>
+            </div>
+          </section>
+          <section id="scheduleResults" class="schedule-results" aria-live="polite"></section>
+          <div id="scheduleEmpty" class="schedule-empty" hidden>Sin coincidencias con los filtros actuales.</div>
+          <div class="schedule-hint">Sugerencia: haz clic en una disciplina, un grado o un día para filtrar al instante.</div>
+        </section>
       </section>
 
       <section id="view-edicion" class="view">
@@ -547,6 +599,188 @@ function initAdminModule(){
   $('findRecordsBtn').onclick=findEditableRecords;
 }
 
+
+
+// ===== Módulo Horarios =====
+const SCH_normal = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+const SCH_D = (dia, grado, disciplinas, categoria) => ({day: dia, grade: grado, disciplines: disciplinas, type: categoria || 'Deportes'});
+const SCH_DAY_ORDER = ["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
+const SCH_GRADE_ORDER = ["1er Grado","2do Grado","3er Grado","4to Grado","5to Grado","6to Grado","1er Año","2do Año","3er Año","4to Año","5to Año"];
+function scheduleTodayName(){const dias=["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"]; return dias[new Date().getDay()];}
+const SCH_DATA = [
+  SCH_D('Lunes','1er Grado',["Béisbol","Atletismo","Robótica","Iniciación musical"]),
+  SCH_D('Lunes','2do Grado',["Béisbol","Atletismo","Robótica","Iniciación musical"]),
+  SCH_D('Lunes','3er Grado',["Baloncesto","Ajedrez","Tenis","Música"]),
+  SCH_D('Martes','1er Grado',["Baloncesto","Ajedrez"]),
+  SCH_D('Martes','2do Grado',["Baloncesto","Ajedrez","Astronomía"]),
+  SCH_D('Martes','3er Grado',["Atletismo","Fútbol campo","Tenis","Futsal","Robótica","Roblegaita"]),
+  SCH_D('Miércoles','1er Grado',["Ajedrez","Robótica","Futsal"]),
+  SCH_D('Miércoles','2do Grado',["Ajedrez","Robótica","Futsal"]),
+  SCH_D('Miércoles','3er Grado',["Béisbol","Fútbol campo","Tenis","Música","Astronomía"]),
+  SCH_D('Jueves','1er Grado',["Fútbol campo"]),
+  SCH_D('Jueves','2do Grado',["Fútbol campo"]),
+  SCH_D('Jueves','3er Grado',["Atletismo","Béisbol","Ajedrez","Futsal","Robótica","Música"]),
+  SCH_D('Viernes','1er Grado',["Tenis","Atletismo"]),
+  SCH_D('Viernes','2do Grado',["Tenis","Atletismo"]),
+  SCH_D('Viernes','3er Grado',["Baloncesto","Béisbol","Astronomía"]),
+  SCH_D('Sábado','1er Grado',["Encuentros deportivos"]),
+  SCH_D('Sábado','2do Grado',["Encuentros deportivos"]),
+  SCH_D('Sábado','3er Grado',["Encuentros deportivos"]),
+
+  SCH_D('Lunes','4to Grado',["Baloncesto","Ajedrez","Tenis","Música"]),
+  SCH_D('Lunes','5to Grado',["Ajedrez","Tenis","Futsal","Música"]),
+  SCH_D('Lunes','6to Grado',["Ajedrez","Tenis","Futsal","Música"]),
+  SCH_D('Martes','4to Grado',["Atletismo","Fútbol campo","Tenis","Futsal","Robótica","Roblegaita"]),
+  SCH_D('Martes','5to Grado',["Atletismo","Fútbol campo","Tenis","Futsal","Robótica","Roblegaita"]),
+  SCH_D('Martes','6to Grado',["Atletismo","Fútbol campo","Tenis","Futsal","Robótica","Roblegaita"]),
+  SCH_D('Miércoles','4to Grado',["Béisbol","Fútbol campo","Tenis","Futsal","Música","Astronomía"]),
+  SCH_D('Miércoles','5to Grado',["Béisbol","Fútbol campo","Tenis","Música","Astronomía"]),
+  SCH_D('Miércoles','6to Grado',["Béisbol","Fútbol campo","Tenis","Música","Astronomía"]),
+  SCH_D('Jueves','4to Grado',["Atletismo","Béisbol","Ajedrez","Futsal","Robótica","Música"]),
+  SCH_D('Jueves','5to Grado',["Baloncesto","Atletismo","Béisbol","Ajedrez","Robótica","Música"]),
+  SCH_D('Jueves','6to Grado',["Baloncesto","Atletismo","Béisbol","Ajedrez","Robótica","Música"]),
+  SCH_D('Viernes','4to Grado',["Baloncesto","Béisbol","Astronomía"]),
+  SCH_D('Viernes','5to Grado',["Baloncesto","Béisbol","Astronomía"]),
+  SCH_D('Viernes','6to Grado',["Baloncesto","Béisbol","Astronomía"]),
+  SCH_D('Sábado','4to Grado',["Encuentros deportivos"]),
+  SCH_D('Sábado','5to Grado',["Encuentros deportivos"]),
+  SCH_D('Sábado','6to Grado',["Encuentros deportivos"]),
+
+  SCH_D('Lunes','1er Año',["Fútbol campo","Astronomía"]),
+  SCH_D('Lunes','2do Año',["Fútbol campo","Astronomía"]),
+  SCH_D('Lunes','3er Año',["Fútbol campo"]),
+  SCH_D('Martes','1er Año',["Béisbol","Roblegaita"]),
+  SCH_D('Martes','2do Año',["Béisbol","Roblegaita"]),
+  SCH_D('Martes','3er Año',["Béisbol","Roblegaita"]),
+  SCH_D('Miércoles','1er Año',["Baloncesto","Atletismo","Música"]),
+  SCH_D('Miércoles','2do Año',["Baloncesto","Atletismo","Música"]),
+  SCH_D('Miércoles','3er Año',["Baloncesto","Atletismo","Música"]),
+  SCH_D('Jueves','1er Año',["Tenis"]),
+  SCH_D('Jueves','2do Año',["Tenis"]),
+  SCH_D('Jueves','3er Año',["Tenis"]),
+  SCH_D('Viernes','1er Año',["Ajedrez","Futsal","Robótica","Música"]),
+  SCH_D('Viernes','2do Año',["Ajedrez","Futsal","Robótica","Música"]),
+  SCH_D('Viernes','3er Año',["Ajedrez","Futsal","Robótica","Música"]),
+  SCH_D('Sábado','1er Año',["Encuentros deportivos"]),
+  SCH_D('Sábado','2do Año',["Encuentros deportivos"]),
+  SCH_D('Sábado','3er Año',["Encuentros deportivos"]),
+
+  SCH_D('Lunes','4to Año',["Fútbol campo","Astronomía"]),
+  SCH_D('Lunes','5to Año',["Fútbol campo","Astronomía"]),
+  SCH_D('Martes','4to Año',["Béisbol","Roblegaita"]),
+  SCH_D('Martes','5to Año',["Béisbol","Roblegaita"]),
+  SCH_D('Miércoles','4to Año',["Baloncesto","Música","Atletismo"]),
+  SCH_D('Miércoles','5to Año',["Baloncesto","Música","Atletismo"]),
+  SCH_D('Jueves','4to Año',["Tenis"]),
+  SCH_D('Jueves','5to Año',["Tenis"]),
+  SCH_D('Viernes','4to Año',["Ajedrez","Futsal","Robótica","Música"]),
+  SCH_D('Viernes','5to Año',["Ajedrez","Futsal","Robótica","Música"]),
+  SCH_D('Sábado','4to Año',["Encuentros deportivos"]),
+  SCH_D('Sábado','5to Año',["Encuentros deportivos"]),
+
+  SCH_D('Lunes','1er Grado',["Iniciación musical","Guitarra","Cuatro"],'Música'),
+  SCH_D('Lunes','2do Grado',["Iniciación musical","Guitarra","Cuatro"],'Música'),
+  ...['3er Grado','1er Año','2do Año','3er Año','4to Año','5to Año'].map(g=>SCH_D('Martes',g,["Roblegaita"],'Música')),
+  ...['3er Grado','1er Año','2do Año','3er Año','4to Año','5to Año'].map(g=>SCH_D('Miércoles',g,["Batería","Cuatro","Guitarra","Teclado"],'Música')),
+  ...['3er Grado','1er Año','2do Año','3er Año','4to Año','5to Año'].map(g=>SCH_D('Jueves',g,["Gaiteritos de Los Robles"],'Música')),
+  ...['3er Grado','1er Año','2do Año','3er Año','4to Año','5to Año'].map(g=>SCH_D('Viernes',g,["Batería","Cuatro","Bajo","Guitarra","Ensambles"],'Música')),
+].flat();
+let scheduleSelectedDay = '';
+let scheduleSelectedGrade = '';
+let scheduleSelectedDisc = '';
+function scheduleButton(label, attr, value, active=false){return `<button class="schedule-chip ${active ? 'active' : ''}" type="button" ${attr}="${escapeHtml(value)}">${escapeHtml(label)}</button>`;}
+function initScheduleModule(){
+  const discBox=document.getElementById('scheduleDiscChips'), gradeBox=document.getElementById('scheduleGradeChips'), dayBox=document.getElementById('scheduleDayChips');
+  if(!discBox || !gradeBox || !dayBox) return;
+  const hot=["Fútbol campo","Baloncesto","Béisbol","Atletismo","Tenis","Ajedrez","Futsal","Robótica","Astronomía","Música","Roblegaita"];
+  discBox.innerHTML=hot.map(name=>scheduleButton(name,'data-sdisc',name)).join('');
+  gradeBox.innerHTML=['Todos',...SCH_GRADE_ORDER].map((g,i)=>scheduleButton(g,'data-sgrade',g,i===0)).join('');
+  const today=scheduleTodayName();
+  const dayItems=['Todos','Hoy',...SCH_DAY_ORDER];
+  dayBox.innerHTML=dayItems.map(d=>scheduleButton(d,'data-sday',d,d==='Hoy' && SCH_DAY_ORDER.includes(today))).join('');
+  if(SCH_DAY_ORDER.includes(today)) scheduleSelectedDay=today;
+  else { const all=dayBox.querySelector('[data-sday="Todos"]'); if(all) all.classList.add('active'); }
+  discBox.addEventListener('click', e=>{
+    const b=e.target.closest('[data-sdisc]'); if(!b) return;
+    const will=!b.classList.contains('active');
+    discBox.querySelectorAll('.schedule-chip').forEach(c=>c.classList.remove('active'));
+    scheduleSelectedDisc=will ? b.dataset.sdisc : '';
+    if(will) b.classList.add('active');
+    renderSchedule();
+  });
+  gradeBox.addEventListener('click', e=>{
+    const b=e.target.closest('[data-sgrade]'); if(!b) return;
+    const val=b.dataset.sgrade; const will=!b.classList.contains('active');
+    gradeBox.querySelectorAll('.schedule-chip').forEach(c=>c.classList.remove('active'));
+    scheduleSelectedGrade=(val==='Todos' || !will) ? '' : val;
+    if(will) b.classList.add('active');
+    if(!scheduleSelectedGrade){ const all=gradeBox.querySelector('[data-sgrade="Todos"]'); if(all) all.classList.add('active'); }
+    renderSchedule();
+  });
+  dayBox.addEventListener('click', e=>{
+    const b=e.target.closest('[data-sday]'); if(!b) return;
+    const val=b.dataset.sday; const will=!b.classList.contains('active');
+    dayBox.querySelectorAll('.schedule-chip').forEach(c=>c.classList.remove('active'));
+    if(val==='Hoy' && will){scheduleSelectedDay=SCH_DAY_ORDER.includes(today)?today:''; b.classList.add('active');}
+    else {scheduleSelectedDay=(val==='Todos'||!will)?'':val; if(will) b.classList.add('active');}
+    if(!scheduleSelectedDay && (!will || val==='Todos')){ const all=dayBox.querySelector('[data-sday="Todos"]'); if(all) all.classList.add('active'); }
+    renderSchedule();
+  });
+  const search=document.getElementById('scheduleSearch');
+  if(search) search.addEventListener('input', renderSchedule);
+  const reset=document.getElementById('scheduleResetBtn');
+  if(reset) reset.addEventListener('click', resetScheduleFilters);
+  renderSchedule();
+}
+function resetScheduleFilters(){
+  scheduleSelectedDay=scheduleSelectedGrade=scheduleSelectedDisc='';
+  const search=document.getElementById('scheduleSearch'); if(search) search.value='';
+  document.querySelectorAll('#view-horarios .schedule-chip').forEach(c=>c.classList.remove('active'));
+  const gAll=document.querySelector('#scheduleGradeChips [data-sgrade="Todos"]'); if(gAll) gAll.classList.add('active');
+  const dAll=document.querySelector('#scheduleDayChips [data-sday="Todos"]'); if(dAll) dAll.classList.add('active');
+  renderSchedule();
+}
+function renderSchedule(){
+  const results=document.getElementById('scheduleResults'); const empty=document.getElementById('scheduleEmpty'); const search=document.getElementById('scheduleSearch');
+  if(!results || !empty) return;
+  const qText=SCH_normal(search ? search.value : '');
+  const filtered=SCH_DATA.filter(row=>{
+    const okDay=!scheduleSelectedDay || row.day===scheduleSelectedDay;
+    const okGrade=!scheduleSelectedGrade || row.grade===scheduleSelectedGrade;
+    const okDisc=!scheduleSelectedDisc || row.disciplines.includes(scheduleSelectedDisc);
+    const searchable=SCH_normal(`${row.day} ${row.grade} ${row.type} ${row.disciplines.join(' ')}`);
+    const okText=!qText || searchable.includes(qText);
+    return okDay && okGrade && okDisc && okText;
+  });
+  const groups=new Map();
+  for(const row of filtered){
+    if(!groups.has(row.grade)) groups.set(row.grade,new Map());
+    const byDay=groups.get(row.grade);
+    if(!byDay.has(row.day)) byDay.set(row.day,new Set());
+    row.disciplines.forEach(d=>byDay.get(row.day).add(d));
+  }
+  results.innerHTML='';
+  const gradesSorted=Array.from(groups.keys()).sort((a,b)=>SCH_GRADE_ORDER.indexOf(a)-SCH_GRADE_ORDER.indexOf(b));
+  gradesSorted.forEach(grade=>{
+    const byDay=groups.get(grade);
+    const daysSorted=Array.from(byDay.keys()).sort((a,b)=>SCH_DAY_ORDER.indexOf(a)-SCH_DAY_ORDER.indexOf(b));
+    const card=document.createElement('article'); card.className='schedule-card-item';
+    const dayBlocks=daysSorted.map(day=>{
+      const disc=Array.from(byDay.get(day)).sort((a,b)=>a.localeCompare(b,'es',{numeric:true}));
+      return `<span class="schedule-day">${escapeHtml(day)}</span><div class="schedule-tags">${disc.map(d=>`<button class="schedule-tag" type="button" data-schedule-d="${escapeHtml(d)}">${escapeHtml(d)}</button>`).join('')}</div>`;
+    }).join('');
+    card.innerHTML=`<h3>${escapeHtml(grade)}</h3>${dayBlocks}`;
+    card.addEventListener('click', e=>{
+      const t=e.target.closest('[data-schedule-d]'); if(!t) return;
+      scheduleSelectedDisc=t.dataset.scheduleD;
+      document.querySelectorAll('#scheduleDiscChips .schedule-chip').forEach(c=>c.classList.toggle('active', c.dataset.sdisc===scheduleSelectedDisc));
+      renderSchedule();
+    });
+    results.appendChild(card);
+  });
+  empty.hidden=gradesSorted.length!==0;
+}
+initScheduleModule();
 
 function showView(viewName){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
