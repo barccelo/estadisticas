@@ -279,6 +279,69 @@ body{background:#f6f7fb;}
   }
 }
 
+
+/* Ajuste final: botones de Total por disciplina en Estadísticas como en Inicio */
+#view-estadisticas .stats-total-card .section-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+}
+#view-estadisticas .stats-total-actions{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:flex-end !important;
+  gap:8px !important;
+  flex-wrap:wrap !important;
+  margin:0 !important;
+  width:auto !important;
+}
+#view-estadisticas .stats-total-actions .btn{
+  width:auto !important;
+  min-height:38px !important;
+  padding:10px 13px !important;
+  border-radius:12px !important;
+  white-space:nowrap !important;
+}
+#view-estadisticas .stats-total-card > .filter-panel{
+  margin:8px 0 14px 0;
+  width:100%;
+  max-width:100%;
+  overflow:hidden;
+  border-radius:16px;
+}
+@media(max-width:650px){
+  #view-estadisticas .stats-total-card .section-head{
+    flex-direction:column;
+    align-items:flex-start;
+  }
+  #view-estadisticas .stats-total-actions{
+    display:grid !important;
+    grid-template-columns:1fr 1fr;
+    width:100% !important;
+    gap:8px !important;
+  }
+  #view-estadisticas .stats-total-actions .btn{
+    width:100% !important;
+    min-height:42px !important;
+    font-size:14px !important;
+  }
+  #view-estadisticas .stats-total-card > .filter-panel .filters{
+    grid-template-columns:1fr 1fr;
+    padding:14px;
+    gap:12px;
+  }
+  #view-estadisticas .stats-total-card > .filter-panel .filters .field:nth-child(n+3),
+  #view-estadisticas .stats-total-card > .filter-panel .filters .field.wide,
+  #view-estadisticas .stats-total-card > .filter-panel .filters .actions{
+    grid-column:1 / -1;
+  }
+  #view-estadisticas .stats-total-card > .filter-panel .filters .actions .btn{
+    width:100%;
+    flex:1 1 100%;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -360,7 +423,6 @@ body{background:#f6f7fb;}
       </section>
 
       <section id="view-estadisticas" class="view">
-        <div class="stats-actions"><button class="btn secondary quick-today-btn" id="todayStatsBtn" type="button">Hoy</button><button class="btn secondary advanced-filter-btn" type="button" data-toggle-filters>Filtros avanzados</button></div>
         <section class="panel discipline-box"><div class="table-tools"><strong>Disciplinas visibles</strong><div class="discipline-actions"><span class="small">Selecciona una o varias para comparar.</span><button class="btn secondary" id="clearDiscBtn" type="button">Limpiar disciplinas</button><button class="btn secondary" id="allDiscBtn" type="button">Seleccionar todas</button></div></div><div id="disciplineChips" class="chips"></div></section>
         <section class="grid kpis stat-kpis">
           <div class="panel kpi"><div class="label">Promedio diario</div><div id="kpiAvg" class="value">—</div><div class="sub">asistentes por reporte</div></div>
@@ -369,7 +431,7 @@ body{background:#f6f7fb;}
         </section>
         <section class="grid charts">
           <div class="panel chart-card"><h2>Tendencia diaria</h2><div class="canvas-wrap"><canvas id="lineChart"></canvas></div><div class="small">Cada línea representa una disciplina visible.</div></div>
-          <div class="panel standalone-card"><div class="section-head"><div><h2>Total por disciplina</h2><p class="small">Resumen según los filtros activos.</p></div><div class="stats-total-actions"><button class="btn secondary export-mini-btn" id="exportStatsImageBtn" type="button" title="Exportar imagen">↓ Imagen</button><button class="btn secondary export-mini-btn" id="exportStatsPdfBtn" type="button" title="Exportar PDF">▣ PDF</button></div></div><div id="statsBarList" class="bar-list"></div></div>
+          <div class="panel standalone-card stats-total-card"><div class="section-head"><div><h2>Total por disciplina</h2><p class="small">Resumen según los filtros activos.</p></div><div class="stats-total-actions"><button class="btn secondary quick-today-btn" id="todayStatsBtn" type="button">Hoy</button><button class="btn secondary advanced-filter-btn" type="button" data-toggle-filters>Filtros avanzados</button><button class="btn secondary export-mini-btn" id="exportStatsImageBtn" type="button" title="Exportar imagen">↓ Imagen</button><button class="btn secondary export-mini-btn" id="exportStatsPdfBtn" type="button" title="Exportar PDF">▣ PDF</button></div></div><div id="statsBarList" class="bar-list"></div></div>
         </section>
         <section class="panel table-card"><div class="table-tools"><h2>Tabla de registros</h2><span id="tableCount" class="small"></span></div><div class="table-scroll"><table id="dataTable"></table></div></section>
       </section>
@@ -772,6 +834,69 @@ function downloadTotalPDF(){
 @media (max-width:390px){
   #view-inicio .admin-box .admin-card{
     padding:20px !important;
+  }
+}
+
+
+/* Ajuste final: botones de Total por disciplina en Estadísticas como en Inicio */
+#view-estadisticas .stats-total-card .section-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+}
+#view-estadisticas .stats-total-actions{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:flex-end !important;
+  gap:8px !important;
+  flex-wrap:wrap !important;
+  margin:0 !important;
+  width:auto !important;
+}
+#view-estadisticas .stats-total-actions .btn{
+  width:auto !important;
+  min-height:38px !important;
+  padding:10px 13px !important;
+  border-radius:12px !important;
+  white-space:nowrap !important;
+}
+#view-estadisticas .stats-total-card > .filter-panel{
+  margin:8px 0 14px 0;
+  width:100%;
+  max-width:100%;
+  overflow:hidden;
+  border-radius:16px;
+}
+@media(max-width:650px){
+  #view-estadisticas .stats-total-card .section-head{
+    flex-direction:column;
+    align-items:flex-start;
+  }
+  #view-estadisticas .stats-total-actions{
+    display:grid !important;
+    grid-template-columns:1fr 1fr;
+    width:100% !important;
+    gap:8px !important;
+  }
+  #view-estadisticas .stats-total-actions .btn{
+    width:100% !important;
+    min-height:42px !important;
+    font-size:14px !important;
+  }
+  #view-estadisticas .stats-total-card > .filter-panel .filters{
+    grid-template-columns:1fr 1fr;
+    padding:14px;
+    gap:12px;
+  }
+  #view-estadisticas .stats-total-card > .filter-panel .filters .field:nth-child(n+3),
+  #view-estadisticas .stats-total-card > .filter-panel .filters .field.wide,
+  #view-estadisticas .stats-total-card > .filter-panel .filters .actions{
+    grid-column:1 / -1;
+  }
+  #view-estadisticas .stats-total-card > .filter-panel .filters .actions .btn{
+    width:100%;
+    flex:1 1 100%;
   }
 }
 
@@ -1204,9 +1329,12 @@ function toggleFilterPanel(trigger){
   const panel=document.getElementById('filterPanel');
   if(!panel) return;
   const homeCard = trigger.closest('.home-total-card');
+  const statsTotalCard = trigger.closest('.stats-total-card');
   const statsView = trigger.closest('#view-estadisticas');
-  const targetContainer = homeCard || statsView || document.querySelector('main.wrap');
-  const beforeNode = homeCard ? document.getElementById('totalExportArea') : (statsView ? statsView.querySelector('.discipline-box') : null);
+  const targetContainer = homeCard || statsTotalCard || statsView || document.querySelector('main.wrap');
+  const beforeNode = homeCard
+    ? document.getElementById('totalExportArea')
+    : (statsTotalCard ? document.getElementById('statsBarList') : (statsView ? statsView.querySelector('.discipline-box') : null));
   const alreadyHere = panel.parentNode === targetContainer;
   const isOpen = panel.classList.contains('open');
   if(isOpen && alreadyHere){panel.classList.remove('open'); return;}
