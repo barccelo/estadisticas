@@ -348,7 +348,10 @@ body{background:#f6f7fb;}
 .day-log-status .log-muted,.draft-status .log-muted{display:block;color:#6b7280;margin-top:4px}
 .draft-autosave-dot{display:inline-flex;align-items:center;gap:6px}
 .draft-autosave-dot::before{content:"";width:7px;height:7px;border-radius:50%;background:#991b1b;opacity:.75}
-@media(max-width:650px){.draft-status .draft-actions .btn{flex:1 1 auto;width:auto}.day-log-status,.draft-status{font-size:13px}}
+.draft-check-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0 2px}
+.draft-check-row .compact{min-height:34px;padding:7px 10px;font-size:12px}
+.draft-check-hint{font-size:12px;color:#6b7280;line-height:1.25}
+@media(max-width:650px){.draft-status .draft-actions .btn{flex:1 1 auto;width:auto}.day-log-status,.draft-status{font-size:13px}.draft-check-row{display:grid;grid-template-columns:1fr;gap:6px}.draft-check-row .btn{width:100%}.draft-check-hint{font-size:11px}}
 </style>
 </head>
 <body>
@@ -396,6 +399,7 @@ body{background:#f6f7fb;}
                   <div class="field"><label>Fecha</label><input id="regFecha" type="date"></div>
                   <div class="field full"><label>Responsable / correo</label><select id="regEmail"><option value="">Selecciona responsable</option></select></div>
                 </div>
+                <div class="draft-check-row"><button class="btn secondary compact" id="checkDraftBtn" type="button">Verificar borrador</button><span class="draft-check-hint">Consulta manualmente si existe un borrador activo para esta fecha.</span></div>
                 <div id="dailyRecordStatus" class="daily-record-status" aria-live="polite"></div>
                 <div id="dayLogStatus" class="daily-record-status day-log-status" aria-live="polite"></div>
                 <div id="draftStatus" class="daily-record-status draft-status" aria-live="polite"></div>
@@ -503,6 +507,7 @@ let draftAutosaveTimer = null;
 let draftLastSavedSignature = '';
 let draftLoadedId = '';
 let draftSuppressAutosave = false;
+let draftFormDirty = false;
 const fmt = new Intl.NumberFormat('es-VE');
 function $(id){return document.getElementById(id)}
 function escapeHtml(v){return String(v ?? '').replace(/[<>&]/g, m=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[m]))}
@@ -976,7 +981,7 @@ function buildRegisterInputs(){
     attachSumGesture(btn);
   });
   box.querySelectorAll('.undo-sum').forEach(btn=>btn.addEventListener('click',()=>undoQuickSum(btn.dataset.target)));
-  box.querySelectorAll('input').forEach(el=>{el.addEventListener('input',()=>scheduleDraftAutosave()); el.addEventListener('change',()=>scheduleDraftAutosave(1000));});
+  box.querySelectorAll('input').forEach(el=>{el.addEventListener('input',()=>markDraftDirty(5000)); el.addEventListener('change',()=>markDraftDirty(1000));});
   if($('regFecha') && !$('regFecha').value) $('regFecha').value=todayISO();
   refreshRegisterDayPanels();
 }
@@ -1011,7 +1016,7 @@ function applyDirectDelta(targetId, delta){
   if(input.dataset.prevValue===undefined) input.dataset.prevValue=String(prev);
   input.value=Math.max(0, prev + delta);
   const undo=$('undo_'+targetId); if(undo) undo.classList.add('show');
-  scheduleDraftAutosave(1200);
+  markDraftDirty(1200);
 }
 function applyQuickSum(targetId, label){
   const input=$(targetId); if(!input) return;
@@ -1023,14 +1028,14 @@ function applyQuickSum(targetId, label){
   input.dataset.prevValue=String(prev);
   input.value=Math.max(0, prev + add);
   const undo=$('undo_'+targetId); if(undo) undo.classList.add('show');
-  scheduleDraftAutosave(1200);
+  markDraftDirty(1200);
 }
 function undoQuickSum(targetId){
   const input=$(targetId); if(!input || input.dataset.prevValue===undefined) return;
   input.value=input.dataset.prevValue;
   delete input.dataset.prevValue;
   const undo=$('undo_'+targetId); if(undo) undo.classList.remove('show');
-  scheduleDraftAutosave(1200);
+  markDraftDirty(1200);
 }
 function updateDailyRecordStatus(){
   const box=$('dailyRecordStatus'); if(!box) return;
@@ -1115,17 +1120,20 @@ function fillRegisterFormFromRecord(record){
     const el=$('reg_'+normalizeKey(d));
     if(el) el.value = record[d] !== undefined ? record[d] : '';
   });
+  const loadedSig = draftSignature(makeRecordFromPrefix('reg'));
+  draftLastSavedSignature = loadedSig;
+  draftFormDirty = false;
   setTimeout(()=>{draftSuppressAutosave=false;}, 250);
   updateDailyRecordStatus();
-  scheduleDraftAutosave(600);
 }
 async function checkSharedDraft(){
   const snap=currentRegisterSnapshot();
-  if(!snap.date){setDraftStatus('', false); return;}
+  if(!snap.date){setDraftStatus('<strong>Borrador compartido:</strong> selecciona una fecha para verificar.', true); return;}
   if(!snap.password){
-    setDraftStatus('<strong>Borrador compartido:</strong> ingresa la contraseña de registro para consultar o guardar borradores entre dispositivos.', true);
+    setDraftStatus('<strong>Borrador compartido:</strong> ingresa la contraseña de registro para verificar borradores entre dispositivos.', true);
     return;
   }
+  setDraftStatus('<strong>Borrador compartido:</strong> verificando…', true);
   try{
     const result=await apiCall('getDraft', {password:snap.password, date:snap.date});
     if(!result.ok) throw new Error(result.message || 'No se pudo consultar el borrador.');
@@ -1141,7 +1149,7 @@ async function checkSharedDraft(){
     setDraftStatus(`<strong>Borrador compartido activo.</strong><span class="log-muted">Última actualización: ${escapeHtml(updated)} · Responsable: ${escapeHtml(responsibleShort(by))}</span><div class="draft-actions"><button class="btn secondary" type="button" id="loadSharedDraftBtn">Cargar borrador</button><button class="btn secondary" type="button" id="discardSharedDraftBtn">Descartar borrador</button></div>`, true);
     const loadBtn=$('loadSharedDraftBtn');
     const discardBtn=$('discardSharedDraftBtn');
-    if(loadBtn) loadBtn.onclick=()=>{fillRegisterFormFromRecord(draft.record || {}); setDraftStatus('<strong>Borrador cargado.</strong><span class="log-muted">Puedes continuar el llenado y guardar cuando termines.</span>', true);};
+    if(loadBtn) loadBtn.onclick=()=>{fillRegisterFormFromRecord(draft.record || {}); setDraftStatus('<strong>Borrador cargado.</strong><span class="log-muted">No se actualizará hasta que modifiques algún campo.</span>', true);};
     if(discardBtn) discardBtn.onclick=()=>discardSharedDraft();
   }catch(err){
     setDraftStatus(`<strong>Borrador compartido:</strong> ${escapeHtml(err.message)}`, true);
@@ -1157,12 +1165,18 @@ async function discardSharedDraft(){
     setDraftStatus('<strong>Borrador descartado.</strong>', true);
   }catch(err){setDraftStatus(`<strong>No se pudo descartar el borrador:</strong> ${escapeHtml(err.message)}`, true);}
 }
-function scheduleDraftAutosave(delay=5000){
+function markDraftDirty(delay=5000){
   if(draftSuppressAutosave) return;
+  draftFormDirty = true;
+  scheduleDraftAutosave(delay);
+}
+function scheduleDraftAutosave(delay=5000){
+  if(draftSuppressAutosave || !draftFormDirty) return;
   clearTimeout(draftAutosaveTimer);
   draftAutosaveTimer=setTimeout(saveSharedDraft, delay);
 }
 async function saveSharedDraft(){
+  if(!draftFormDirty) return;
   const snap=currentRegisterSnapshot();
   if(!snap.password || !snap.date) return;
   if(!recordHasContent(snap.record)) return;
@@ -1173,6 +1187,7 @@ async function saveSharedDraft(){
     const result=await apiCall('saveDraft', {password:snap.password, date:snap.date, record:snap.record});
     if(!result.ok) throw new Error(result.message || 'No se pudo guardar el borrador.');
     draftLastSavedSignature=sig;
+    draftFormDirty=false;
     draftLoadedId=result.id || draftLoadedId;
     const time = result.updatedAt || 'ahora';
     setDraftStatus(`<strong>Borrador compartido guardado.</strong><span class="log-muted">Última actualización: ${escapeHtml(time)}</span>`, true);
@@ -1200,7 +1215,7 @@ async function updateDayLogStatus(){
 function refreshRegisterDayPanels(){
   updateDailyRecordStatus();
   updateDayLogStatus();
-  checkSharedDraft();
+  setDraftStatus('', false);
 }
 
 function clearRecordForm(){
@@ -1210,6 +1225,8 @@ function clearRecordForm(){
   DISCIPLINES.forEach(d=>{const el=$('reg_'+normalizeKey(d)); if(el){el.value=''; delete el.dataset.prevValue;} const undo=$('undo_reg_'+normalizeKey(d)); if(undo) undo.classList.remove('show');});
   refreshRegisterDayPanels();
   draftLastSavedSignature='';
+  draftFormDirty=false;
+  clearTimeout(draftAutosaveTimer);
   setStatus('regStatus','');
 }
 async function saveRecord(){
@@ -1222,6 +1239,8 @@ async function saveRecord(){
     if(!result.ok) throw new Error(result.message || 'No se pudo guardar.');
     setStatus('regStatus', result.message || 'Registro guardado correctamente.','ok');
     try{await apiCall('discardDraft', {password, date:$('regFecha').value});}catch(_e){}
+    draftFormDirty=false;
+    draftLastSavedSignature='';
     await loadData({keepFilters:true});
     refreshRegisterDayPanels();
   }catch(err){setStatus('regStatus', err.message, 'err');}
@@ -1282,7 +1301,9 @@ function initAdminModule(){
   $('saveRecordBtn').onclick=saveRecord;
   $('clearRecordFormBtn').onclick=clearRecordForm;
   $('findRecordsBtn').onclick=findEditableRecords;
-  ['regPassword','regFecha','regEmail','regObs'].forEach(id=>{const el=$(id); if(!el) return; el.addEventListener('input',()=>{if(id!=='regPassword') scheduleDraftAutosave();}); el.addEventListener('change',()=>{if(id==='regFecha' || id==='regPassword') refreshRegisterDayPanels(); else scheduleDraftAutosave(1000);});});
+  const checkBtn=$('checkDraftBtn'); if(checkBtn) checkBtn.onclick=checkSharedDraft;
+  ['regPassword','regFecha'].forEach(id=>{const el=$(id); if(!el) return; el.addEventListener('change',refreshRegisterDayPanels);});
+  ['regEmail','regObs'].forEach(id=>{const el=$(id); if(!el) return; el.addEventListener('input',()=>markDraftDirty(5000)); el.addEventListener('change',()=>markDraftDirty(1000));});
   setTimeout(refreshRegisterDayPanels, 600);
 }
 
