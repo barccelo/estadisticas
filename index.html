@@ -162,6 +162,32 @@ body{background:#f6f7fb;}
   .sum-control{touch-action:none;user-select:none}
 }
 
+
+
+/* Ajuste visual: botones Hoy/Filtros avanzados en Estadísticas (escritorio) */
+@media (min-width: 651px){
+  #view-estadisticas .stats-actions{
+    position: static !important;
+    display: flex !important;
+    justify-content: flex-end !important;
+    align-items: center !important;
+    gap: 8px !important;
+    width: 100% !important;
+    margin: 18px 0 12px 0 !important;
+    padding: 0 !important;
+    transform: none !important;
+    top: auto !important;
+    right: auto !important;
+    left: auto !important;
+  }
+  #view-estadisticas .stats-actions .btn{
+    width: auto !important;
+    min-height: 38px !important;
+    padding: 10px 14px !important;
+    border-radius: 12px !important;
+  }
+}
+
 </style>
 </head>
 <body>
