@@ -188,6 +188,68 @@ body{background:#f6f7fb;}
   }
 }
 
+
+
+/* Corrección móvil: alineación limpia del módulo Registrar datos */
+@media (max-width:650px){
+  #view-inicio .view-grid{
+    grid-template-columns:1fr !important;
+    gap:12px !important;
+    width:100% !important;
+    margin:0 !important;
+  }
+  #view-inicio .admin-box{
+    padding:0 !important;
+    margin:0 !important;
+    overflow:hidden !important;
+    border-radius:24px !important;
+    background:#fff !important;
+  }
+  #view-inicio .admin-box .admin-grid{
+    display:block !important;
+    width:100% !important;
+    margin:0 !important;
+    padding:0 !important;
+  }
+  #view-inicio .admin-box .admin-card{
+    width:100% !important;
+    margin:0 !important;
+    padding:24px !important;
+    border:0 !important;
+    border-radius:0 !important;
+    background:transparent !important;
+    box-shadow:none !important;
+  }
+  #view-inicio .admin-box .mini-grid,
+  #view-inicio .admin-box .num-grid{
+    width:100% !important;
+    margin-left:0 !important;
+    margin-right:0 !important;
+  }
+  #view-inicio .admin-box .field,
+  #view-inicio .admin-box .num-input-shell,
+  #view-inicio .admin-box input,
+  #view-inicio .admin-box select,
+  #view-inicio .admin-box textarea{
+    width:100% !important;
+    max-width:100% !important;
+  }
+  #view-inicio .admin-box .admin-row{
+    width:100% !important;
+    margin-left:0 !important;
+    margin-right:0 !important;
+  }
+  #view-inicio .admin-box .admin-row .btn{
+    width:100% !important;
+  }
+}
+
+@media (max-width:390px){
+  #view-inicio .admin-box .admin-card{
+    padding:20px !important;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -620,6 +682,68 @@ function downloadTotalPDF(){
   .stats-total-actions{width:100%;justify-content:flex-end;margin-top:2px}
   .stats-total-actions .export-mini-btn{width:auto;min-height:36px;padding:8px 10px;border-radius:11px;font-size:13px;background:#f9fafb;color:#111827;border:1px solid #e5e7eb}
   .sum-control{touch-action:none;user-select:none}
+}
+
+
+
+/* Corrección móvil: alineación limpia del módulo Registrar datos */
+@media (max-width:650px){
+  #view-inicio .view-grid{
+    grid-template-columns:1fr !important;
+    gap:12px !important;
+    width:100% !important;
+    margin:0 !important;
+  }
+  #view-inicio .admin-box{
+    padding:0 !important;
+    margin:0 !important;
+    overflow:hidden !important;
+    border-radius:24px !important;
+    background:#fff !important;
+  }
+  #view-inicio .admin-box .admin-grid{
+    display:block !important;
+    width:100% !important;
+    margin:0 !important;
+    padding:0 !important;
+  }
+  #view-inicio .admin-box .admin-card{
+    width:100% !important;
+    margin:0 !important;
+    padding:24px !important;
+    border:0 !important;
+    border-radius:0 !important;
+    background:transparent !important;
+    box-shadow:none !important;
+  }
+  #view-inicio .admin-box .mini-grid,
+  #view-inicio .admin-box .num-grid{
+    width:100% !important;
+    margin-left:0 !important;
+    margin-right:0 !important;
+  }
+  #view-inicio .admin-box .field,
+  #view-inicio .admin-box .num-input-shell,
+  #view-inicio .admin-box input,
+  #view-inicio .admin-box select,
+  #view-inicio .admin-box textarea{
+    width:100% !important;
+    max-width:100% !important;
+  }
+  #view-inicio .admin-box .admin-row{
+    width:100% !important;
+    margin-left:0 !important;
+    margin-right:0 !important;
+  }
+  #view-inicio .admin-box .admin-row .btn{
+    width:100% !important;
+  }
+}
+
+@media (max-width:390px){
+  #view-inicio .admin-box .admin-card{
+    padding:20px !important;
+  }
 }
 
 </style></head><body><h1>Total por disciplina</h1><div class="meta">Rango: ${escapeHtml(summary.dateLabel)}<br>Registros: ${fmt.format(summary.registros)} · Asistencia total: ${fmt.format(summary.total)}</div><div class="bar-list">${barsHtml}</div><div class="footer">Fuente: Google Sheets · Club Deportivo</div><script>window.onload=function(){window.print();};<\/script></body></html>`;
