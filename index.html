@@ -342,6 +342,13 @@ body{background:#f6f7fb;}
   }
 }
 
+
+.draft-status .draft-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.draft-status .draft-actions .btn{min-height:34px;padding:7px 10px;font-size:12px}
+.day-log-status .log-muted,.draft-status .log-muted{display:block;color:#6b7280;margin-top:4px}
+.draft-autosave-dot{display:inline-flex;align-items:center;gap:6px}
+.draft-autosave-dot::before{content:"";width:7px;height:7px;border-radius:50%;background:#991b1b;opacity:.75}
+@media(max-width:650px){.draft-status .draft-actions .btn{flex:1 1 auto;width:auto}.day-log-status,.draft-status{font-size:13px}}
 </style>
 </head>
 <body>
@@ -390,6 +397,8 @@ body{background:#f6f7fb;}
                   <div class="field full"><label>Responsable / correo</label><select id="regEmail"><option value="">Selecciona responsable</option></select></div>
                 </div>
                 <div id="dailyRecordStatus" class="daily-record-status" aria-live="polite"></div>
+                <div id="dayLogStatus" class="daily-record-status day-log-status" aria-live="polite"></div>
+                <div id="draftStatus" class="daily-record-status draft-status" aria-live="polite"></div>
                 <div id="regDiscInputs" class="num-grid"></div>
                 <div class="field" style="margin-top:10px"><label>Observaciones</label><textarea id="regObs" placeholder="Observaciones del día"></textarea></div>
                 <div class="admin-row"><button class="btn" id="saveRecordBtn" type="button">Guardar registro</button><button class="btn secondary" id="clearRecordFormBtn" type="button">Limpiar formulario</button></div>
@@ -490,6 +499,10 @@ const DISCIPLINES = ["Ajedrez", "Astronomía", "Atletismo", "Baloncesto", "Béis
 const RESPONSIBLES = ["cesarperozo@losroblesenlinea.com.ve", "alexandropolanco@losroblesenlinea.com.ve", "inrifereira@losroblesenlinea.com.ve", "davidbarcelo@losroblesenlinea.com.ve"];
 let selected = new Set(DISCIPLINES);
 let defaultDates = {from:'', to:''};
+let draftAutosaveTimer = null;
+let draftLastSavedSignature = '';
+let draftLoadedId = '';
+let draftSuppressAutosave = false;
 const fmt = new Intl.NumberFormat('es-VE');
 function $(id){return document.getElementById(id)}
 function escapeHtml(v){return String(v ?? '').replace(/[<>&]/g, m=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[m]))}
@@ -963,8 +976,9 @@ function buildRegisterInputs(){
     attachSumGesture(btn);
   });
   box.querySelectorAll('.undo-sum').forEach(btn=>btn.addEventListener('click',()=>undoQuickSum(btn.dataset.target)));
+  box.querySelectorAll('input').forEach(el=>{el.addEventListener('input',()=>scheduleDraftAutosave()); el.addEventListener('change',()=>scheduleDraftAutosave(1000));});
   if($('regFecha') && !$('regFecha').value) $('regFecha').value=todayISO();
-  updateDailyRecordStatus();
+  refreshRegisterDayPanels();
 }
 
 function numericValueOf(el){
@@ -997,6 +1011,7 @@ function applyDirectDelta(targetId, delta){
   if(input.dataset.prevValue===undefined) input.dataset.prevValue=String(prev);
   input.value=Math.max(0, prev + delta);
   const undo=$('undo_'+targetId); if(undo) undo.classList.add('show');
+  scheduleDraftAutosave(1200);
 }
 function applyQuickSum(targetId, label){
   const input=$(targetId); if(!input) return;
@@ -1008,12 +1023,14 @@ function applyQuickSum(targetId, label){
   input.dataset.prevValue=String(prev);
   input.value=Math.max(0, prev + add);
   const undo=$('undo_'+targetId); if(undo) undo.classList.add('show');
+  scheduleDraftAutosave(1200);
 }
 function undoQuickSum(targetId){
   const input=$(targetId); if(!input || input.dataset.prevValue===undefined) return;
   input.value=input.dataset.prevValue;
   delete input.dataset.prevValue;
   const undo=$('undo_'+targetId); if(undo) undo.classList.remove('show');
+  scheduleDraftAutosave(1200);
 }
 function updateDailyRecordStatus(){
   const box=$('dailyRecordStatus'); if(!box) return;
@@ -1057,12 +1074,142 @@ function arrangeMobileExportButtons(){
   }
 }
 
+function currentRegisterSnapshot(){
+  return {
+    password: $('regPassword') ? $('regPassword').value.trim() : '',
+    date: $('regFecha') ? $('regFecha').value : '',
+    email: $('regEmail') ? $('regEmail').value : '',
+    record: makeRecordFromPrefix('reg')
+  };
+}
+function recordHasContent(record){
+  if(!record) return false;
+  const hasDisc = DISCIPLINES.some(d => parseNumber(record[d]) !== 0);
+  const obs = String(record['Observaciones:'] || '').trim();
+  const email = String(record['Email Address'] || '').trim();
+  return hasDisc || !!obs || !!email;
+}
+function draftSignature(record){
+  const safe = {};
+  ['Fecha:','Email Address','Observaciones:'].forEach(k=>safe[k]=record[k]||'');
+  DISCIPLINES.forEach(d=>safe[d]=String(record[d]||''));
+  return JSON.stringify(safe);
+}
+function setDraftStatus(html, active=true){
+  const box=$('draftStatus'); if(!box) return;
+  box.classList.toggle('active', !!active);
+  box.innerHTML = html || '';
+}
+function setDayLogStatus(html, active=true){
+  const box=$('dayLogStatus'); if(!box) return;
+  box.classList.toggle('active', !!active);
+  box.innerHTML = html || '';
+}
+function fillRegisterFormFromRecord(record){
+  if(!record) return;
+  draftSuppressAutosave = true;
+  if($('regFecha') && (record['Fecha:'] || record['Fecha'])) $('regFecha').value = record['Fecha:'] || record['Fecha'];
+  if($('regEmail') && record['Email Address']) $('regEmail').value = record['Email Address'];
+  if($('regObs')) $('regObs').value = record['Observaciones:'] || record['Observaciones'] || '';
+  DISCIPLINES.forEach(d=>{
+    const el=$('reg_'+normalizeKey(d));
+    if(el) el.value = record[d] !== undefined ? record[d] : '';
+  });
+  setTimeout(()=>{draftSuppressAutosave=false;}, 250);
+  updateDailyRecordStatus();
+  scheduleDraftAutosave(600);
+}
+async function checkSharedDraft(){
+  const snap=currentRegisterSnapshot();
+  if(!snap.date){setDraftStatus('', false); return;}
+  if(!snap.password){
+    setDraftStatus('<strong>Borrador compartido:</strong> ingresa la contraseña de registro para consultar o guardar borradores entre dispositivos.', true);
+    return;
+  }
+  try{
+    const result=await apiCall('getDraft', {password:snap.password, date:snap.date});
+    if(!result.ok) throw new Error(result.message || 'No se pudo consultar el borrador.');
+    if(!result.draft){
+      setDraftStatus('<strong>Borrador compartido:</strong> no hay borrador activo para esta fecha.', true);
+      draftLoadedId='';
+      return;
+    }
+    const draft=result.draft;
+    const updated = draft.updatedAt || draft['Última actualización'] || '';
+    const by = draft.updatedBy || draft.responsable || 'responsable no identificado';
+    draftLoadedId = draft.id || '';
+    setDraftStatus(`<strong>Borrador compartido activo.</strong><span class="log-muted">Última actualización: ${escapeHtml(updated)} · Responsable: ${escapeHtml(responsibleShort(by))}</span><div class="draft-actions"><button class="btn secondary" type="button" id="loadSharedDraftBtn">Cargar borrador</button><button class="btn secondary" type="button" id="discardSharedDraftBtn">Descartar borrador</button></div>`, true);
+    const loadBtn=$('loadSharedDraftBtn');
+    const discardBtn=$('discardSharedDraftBtn');
+    if(loadBtn) loadBtn.onclick=()=>{fillRegisterFormFromRecord(draft.record || {}); setDraftStatus('<strong>Borrador cargado.</strong><span class="log-muted">Puedes continuar el llenado y guardar cuando termines.</span>', true);};
+    if(discardBtn) discardBtn.onclick=()=>discardSharedDraft();
+  }catch(err){
+    setDraftStatus(`<strong>Borrador compartido:</strong> ${escapeHtml(err.message)}`, true);
+  }
+}
+async function discardSharedDraft(){
+  const snap=currentRegisterSnapshot();
+  if(!snap.password || !snap.date) return;
+  try{
+    const result=await apiCall('discardDraft', {password:snap.password, date:snap.date});
+    if(!result.ok) throw new Error(result.message || 'No se pudo descartar.');
+    draftLoadedId='';
+    setDraftStatus('<strong>Borrador descartado.</strong>', true);
+  }catch(err){setDraftStatus(`<strong>No se pudo descartar el borrador:</strong> ${escapeHtml(err.message)}`, true);}
+}
+function scheduleDraftAutosave(delay=5000){
+  if(draftSuppressAutosave) return;
+  clearTimeout(draftAutosaveTimer);
+  draftAutosaveTimer=setTimeout(saveSharedDraft, delay);
+}
+async function saveSharedDraft(){
+  const snap=currentRegisterSnapshot();
+  if(!snap.password || !snap.date) return;
+  if(!recordHasContent(snap.record)) return;
+  const sig=draftSignature(snap.record);
+  if(sig===draftLastSavedSignature) return;
+  setDraftStatus('<strong>Borrador compartido:</strong> <span class="draft-autosave-dot">guardando cambios…</span>', true);
+  try{
+    const result=await apiCall('saveDraft', {password:snap.password, date:snap.date, record:snap.record});
+    if(!result.ok) throw new Error(result.message || 'No se pudo guardar el borrador.');
+    draftLastSavedSignature=sig;
+    draftLoadedId=result.id || draftLoadedId;
+    const time = result.updatedAt || 'ahora';
+    setDraftStatus(`<strong>Borrador compartido guardado.</strong><span class="log-muted">Última actualización: ${escapeHtml(time)}</span>`, true);
+  }catch(err){setDraftStatus(`<strong>No se pudo autoguardar:</strong> ${escapeHtml(err.message)}`, true);}
+}
+async function updateDayLogStatus(){
+  const date=$('regFecha') ? $('regFecha').value : '';
+  const password=$('regPassword') ? $('regPassword').value.trim() : '';
+  if(!date){setDayLogStatus('', false); return;}
+  if(!password){
+    setDayLogStatus('<strong>Historial del día:</strong> ingresa la contraseña de registro para ver la última edición.', true);
+    return;
+  }
+  try{
+    const result=await apiCall('getDayLog', {password, date});
+    if(!result.ok) throw new Error(result.message || 'No se pudo consultar el historial.');
+    if(!result.last){
+      setDayLogStatus(`<strong>Historial del día:</strong> no hay movimientos registrados para ${escapeHtml(niceDate(date))}.`, true);
+      return;
+    }
+    const last=result.last;
+    setDayLogStatus(`<strong>Último movimiento del día:</strong> ${escapeHtml(last.action || '—')}<span class="log-muted">${escapeHtml(last.timestamp || '')} · ${escapeHtml(responsibleShort(last.responsable || 'responsable no identificado'))}</span>`, true);
+  }catch(err){setDayLogStatus(`<strong>Historial del día:</strong> ${escapeHtml(err.message)}`, true);}
+}
+function refreshRegisterDayPanels(){
+  updateDailyRecordStatus();
+  updateDayLogStatus();
+  checkSharedDraft();
+}
+
 function clearRecordForm(){
   $('regFecha').value=todayISO();
   $('regEmail').value='';
   $('regObs').value='';
   DISCIPLINES.forEach(d=>{const el=$('reg_'+normalizeKey(d)); if(el){el.value=''; delete el.dataset.prevValue;} const undo=$('undo_reg_'+normalizeKey(d)); if(undo) undo.classList.remove('show');});
-  updateDailyRecordStatus();
+  refreshRegisterDayPanels();
+  draftLastSavedSignature='';
   setStatus('regStatus','');
 }
 async function saveRecord(){
@@ -1074,7 +1221,9 @@ async function saveRecord(){
     const result=await apiCall('addRecord', {password, record: makeRecordFromPrefix('reg')});
     if(!result.ok) throw new Error(result.message || 'No se pudo guardar.');
     setStatus('regStatus', result.message || 'Registro guardado correctamente.','ok');
+    try{await apiCall('discardDraft', {password, date:$('regFecha').value});}catch(_e){}
     await loadData({keepFilters:true});
+    refreshRegisterDayPanels();
   }catch(err){setStatus('regStatus', err.message, 'err');}
   finally{btn.disabled=false;}
 }
@@ -1133,6 +1282,8 @@ function initAdminModule(){
   $('saveRecordBtn').onclick=saveRecord;
   $('clearRecordFormBtn').onclick=clearRecordForm;
   $('findRecordsBtn').onclick=findEditableRecords;
+  ['regPassword','regFecha','regEmail','regObs'].forEach(id=>{const el=$(id); if(!el) return; el.addEventListener('input',()=>{if(id!=='regPassword') scheduleDraftAutosave();}); el.addEventListener('change',()=>{if(id==='regFecha' || id==='regPassword') refreshRegisterDayPanels(); else scheduleDraftAutosave(1000);});});
+  setTimeout(refreshRegisterDayPanels, 600);
 }
 
 
@@ -1350,6 +1501,7 @@ initLayoutNavigation();
 
 window.addEventListener('resize',()=>{arrangeMobileExportButtons(); if(DATA.length) renderLine(filtered())});
 initAdminModule();
+window.addEventListener('beforeunload',()=>{try{saveSharedDraft();}catch(e){}});
 loadData();
 </script>
 </body>
