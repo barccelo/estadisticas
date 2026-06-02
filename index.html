@@ -250,6 +250,35 @@ body{background:#f6f7fb;}
   }
 }
 
+
+
+/* Corrección final escritorio: ubicar Hoy/Filtros avanzados dentro del flujo de Estadísticas */
+@media (min-width: 651px){
+  #view-estadisticas{
+    margin-top: 14px !important;
+  }
+  #view-estadisticas .stats-actions{
+    position: relative !important;
+    z-index: 1 !important;
+    display: flex !important;
+    justify-content: flex-end !important;
+    align-items: center !important;
+    gap: 8px !important;
+    width: 100% !important;
+    margin: 0 0 12px 0 !important;
+    padding: 0 !important;
+    inset: auto !important;
+    transform: none !important;
+    float: none !important;
+  }
+  #view-estadisticas .stats-actions .btn{
+    width: auto !important;
+    min-height: 38px !important;
+    padding: 10px 14px !important;
+    border-radius: 12px !important;
+  }
+}
+
 </style>
 </head>
 <body>
