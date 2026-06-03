@@ -383,59 +383,157 @@ body{background:#f6f7fb;}
 
 
 
-/* Corrección limpia de tarjetas colapsadas en móvil: sin subtítulos ni textos duplicados */
+/* Ajuste limpio final: menú móvil compacto y tarjetas iniciales alineadas */
 @media (max-width:650px){
+  .sidebar{
+    width:100% !important;
+    padding:22px 24px 26px !important;
+    background:#111827 !important;
+  }
+  .brand{
+    padding:0 0 16px !important;
+    margin:0 0 14px !important;
+    border-bottom:1px solid rgba(255,255,255,.16) !important;
+  }
+  .brand-title{
+    font-size:28px !important;
+    line-height:1.1 !important;
+    font-weight:900 !important;
+    letter-spacing:-.04em !important;
+  }
+  .side-nav{
+    display:grid !important;
+    grid-template-columns:1fr 1fr !important;
+    gap:18px 22px !important;
+    width:100% !important;
+  }
+  .side-link{
+    min-height:54px !important;
+    display:flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    padding:0 10px !important;
+    border-radius:24px !important;
+    font-size:16px !important;
+    text-align:center !important;
+  }
+  .side-link.active{
+    background:#fff !important;
+    color:#111827 !important;
+  }
+  .topbar{
+    padding:26px 22px 54px !important;
+    background:#fff !important;
+    border-bottom:4px solid #b91c1c !important;
+  }
+  .topbar-inner{
+    gap:14px !important;
+    align-items:center !important;
+    padding:0 !important;
+  }
+  .topbar-logo{
+    width:62px !important;
+  }
+  .topbar h1{
+    font-size:27px !important;
+    line-height:1.08 !important;
+    letter-spacing:-.045em !important;
+  }
+  .topbar p{
+    font-size:15px !important;
+    line-height:1.35 !important;
+    margin-top:8px !important;
+  }
+  .content .wrap{
+    padding:0 22px 24px !important;
+  }
+  #view-inicio{
+    margin-top:-30px !important;
+  }
   #view-inicio .view-grid{
-    gap:16px !important;
+    display:grid !important;
+    grid-template-columns:1fr !important;
+    gap:22px !important;
+    width:100% !important;
+    margin:0 !important;
   }
   #registerCollapseCard,
   #totalCollapseCard{
-    border-radius:24px !important;
+    width:100% !important;
+    max-width:100% !important;
+    margin:0 !important;
+    padding:0 !important;
+    border-radius:28px !important;
     overflow:hidden !important;
+    background:#fff !important;
+    box-shadow:0 18px 34px rgba(15,23,42,.07) !important;
   }
   #registerCollapseCard .landing-toggle,
   #totalCollapseCard .landing-toggle{
+    width:100% !important;
+    min-height:128px !important;
+    padding:0 38px 0 44px !important;
     display:flex !important;
     align-items:center !important;
     justify-content:space-between !important;
-    min-height:116px !important;
-    width:100% !important;
-    padding:0 28px !important;
-    margin:0 !important;
-    gap:14px !important;
-    font-size:24px !important;
+    gap:18px !important;
+    border:0 !important;
+    background:#fff !important;
+    color:#111827 !important;
+    font-size:clamp(21px,6vw,27px) !important;
     line-height:1 !important;
     font-weight:900 !important;
-    letter-spacing:-.035em !important;
-    white-space:nowrap !important;
+    letter-spacing:-.045em !important;
     text-align:left !important;
+    white-space:nowrap !important;
   }
   #registerCollapseCard .landing-toggle span,
   #totalCollapseCard .landing-toggle span{
     display:none !important;
   }
+  #registerCollapseCard .landing-toggle::before,
+  #totalCollapseCard .landing-toggle::before{
+    content:none !important;
+    display:none !important;
+  }
   #registerCollapseCard .landing-toggle::after,
   #totalCollapseCard .landing-toggle::after{
-    position:static !important;
+    width:68px !important;
+    height:68px !important;
+    min-width:68px !important;
+    border-radius:999px !important;
     margin:0 !important;
-    width:60px !important;
-    height:60px !important;
-    flex:0 0 60px !important;
-    font-size:24px !important;
+    position:static !important;
+    flex:0 0 68px !important;
+    display:flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    font-size:30px !important;
     line-height:1 !important;
+    color:#991b1b !important;
+    background:#f9fafb !important;
+    border:1px solid #e5e7eb !important;
+  }
+  #registerCollapseCard.open .landing-toggle::after,
+  #totalCollapseCard.open .landing-toggle::after{
+    content:"−" !important;
   }
 }
+
 @media (max-width:390px){
   #registerCollapseCard .landing-toggle,
   #totalCollapseCard .landing-toggle{
-    padding:0 24px !important;
-    font-size:22px !important;
+    padding-left:34px !important;
+    padding-right:30px !important;
+    min-height:118px !important;
+    font-size:clamp(19px,5.7vw,23px) !important;
   }
   #registerCollapseCard .landing-toggle::after,
   #totalCollapseCard .landing-toggle::after{
-    width:56px !important;
-    height:56px !important;
-    flex-basis:56px !important;
+    width:60px !important;
+    height:60px !important;
+    min-width:60px !important;
+    flex-basis:60px !important;
   }
 }
 
