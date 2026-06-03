@@ -996,6 +996,43 @@ body{background:#f6f7fb;}
   }
 }
 
+
+
+/* Ajuste móvil final: centrar visualmente las tarjetas dentro de la franja gris */
+@media (max-width:650px){
+  .content > main.wrap{
+    min-height:calc(100dvh - 286px) !important;
+    padding:0 22px !important;
+    display:block !important;
+    border-top:4px solid #b91c1c !important;
+  }
+  #view-inicio.active{
+    min-height:calc(100dvh - 286px) !important;
+    padding:0 !important;
+    display:flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+  }
+  #view-inicio.active:has(.landing-collapsible.open){
+    align-items:flex-start !important;
+    min-height:auto !important;
+    padding-top:22px !important;
+    padding-bottom:32px !important;
+  }
+  #view-inicio .view-grid{
+    width:100% !important;
+    max-width:680px !important;
+    margin:0 auto !important;
+    gap:18px !important;
+  }
+}
+@media (max-width:390px){
+  .content > main.wrap,
+  #view-inicio.active{
+    min-height:calc(100dvh - 282px) !important;
+  }
+}
+
 </style>
 </head>
 <body>
