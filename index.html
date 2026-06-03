@@ -619,6 +619,74 @@ body{background:#f6f7fb;}
   }
 }
 
+
+@media (max-width:650px){
+  #registerCollapseCard .landing-toggle,
+  #totalCollapseCard .landing-toggle{
+    display:flex !important;
+    align-items:center !important;
+    justify-content:space-between !important;
+    width:100% !important;
+    min-height:150px !important;
+    padding:0 38px 0 44px !important;
+    text-align:left !important;
+  }
+  #registerCollapseCard .landing-toggle > *,
+  #totalCollapseCard .landing-toggle > *{
+    margin:0 !important;
+  }
+  #registerCollapseCard .landing-toggle{
+    gap:18px !important;
+  }
+  #totalCollapseCard .landing-toggle{
+    gap:18px !important;
+  }
+  #registerCollapseCard .landing-toggle{
+    font-size:0 !important;
+  }
+  #totalCollapseCard .landing-toggle{
+    font-size:0 !important;
+  }
+  #registerCollapseCard .landing-toggle{
+    position:relative !important;
+  }
+  #totalCollapseCard .landing-toggle{
+    position:relative !important;
+  }
+  #registerCollapseCard .landing-toggle::before{
+    content:"Registrar datos";
+    display:block;
+    font-size:28px !important;
+    font-weight:900 !important;
+    line-height:1.05 !important;
+    color:#111827 !important;
+    text-align:left !important;
+    flex:1 1 auto !important;
+  }
+  #totalCollapseCard .landing-toggle::before{
+    content:"Total por disciplina";
+    display:block;
+    font-size:28px !important;
+    font-weight:900 !important;
+    line-height:1.05 !important;
+    color:#111827 !important;
+    text-align:left !important;
+    flex:1 1 auto !important;
+  }
+  #registerCollapseCard .landing-toggle::after,
+  #totalCollapseCard .landing-toggle::after{
+    position:static !important;
+    margin:0 !important;
+    flex:0 0 auto !important;
+  }
+  #registerCollapseCard .landing-toggle{
+    white-space:normal !important;
+  }
+  #totalCollapseCard .landing-toggle{
+    white-space:normal !important;
+  }
+}
+
 </style>
 </head>
 <body>
