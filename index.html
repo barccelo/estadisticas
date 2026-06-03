@@ -542,6 +542,37 @@ body{background:#f6f7fb;}
   #view-inicio .landing-toggle::after{width:44px !important;height:44px !important;}
 }
 
+
+@media (max-width:650px){
+  .landing-toggle{
+    display:grid !important;
+    grid-template-columns: 1fr auto !important;
+    align-items:center !important;
+    gap:14px !important;
+    min-height:112px !important;
+    padding:22px 26px !important;
+  }
+  .landing-toggle span{
+    display:none !important;
+  }
+  .landing-toggle{
+    font-size:28px !important;
+    line-height:1.05 !important;
+    letter-spacing:-0.02em !important;
+    white-space:nowrap !important;
+  }
+  .landing-toggle::after{
+    position:static !important;
+    margin:0 !important;
+    align-self:center !important;
+    justify-self:end !important;
+  }
+  #registerCollapseCard .landing-toggle,
+  #totalCollapseCard .landing-toggle{
+    white-space:nowrap !important;
+  }
+}
+
 </style>
 </head>
 <body>
