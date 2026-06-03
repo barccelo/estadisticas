@@ -352,9 +352,51 @@ body{background:#f6f7fb;}
 .draft-check-row .compact{min-height:34px;padding:7px 10px;font-size:12px}
 .draft-check-hint{font-size:12px;color:#6b7280;line-height:1.25}
 @media(max-width:650px){.draft-status .draft-actions .btn{flex:1 1 auto;width:auto}.day-log-status,.draft-status{font-size:13px}.draft-check-row{display:grid;grid-template-columns:1fr;gap:6px}.draft-check-row .btn{width:100%}.draft-check-hint{font-size:11px}}
+
+
+/* Sesión de registro y landing colapsada */
+.landing-collapsible{overflow:hidden}
+.landing-toggle{width:100%;border:0;background:#fff;color:#111827;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 20px;font-weight:900;font-size:18px;cursor:pointer;text-align:left}
+.landing-toggle span{display:block;color:#6b7280;font-size:12px;font-weight:700;margin-top:3px}
+.landing-toggle::after{content:"+";width:30px;height:30px;border-radius:999px;border:1px solid #e5e7eb;background:#f9fafb;display:inline-flex;align-items:center;justify-content:center;color:#991b1b;font-weight:900;flex:0 0 auto}
+.landing-collapsible.open .landing-toggle::after{content:"−"}
+.landing-collapse-content{border-top:1px solid #e5e7eb;padding:0}
+.landing-collapse-content[hidden]{display:none!important}
+.register-session-pill{display:inline-flex;align-items:center;gap:6px;margin:0 0 10px;border:1px solid #bbf7d0;background:#f0fdf4;color:#166534;border-radius:999px;padding:6px 10px;font-size:12px;font-weight:900}
+.register-session-pill[hidden]{display:none!important}
+.session-modal-backdrop{position:fixed;inset:0;background:rgba(17,24,39,.42);backdrop-filter:blur(8px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px}
+.session-modal-backdrop[hidden]{display:none!important}
+.session-modal{width:min(420px,100%);background:#fff;border:1px solid #e5e7eb;border-radius:24px;box-shadow:0 24px 70px rgba(15,23,42,.25);padding:22px}
+.session-modal h2{margin:0 0 6px;font-size:22px;letter-spacing:-.03em;color:#111827}
+.session-modal p{margin:0 0 16px;color:#6b7280;font-size:14px;line-height:1.4}
+.session-modal input{width:100%;border:1px solid #e5e7eb;border-radius:14px;padding:12px 13px;font-size:16px;min-height:46px}
+.session-modal-actions{display:flex;gap:8px;margin-top:14px;justify-content:flex-end;flex-wrap:wrap}
+.session-modal-status{min-height:18px;margin-top:10px;font-size:13px;color:#6b7280}
+.session-modal-status.err{color:#b91c1c;font-weight:800}
+.session-modal-status.ok{color:#166534;font-weight:800}
+@media(max-width:650px){
+  .landing-toggle{padding:16px 18px;font-size:17px}
+  .landing-toggle span{font-size:12px;line-height:1.25}
+  .session-modal{border-radius:22px;padding:20px}
+  .session-modal-actions .btn{width:100%}
+}
+
 </style>
 </head>
 <body>
+<div id="registerLoginModal" class="session-modal-backdrop" hidden>
+  <div class="session-modal" role="dialog" aria-modal="true" aria-labelledby="registerLoginTitle">
+    <h2 id="registerLoginTitle">Clave de registro</h2>
+    <p>Ingresa la clave una sola vez para activar el registro, verificar borradores y consultar el estado del día.</p>
+    <input id="registerSessionPassword" type="password" inputmode="numeric" placeholder="Clave de entrada" autocomplete="off">
+    <div id="registerLoginStatus" class="session-modal-status"></div>
+    <div class="session-modal-actions">
+      <button class="btn secondary" id="cancelRegisterLoginBtn" type="button">Cancelar</button>
+      <button class="btn" id="confirmRegisterLoginBtn" type="button">Iniciar sesión</button>
+    </div>
+  </div>
+</div>
+
 <div class="app-shell">
   <aside class="sidebar">
     <div class="brand">
@@ -389,29 +431,35 @@ body{background:#f6f7fb;}
 
       <section id="view-inicio" class="view active">
         <div class="view-grid">
-          <section class="panel admin-box">
-            <div class="admin-grid">
-              <div class="admin-card">
-                <h2>Registrar datos</h2>
-                <p>Agrega el reporte diario directamente en Google Sheets.</p>
-                <div class="mini-grid">
-                  <div class="field"><label>Contraseña</label><input id="regPassword" type="password" inputmode="numeric" placeholder="Contraseña de registro"></div>
-                  <div class="field"><label>Fecha</label><input id="regFecha" type="date"></div>
-                  <div class="field full"><label>Responsable / correo</label><select id="regEmail"><option value="">Selecciona responsable</option></select></div>
+          <section class="panel admin-box landing-collapsible" id="registerCollapseCard">
+            <button class="landing-toggle" type="button" data-collapse-target="registerCollapseContent">Registrar datos<span>Captura o continúa el reporte diario.</span></button>
+            <div class="landing-collapse-content" id="registerCollapseContent" hidden>
+              <div class="admin-grid">
+                <div class="admin-card">
+                  <h2>Registrar datos</h2>
+                  <p>Agrega el reporte diario directamente en Google Sheets.</p>
+                  <input id="regPassword" type="hidden">
+                  <div id="registerSessionPill" class="register-session-pill" hidden>Sesión de registro activa</div>
+                  <div class="mini-grid">
+                    <div class="field"><label>Fecha</label><input id="regFecha" type="date"></div>
+                    <div class="field full"><label>Responsable / correo</label><select id="regEmail"><option value="">Selecciona responsable</option></select></div>
+                  </div>
+                  <div class="draft-check-row"><button class="btn secondary compact" id="checkDraftBtn" type="button">Verificar borrador</button><span class="draft-check-hint">Consulta manualmente si existe un borrador activo para esta fecha.</span></div>
+                  <div id="dailyRecordStatus" class="daily-record-status" aria-live="polite"></div>
+                  <div id="dayLogStatus" class="daily-record-status day-log-status" aria-live="polite"></div>
+                  <div id="draftStatus" class="daily-record-status draft-status" aria-live="polite"></div>
+                  <div id="regDiscInputs" class="num-grid"></div>
+                  <div class="field" style="margin-top:10px"><label>Observaciones</label><textarea id="regObs" placeholder="Observaciones del día"></textarea></div>
+                  <div class="admin-row"><button class="btn" id="saveRecordBtn" type="button">Guardar registro</button><button class="btn secondary" id="clearRecordFormBtn" type="button">Limpiar formulario</button></div>
+                  <div id="regStatus" class="status"></div>
                 </div>
-                <div class="draft-check-row"><button class="btn secondary compact" id="checkDraftBtn" type="button">Verificar borrador</button><span class="draft-check-hint">Consulta manualmente si existe un borrador activo para esta fecha.</span></div>
-                <div id="dailyRecordStatus" class="daily-record-status" aria-live="polite"></div>
-                <div id="dayLogStatus" class="daily-record-status day-log-status" aria-live="polite"></div>
-                <div id="draftStatus" class="daily-record-status draft-status" aria-live="polite"></div>
-                <div id="regDiscInputs" class="num-grid"></div>
-                <div class="field" style="margin-top:10px"><label>Observaciones</label><textarea id="regObs" placeholder="Observaciones del día"></textarea></div>
-                <div class="admin-row"><button class="btn" id="saveRecordBtn" type="button">Guardar registro</button><button class="btn secondary" id="clearRecordFormBtn" type="button">Limpiar formulario</button></div>
-                <div id="regStatus" class="status"></div>
               </div>
             </div>
           </section>
 
-          <section class="panel home-total-card">
+          <section class="panel home-total-card landing-collapsible" id="totalCollapseCard">
+            <button class="landing-toggle" type="button" data-collapse-target="totalCollapseContent">Total por disciplina<span>Resumen visual con filtros y exportación.</span></button>
+            <div class="landing-collapse-content" id="totalCollapseContent" hidden>
             <div class="section-head">
               <div><h2>Total por disciplina</h2><p>Resumen según los filtros activos.</p></div>
               <div class="total-card-actions" id="totalCardActions">
@@ -430,6 +478,7 @@ body{background:#f6f7fb;}
             <div class="landing-mini">
               <div class="mini-stat"><div class="label">Registros</div><div id="kpiRecords" class="value">—</div></div>
               <div class="mini-stat"><div class="label">Asistencia total</div><div id="kpiTotal" class="value">—</div></div>
+            </div>
             </div>
           </section>
         </div>
@@ -508,6 +557,7 @@ let draftLastSavedSignature = '';
 let draftLoadedId = '';
 let draftSuppressAutosave = false;
 let draftFormDirty = false;
+let registerSessionPassword = '';
 const fmt = new Intl.NumberFormat('es-VE');
 function $(id){return document.getElementById(id)}
 function escapeHtml(v){return String(v ?? '').replace(/[<>&]/g, m=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[m]))}
@@ -969,7 +1019,7 @@ function buildRegisterInputs(){
   DISCIPLINES.forEach(d=>{
     const key=normalizeKey(d);
     const wrap=document.createElement('div'); wrap.className='field numeric-field';
-    wrap.innerHTML=`<label>${escapeHtml(d)}</label><div class="num-input-shell"><input id="reg_${key}" type="number" min="0" step="1" placeholder="0"><button class="sum-control" type="button" data-target="reg_${key}" data-label="${escapeHtml(d)}">+1</button></div><button class="undo-sum" type="button" id="undo_reg_${key}" data-target="reg_${key}">Deshacer suma</button>`;
+    wrap.innerHTML=`<label>${escapeHtml(d)}</label><div class="num-input-shell"><input id="reg_${key}" type="number" min="0" step="1" placeholder="0"><button class="sum-control" type="button" data-target="reg_${key}" data-label="${escapeHtml(d)}">+</button></div><button class="undo-sum" type="button" id="undo_reg_${key}" data-target="reg_${key}">Deshacer suma</button>`;
     box.appendChild(wrap);
   });
   box.querySelectorAll('.sum-control').forEach(btn=>{
@@ -1005,7 +1055,7 @@ function attachSumGesture(btn){
       applyDirectDelta(btn.dataset.target, diff);
       btn.textContent=(diff>0?'+':'')+String(diff);
       clearTimeout(btn._sumLabelTimer);
-      btn._sumLabelTimer=setTimeout(()=>{btn.textContent='+1';}, 450);
+      btn._sumLabelTimer=setTimeout(()=>{btn.textContent='+';}, 450);
     }
   }, {passive:false});
   btn.addEventListener('touchend',()=>{if(moved){setTimeout(()=>{btn.dataset.touchMoved='0';}, 350);}}, {passive:true});
@@ -1021,7 +1071,7 @@ function applyDirectDelta(targetId, delta){
 function applyQuickSum(targetId, label){
   const input=$(targetId); if(!input) return;
   const prev=numericValueOf(input);
-  const raw=prompt(`¿Cuánto quieres sumar a ${label || 'este campo'}?`, '1');
+  const raw=prompt(`¿Cuánto quieres sumar a ${label || 'este campo'}?`, '');
   if(raw===null) return;
   const add=parseNumber(raw);
   if(!Number.isFinite(add)){alert('Escribe un número válido.'); return;}
@@ -1079,9 +1129,69 @@ function arrangeMobileExportButtons(){
   }
 }
 
+function getRegisterPassword(){
+  return registerSessionPassword || ($('regPassword') ? $('regPassword').value.trim() : '');
+}
+function setRegisterPasswordSession(password){
+  registerSessionPassword = String(password || '').trim();
+  if($('regPassword')) $('regPassword').value = registerSessionPassword;
+  const pill=$('registerSessionPill');
+  if(pill) pill.hidden = !registerSessionPassword;
+}
+function openRegisterLoginModal(){
+  const modal=$('registerLoginModal'); if(!modal) return;
+  modal.hidden=false;
+  const input=$('registerSessionPassword');
+  const status=$('registerLoginStatus');
+  if(status){status.textContent=''; status.className='session-modal-status';}
+  if(input){input.value=''; setTimeout(()=>input.focus(), 50);}
+}
+function closeRegisterLoginModal(){const modal=$('registerLoginModal'); if(modal) modal.hidden=true;}
+async function confirmRegisterLogin(){
+  const input=$('registerSessionPassword');
+  const status=$('registerLoginStatus');
+  const btn=$('confirmRegisterLoginBtn');
+  const password=(input ? input.value.trim() : '');
+  if(!password){if(status){status.textContent='Ingresa la clave de registro.'; status.className='session-modal-status err';} return;}
+  const date=($('regFecha') && $('regFecha').value) ? $('regFecha').value : todayISO();
+  if($('regFecha') && !$('regFecha').value) $('regFecha').value=date;
+  if(btn) btn.disabled=true;
+  if(status){status.textContent='Verificando clave…'; status.className='session-modal-status';}
+  try{
+    const result=await apiCall('getDayLog', {password, date});
+    if(!result.ok) throw new Error(result.message || 'Clave no válida.');
+    setRegisterPasswordSession(password);
+    if(status){status.textContent='Sesión activa.'; status.className='session-modal-status ok';}
+    closeRegisterLoginModal();
+    refreshRegisterDayPanels();
+    checkSharedDraft();
+  }catch(err){
+    if(status){status.textContent=err.message || 'No se pudo iniciar sesión.'; status.className='session-modal-status err';}
+  }finally{if(btn) btn.disabled=false;}
+}
+function setupLandingCollapses(){
+  document.querySelectorAll('[data-collapse-target]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const target=$(btn.dataset.collapseTarget);
+      if(!target) return;
+      const card=btn.closest('.landing-collapsible');
+      const opening=target.hidden;
+      target.hidden=!opening;
+      if(card) card.classList.toggle('open', opening);
+      if(opening && btn.dataset.collapseTarget==='registerCollapseContent' && !getRegisterPassword()){openRegisterLoginModal();}
+      if(opening && btn.dataset.collapseTarget==='totalCollapseContent'){setTimeout(()=>{arrangeMobileExportButtons(); render();}, 0);}
+    });
+  });
+}
+function setupRegisterLoginModal(){
+  const confirm=$('confirmRegisterLoginBtn'); if(confirm) confirm.onclick=confirmRegisterLogin;
+  const cancel=$('cancelRegisterLoginBtn'); if(cancel) cancel.onclick=closeRegisterLoginModal;
+  const input=$('registerSessionPassword'); if(input) input.addEventListener('keydown',e=>{if(e.key==='Enter') confirmRegisterLogin();});
+}
+
 function currentRegisterSnapshot(){
   return {
-    password: $('regPassword') ? $('regPassword').value.trim() : '',
+    password: getRegisterPassword(),
     date: $('regFecha') ? $('regFecha').value : '',
     email: $('regEmail') ? $('regEmail').value : '',
     record: makeRecordFromPrefix('reg')
@@ -1130,7 +1240,7 @@ async function checkSharedDraft(){
   const snap=currentRegisterSnapshot();
   if(!snap.date){setDraftStatus('<strong>Borrador compartido:</strong> selecciona una fecha para verificar.', true); return;}
   if(!snap.password){
-    setDraftStatus('<strong>Borrador compartido:</strong> ingresa la contraseña de registro para verificar borradores entre dispositivos.', true);
+    setDraftStatus('<strong>Borrador compartido:</strong> inicia la sesión de registro para verificar borradores entre dispositivos.', true);
     return;
   }
   setDraftStatus('<strong>Borrador compartido:</strong> verificando…', true);
@@ -1195,7 +1305,7 @@ async function saveSharedDraft(){
 }
 async function updateDayLogStatus(){
   const date=$('regFecha') ? $('regFecha').value : '';
-  const password=$('regPassword') ? $('regPassword').value.trim() : '';
+  const password=getRegisterPassword();
   if(!date){setDayLogStatus('', false); return;}
   if(!password){
     setDayLogStatus('<strong>Historial del día:</strong> ingresa la contraseña de registro para ver la última edición.', true);
@@ -1230,8 +1340,8 @@ function clearRecordForm(){
   setStatus('regStatus','');
 }
 async function saveRecord(){
-  const password=$('regPassword').value.trim();
-  if(!password){setStatus('regStatus','Escribe la contraseña de registro.','err'); return;}
+  const password=getRegisterPassword();
+  if(!password){openRegisterLoginModal(); setStatus('regStatus','Inicia la sesión de registro para guardar.','err'); return;}
   if(!$('regFecha').value){setStatus('regStatus','Selecciona una fecha.','err'); return;}
   const btn=$('saveRecordBtn'); btn.disabled=true; setStatus('regStatus','Guardando registro...');
   try{
@@ -1301,8 +1411,8 @@ function initAdminModule(){
   $('saveRecordBtn').onclick=saveRecord;
   $('clearRecordFormBtn').onclick=clearRecordForm;
   $('findRecordsBtn').onclick=findEditableRecords;
-  const checkBtn=$('checkDraftBtn'); if(checkBtn) checkBtn.onclick=checkSharedDraft;
-  ['regPassword','regFecha'].forEach(id=>{const el=$(id); if(!el) return; el.addEventListener('change',refreshRegisterDayPanels);});
+  const checkBtn=$('checkDraftBtn'); if(checkBtn) checkBtn.onclick=()=>{if(!getRegisterPassword()){openRegisterLoginModal(); return;} checkSharedDraft();};
+  ['regFecha'].forEach(id=>{const el=$(id); if(!el) return; el.addEventListener('change',refreshRegisterDayPanels);});
   ['regEmail','regObs'].forEach(id=>{const el=$(id); if(!el) return; el.addEventListener('input',()=>markDraftDirty(5000)); el.addEventListener('change',()=>markDraftDirty(1000));});
   setTimeout(refreshRegisterDayPanels, 600);
 }
@@ -1519,6 +1629,8 @@ function initLayoutNavigation(){
   document.querySelectorAll('[data-toggle-filters]').forEach(btn=>btn.onclick=()=>toggleFilterPanel(btn));
 }
 initLayoutNavigation();
+setupLandingCollapses();
+setupRegisterLoginModal();
 
 window.addEventListener('resize',()=>{arrangeMobileExportButtons(); if(DATA.length) renderLine(filtered())});
 initAdminModule();
