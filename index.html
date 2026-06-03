@@ -1609,19 +1609,42 @@ function showView(viewName){
 }
 function toggleFilterPanel(trigger){
   const panel=document.getElementById('filterPanel');
-  if(!panel) return;
+  if(!panel || !trigger) return;
+
   const homeCard = trigger.closest('.home-total-card');
   const statsTotalCard = trigger.closest('.stats-total-card');
   const statsView = trigger.closest('#view-estadisticas');
-  const targetContainer = homeCard || statsTotalCard || statsView || document.querySelector('main.wrap');
-  const beforeNode = homeCard
-    ? document.getElementById('totalExportArea')
-    : (statsTotalCard ? document.getElementById('statsBarList') : (statsView ? statsView.querySelector('.discipline-box') : null));
+
+  let targetContainer = null;
+  let beforeNode = null;
+
+  if(homeCard){
+    beforeNode = document.getElementById('totalExportArea');
+    targetContainer = beforeNode ? beforeNode.parentNode : homeCard.querySelector('.landing-collapse-content') || homeCard;
+  }else if(statsTotalCard){
+    beforeNode = document.getElementById('statsBarList');
+    targetContainer = beforeNode ? beforeNode.parentNode : statsTotalCard;
+  }else if(statsView){
+    beforeNode = statsView.querySelector('.discipline-box');
+    targetContainer = beforeNode ? beforeNode.parentNode : statsView;
+  }else{
+    targetContainer = document.querySelector('main.wrap');
+  }
+
   const alreadyHere = panel.parentNode === targetContainer;
   const isOpen = panel.classList.contains('open');
-  if(isOpen && alreadyHere){panel.classList.remove('open'); return;}
-  if(beforeNode) targetContainer.insertBefore(panel, beforeNode);
-  else targetContainer.appendChild(panel);
+
+  if(isOpen && alreadyHere){
+    panel.classList.remove('open');
+    return;
+  }
+
+  if(beforeNode && beforeNode.parentNode === targetContainer){
+    targetContainer.insertBefore(panel, beforeNode);
+  }else{
+    targetContainer.appendChild(panel);
+  }
+
   panel.classList.add('open');
 }
 function initLayoutNavigation(){
