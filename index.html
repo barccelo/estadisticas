@@ -543,211 +543,79 @@ body{background:#f6f7fb;}
 }
 
 
-@media (max-width:650px){
-  .landing-toggle{
-    display:grid !important;
-    grid-template-columns: 1fr auto !important;
+
+/* Corrección final limpia: tarjetas iniciales sin subtítulos, alineadas en móvil y visibles en web */
+.landing-toggle strong{display:block;color:#111827;font-weight:900;}
+@media (min-width:651px){
+  #view-inicio .landing-toggle{
+    display:flex !important;
     align-items:center !important;
+    justify-content:space-between !important;
     gap:14px !important;
-    min-height:112px !important;
-    padding:22px 26px !important;
   }
-  .landing-toggle span{
-    display:none !important;
-  }
-  .landing-toggle{
-    font-size:28px !important;
-    line-height:1.05 !important;
-    letter-spacing:-0.02em !important;
-    white-space:nowrap !important;
-  }
-  .landing-toggle::after{
-    position:static !important;
-    margin:0 !important;
-    align-self:center !important;
-    justify-self:end !important;
-  }
-  #registerCollapseCard .landing-toggle,
-  #totalCollapseCard .landing-toggle{
+  #view-inicio .landing-toggle strong{
+    font-size:20px !important;
+    line-height:1.1 !important;
     white-space:nowrap !important;
   }
 }
-
-
-
-/* Corrección tarjetas iniciales: títulos lineales sin frases complementarias */
-.landing-toggle > span{display:none !important;}
-#registerCollapseCard .landing-toggle,
-#totalCollapseCard .landing-toggle{
-  display:grid !important;
-  grid-template-columns:minmax(0,1fr) auto !important;
-  align-items:center !important;
-  gap:12px !important;
-  text-align:left !important;
-  white-space:nowrap !important;
-  overflow:hidden !important;
-}
-#registerCollapseCard .landing-toggle,
-#totalCollapseCard .landing-toggle{
-  font-size:clamp(21px,5.4vw,30px) !important;
-  line-height:1.05 !important;
-  letter-spacing:-.035em !important;
-}
-#registerCollapseCard .landing-toggle::after,
-#totalCollapseCard .landing-toggle::after{
-  justify-self:end !important;
-  align-self:center !important;
-  margin:0 !important;
-  flex:0 0 auto !important;
-}
-@media(max-width:760px){
-  #registerCollapseCard .landing-toggle,
-  #totalCollapseCard .landing-toggle{
-    min-height:96px !important;
-    padding:20px 24px !important;
-    font-size:clamp(20px,5.8vw,26px) !important;
-  }
-  #registerCollapseCard .landing-toggle::after,
-  #totalCollapseCard .landing-toggle::after{
-    width:56px !important;
-    height:56px !important;
-    font-size:24px !important;
-  }
-}
-@media(max-width:390px){
-  #registerCollapseCard .landing-toggle,
-  #totalCollapseCard .landing-toggle{
-    padding:18px 20px !important;
-    font-size:21px !important;
-    gap:10px !important;
-  }
-  #registerCollapseCard .landing-toggle::after,
-  #totalCollapseCard .landing-toggle::after{
-    width:50px !important;
-    height:50px !important;
-  }
-}
-
-
-
-/* Corrección definitiva móvil: tarjetas iniciales sin texto secundario */
-@media(max-width:650px){
-  #view-inicio #registerCollapseCard .landing-toggle,
-  #view-inicio #totalCollapseCard .landing-toggle{
-    display:grid !important;
-    grid-template-columns: minmax(0,1fr) auto !important;
-    align-items:center !important;
-    justify-content:initial !important;
-    gap:14px !important;
-    min-height:92px !important;
-    padding:20px 28px !important;
-    font-size:clamp(22px,5.8vw,28px) !important;
-    line-height:1 !important;
-    letter-spacing:-.04em !important;
-    white-space:nowrap !important;
-    overflow:hidden !important;
-  }
-  #view-inicio #registerCollapseCard .landing-toggle span,
-  #view-inicio #totalCollapseCard .landing-toggle span,
-  #view-inicio #registerCollapseCard .landing-toggle strong,
-  #view-inicio #totalCollapseCard .landing-toggle strong{
-    display:contents !important;
-  }
-  #view-inicio #registerCollapseCard .landing-toggle::after,
-  #view-inicio #totalCollapseCard .landing-toggle::after{
-    justify-self:end !important;
-    align-self:center !important;
-    width:56px !important;
-    height:56px !important;
-    font-size:24px !important;
-    margin:0 !important;
-  }
-}
-@media(max-width:390px){
-  #view-inicio #registerCollapseCard .landing-toggle,
-  #view-inicio #totalCollapseCard .landing-toggle{
-    padding:18px 22px !important;
-    min-height:86px !important;
-    font-size:21px !important;
-  }
-  #view-inicio #registerCollapseCard .landing-toggle::after,
-  #view-inicio #totalCollapseCard .landing-toggle::after{
-    width:50px !important;
-    height:50px !important;
-  }
-}
-
-
-
-/* Corrección final móvil: tarjetas colapsadas sin duplicado y alineadas */
 @media (max-width:650px){
-  #view-inicio #registerCollapseCard .landing-toggle,
-  #view-inicio #totalCollapseCard .landing-toggle{
-    display:grid !important;
-    grid-template-columns:minmax(0,1fr) 70px !important;
+  #view-inicio .landing-toggle{
+    display:flex !important;
+    flex-direction:row !important;
     align-items:center !important;
-    column-gap:18px !important;
-    min-height:124px !important;
-    padding:0 34px 0 50px !important;
+    justify-content:space-between !important;
+    gap:12px !important;
+    min-height:104px !important;
+    padding:0 22px 0 26px !important;
     text-align:left !important;
-    font-size:0 !important;
-    line-height:1 !important;
-    color:transparent !important;
-    white-space:normal !important;
+    font-size:initial !important;
+    line-height:normal !important;
   }
-  #view-inicio #registerCollapseCard .landing-toggle::before,
-  #view-inicio #totalCollapseCard .landing-toggle::before{
-    content:none !important;
+  #view-inicio .landing-toggle span{
     display:none !important;
   }
-  #view-inicio #registerCollapseCard .landing-toggle .landing-title,
-  #view-inicio #totalCollapseCard .landing-toggle .landing-title{
+  #view-inicio .landing-toggle strong{
     display:block !important;
-    grid-column:1 !important;
-    align-self:center !important;
-    justify-self:start !important;
-    margin:0 !important;
-    padding:0 !important;
-    color:#111827 !important;
-    font-size:28px !important;
+    flex:1 1 auto !important;
+    min-width:0 !important;
+    max-width:calc(100% - 66px) !important;
+    font-size:22px !important;
     line-height:1.05 !important;
-    letter-spacing:-.035em !important;
-    font-weight:900 !important;
+    letter-spacing:-0.035em !important;
     white-space:nowrap !important;
-    max-width:100% !important;
+    overflow:visible !important;
+    text-overflow:clip !important;
   }
-  #view-inicio #registerCollapseCard .landing-toggle::after,
-  #view-inicio #totalCollapseCard .landing-toggle::after{
-    grid-column:2 !important;
+  #view-inicio .landing-toggle::after{
     position:static !important;
-    justify-self:end !important;
-    align-self:center !important;
-    width:56px !important;
-    height:56px !important;
-    min-width:56px !important;
+    flex:0 0 52px !important;
+    width:52px !important;
+    height:52px !important;
+    min-width:52px !important;
     margin:0 !important;
-    font-size:24px !important;
-    line-height:1 !important;
-    color:#991b1b !important;
+    align-self:center !important;
+  }
+  #registerCollapseCard,
+  #totalCollapseCard{
+    overflow:hidden !important;
   }
 }
 @media (max-width:390px){
-  #view-inicio #registerCollapseCard .landing-toggle,
-  #view-inicio #totalCollapseCard .landing-toggle{
-    grid-template-columns:minmax(0,1fr) 58px !important;
-    padding-left:34px !important;
-    padding-right:26px !important;
-    min-height:112px !important;
+  #view-inicio .landing-toggle{
+    padding-left:20px !important;
+    padding-right:18px !important;
+    min-height:98px !important;
   }
-  #view-inicio #registerCollapseCard .landing-toggle .landing-title,
-  #view-inicio #totalCollapseCard .landing-toggle .landing-title{
-    font-size:24px !important;
+  #view-inicio .landing-toggle strong{
+    font-size:20px !important;
+    max-width:calc(100% - 58px) !important;
   }
-  #view-inicio #registerCollapseCard .landing-toggle::after,
-  #view-inicio #totalCollapseCard .landing-toggle::after{
-    width:50px !important;
-    height:50px !important;
-    min-width:50px !important;
+  #view-inicio .landing-toggle::after{
+    flex-basis:48px !important;
+    width:48px !important;
+    height:48px !important;
+    min-width:48px !important;
   }
 }
 
@@ -802,7 +670,7 @@ body{background:#f6f7fb;}
       <section id="view-inicio" class="view active">
         <div class="view-grid">
           <section class="panel admin-box landing-collapsible" id="registerCollapseCard">
-            <button class="landing-toggle" type="button" data-collapse-target="registerCollapseContent"><span class="landing-title">Registrar datos</span></button>
+            <button class="landing-toggle" type="button" data-collapse-target="registerCollapseContent"><strong>Registrar datos</strong></button>
             <div class="landing-collapse-content" id="registerCollapseContent" hidden>
               <div class="admin-grid">
                 <div class="admin-card">
@@ -828,7 +696,7 @@ body{background:#f6f7fb;}
           </section>
 
           <section class="panel home-total-card landing-collapsible" id="totalCollapseCard">
-            <button class="landing-toggle" type="button" data-collapse-target="totalCollapseContent"><span class="landing-title">Total por disciplina</span></button>
+            <button class="landing-toggle" type="button" data-collapse-target="totalCollapseContent"><strong>Total por disciplina</strong></button>
             <div class="landing-collapse-content" id="totalCollapseContent" hidden>
             <div class="section-head">
               <div><h2>Total por disciplina</h2><p>Resumen según los filtros activos.</p></div>
