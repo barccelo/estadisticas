@@ -381,6 +381,117 @@ body{background:#f6f7fb;}
   .session-modal-actions .btn{width:100%}
 }
 
+
+/* Ajuste móvil final: landing más compacta y armónica */
+@media (max-width:650px){
+  html,body{background:#f6f7fb !important;}
+  .app-shell{min-height:auto !important;}
+  .sidebar{
+    padding:14px 14px 12px !important;
+    min-height:auto !important;
+    height:auto !important;
+    gap:10px !important;
+  }
+  .brand{
+    padding:0 4px 8px !important;
+    margin-bottom:8px !important;
+  }
+  .brand-title{
+    font-size:24px !important;
+    line-height:1.1 !important;
+  }
+  .side-nav{
+    grid-template-columns:1fr 1fr !important;
+    gap:8px !important;
+  }
+  .side-link{
+    min-height:46px !important;
+    padding:10px 10px !important;
+    border-radius:18px !important;
+    font-size:15px !important;
+    text-align:center !important;
+  }
+  .topbar{
+    padding:20px 16px 30px !important;
+    border-bottom:4px solid #b91c1c !important;
+  }
+  .topbar-inner{
+    padding:0 !important;
+    gap:12px !important;
+  }
+  .topbar-logo{
+    width:54px !important;
+  }
+  .topbar h1{
+    font-size:25px !important;
+    line-height:1.08 !important;
+    letter-spacing:-.045em !important;
+  }
+  .topbar p{
+    font-size:14px !important;
+    line-height:1.28 !important;
+    margin-top:7px !important;
+  }
+  .content .wrap{
+    padding:0 14px 18px !important;
+  }
+  .view{
+    margin-top:-20px !important;
+  }
+  #view-inicio .view-grid{
+    gap:12px !important;
+  }
+  .landing-toggle{
+    min-height:104px !important;
+    padding:18px 26px 18px 28px !important;
+    border-radius:0 !important;
+    display:grid !important;
+    grid-template-columns:minmax(0,1fr) auto !important;
+    column-gap:14px !important;
+  }
+  .landing-toggle{
+    font-size:25px !important;
+    line-height:1.05 !important;
+  }
+  .landing-toggle span{
+    font-size:14px !important;
+    line-height:1.22 !important;
+    margin-top:0 !important;
+    align-self:center !important;
+  }
+  .landing-toggle::after{
+    width:52px !important;
+    height:52px !important;
+    font-size:24px !important;
+    align-self:center !important;
+  }
+  .landing-collapsible{
+    border-radius:28px !important;
+    box-shadow:0 12px 30px rgba(15,23,42,.08) !important;
+  }
+  #registerCollapseCard,#totalCollapseCard{
+    margin:0 !important;
+  }
+  #totalCollapseCard{
+    margin-top:12px !important;
+  }
+  .landing-collapse-content{
+    border-top:1px solid #eef0f4 !important;
+  }
+  #view-inicio .admin-box .admin-card{
+    padding:20px !important;
+  }
+}
+
+@media (max-width:390px){
+  .side-link{font-size:14px !important;min-height:44px !important;}
+  .topbar h1{font-size:23px !important;}
+  .topbar p{font-size:13px !important;}
+  .landing-toggle{padding:17px 22px !important;font-size:23px !important;min-height:98px !important;}
+  .landing-toggle span{font-size:13px !important;}
+  .landing-toggle::after{width:48px !important;height:48px !important;}
+}
+
 </style>
 </head>
 <body>
