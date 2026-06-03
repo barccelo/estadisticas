@@ -677,6 +677,53 @@ body{background:#f6f7fb;}
   }
 }
 
+
+@media (max-width:650px){
+  #registerCollapseCard .landing-toggle,
+  #totalCollapseCard .landing-toggle{
+    display:grid !important;
+    grid-template-columns: 1fr 88px !important;
+    align-items:center !important;
+    gap:18px !important;
+    min-height:136px !important;
+    padding:0 24px 0 48px !important;
+    text-align:left !important;
+  }
+  #registerCollapseCard .landing-toggle,
+  #totalCollapseCard .landing-toggle{
+    font-size:0 !important;
+  }
+  #registerCollapseCard .landing-toggle::before{
+    content:"Registrar datos";
+    display:block;
+    font-size:28px;
+    line-height:1.05;
+    font-weight:900;
+    color:#111827;
+    white-space:nowrap;
+    align-self:center;
+    justify-self:start;
+  }
+  #totalCollapseCard .landing-toggle::before{
+    content:"Total por disciplina";
+    display:block;
+    font-size:28px;
+    line-height:1.05;
+    font-weight:900;
+    color:#111827;
+    white-space:nowrap;
+    align-self:center;
+    justify-self:start;
+  }
+  #registerCollapseCard .landing-toggle::after,
+  #totalCollapseCard .landing-toggle::after{
+    position:static !important;
+    margin:0 !important;
+    justify-self:end !important;
+    align-self:center !important;
+  }
+}
+
 </style>
 </head>
 <body>
