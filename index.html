@@ -967,6 +967,35 @@ body{background:#f6f7fb;}
   }
 }
 
+
+
+/* Ajuste móvil: centrar tarjetas colapsadas en la franja gris */
+@media (max-width:650px){
+  #view-inicio.active{
+    display:flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    min-height:calc(100dvh - 560px) !important;
+    padding-top:24px !important;
+    padding-bottom:80px !important;
+  }
+  #view-inicio.active:has(.landing-collapsible.open){
+    align-items:flex-start !important;
+    min-height:auto !important;
+    padding-top:20px !important;
+  }
+  #view-inicio .view-grid{
+    width:100% !important;
+    max-width:100% !important;
+    margin:0 auto !important;
+    align-content:center !important;
+  }
+  #view-inicio .landing-collapsible{
+    margin-left:auto !important;
+    margin-right:auto !important;
+  }
+}
+
 </style>
 </head>
 <body>
