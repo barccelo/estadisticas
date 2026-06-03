@@ -1033,6 +1033,10 @@ body{background:#f6f7fb;}
   }
 }
 
+
+/* Sesión identificada por clave */
+.register-session-pill .session-email{font-weight:900;color:#166534}
+#regEmail.session-locked{background:#f9fafb;color:#374151;cursor:not-allowed}
 </style>
 </head>
 <body>
@@ -1202,6 +1206,7 @@ const APPS_SCRIPT_URL = "https://script.google.com/a/macros/losroblesenlinea.com
 let DATA = [];
 const DISCIPLINES = ["Ajedrez", "Astronomía", "Atletismo", "Baloncesto", "Béisbol", "Fútbol campo", "Fútbol sala", "Música", "Tenis de campo", "Robótica"];
 const RESPONSIBLES = ["cesarperozo@losroblesenlinea.com.ve", "alexandropolanco@losroblesenlinea.com.ve", "inrifereira@losroblesenlinea.com.ve", "davidbarcelo@losroblesenlinea.com.ve"];
+const REGISTER_USERS = {"18202929":"inrifereira@losroblesenlinea.com.ve","26388985":"davidbarcelo@losroblesenlinea.com.ve","26907406":"cesarperozo@losroblesenlinea.com.ve","27717268":"alexandropolanco@losroblesenlinea.com.ve"};
 let selected = new Set(DISCIPLINES);
 let defaultDates = {from:'', to:''};
 let draftAutosaveTimer = null;
@@ -1638,7 +1643,7 @@ function labelForRecordHeader(d){return d;}
 function makeRecordFromPrefix(prefix){
   const record={};
   const fecha=$(prefix+'Fecha')?.value || '';
-  const email=$(prefix+'Email')?.value || '';
+  const email=(prefix==='reg' && getRegisterSessionEmail()) ? getRegisterSessionEmail() : ($(prefix+'Email')?.value || '');
   const obs=$(prefix+'Obs')?.value || '';
   if(prefix==='reg') record['Timestamp'] = new Date().toLocaleString('es-VE');
   record['Fecha:'] = fecha;
@@ -1781,14 +1786,31 @@ function arrangeMobileExportButtons(){
   }
 }
 
+function registerEmailForPassword(password){
+  return REGISTER_USERS[String(password || '').trim()] || '';
+}
+function getRegisterSessionEmail(){
+  return registerEmailForPassword(getRegisterPassword());
+}
 function getRegisterPassword(){
   return registerSessionPassword || ($('regPassword') ? $('regPassword').value.trim() : '');
 }
 function setRegisterPasswordSession(password){
   registerSessionPassword = String(password || '').trim();
+  const sessionEmail = registerEmailForPassword(registerSessionPassword);
   if($('regPassword')) $('regPassword').value = registerSessionPassword;
+  const emailSelect=$('regEmail');
+  if(emailSelect && sessionEmail){
+    fillResponsibleSelect('regEmail', false, sessionEmail);
+    emailSelect.value = sessionEmail;
+    emailSelect.disabled = true;
+    emailSelect.classList.add('session-locked');
+  }
   const pill=$('registerSessionPill');
-  if(pill) pill.hidden = !registerSessionPassword;
+  if(pill){
+    pill.hidden = !registerSessionPassword;
+    pill.innerHTML = sessionEmail ? `Sesión activa · <span class="session-email">${escapeHtml(responsibleShort(sessionEmail))}</span>` : 'Sesión de registro activa';
+  }
 }
 function openRegisterLoginModal(){
   const modal=$('registerLoginModal'); if(!modal) return;
@@ -1805,6 +1827,8 @@ async function confirmRegisterLogin(){
   const btn=$('confirmRegisterLoginBtn');
   const password=(input ? input.value.trim() : '');
   if(!password){if(status){status.textContent='Ingresa la clave de registro.'; status.className='session-modal-status err';} return;}
+  const sessionEmail = registerEmailForPassword(password);
+  if(!sessionEmail){if(status){status.textContent='Clave no registrada para ningún responsable.'; status.className='session-modal-status err';} return;}
   const date=($('regFecha') && $('regFecha').value) ? $('regFecha').value : todayISO();
   if($('regFecha') && !$('regFecha').value) $('regFecha').value=date;
   if(btn) btn.disabled=true;
@@ -1813,7 +1837,7 @@ async function confirmRegisterLogin(){
     const result=await apiCall('getDayLog', {password, date});
     if(!result.ok) throw new Error(result.message || 'Clave no válida.');
     setRegisterPasswordSession(password);
-    if(status){status.textContent='Sesión activa.'; status.className='session-modal-status ok';}
+    if(status){status.textContent='Sesión activa: '+responsibleShort(sessionEmail); status.className='session-modal-status ok';}
     closeRegisterLoginModal();
     refreshRegisterDayPanels();
     checkSharedDraft();
@@ -1876,7 +1900,11 @@ function fillRegisterFormFromRecord(record){
   if(!record) return;
   draftSuppressAutosave = true;
   if($('regFecha') && (record['Fecha:'] || record['Fecha'])) $('regFecha').value = record['Fecha:'] || record['Fecha'];
-  if($('regEmail') && record['Email Address']) $('regEmail').value = record['Email Address'];
+  if($('regEmail')){
+    const sessionEmail=getRegisterSessionEmail();
+    if(sessionEmail){fillResponsibleSelect('regEmail', false, sessionEmail); $('regEmail').value=sessionEmail; $('regEmail').disabled=true; $('regEmail').classList.add('session-locked');}
+    else if(record['Email Address']) $('regEmail').value = record['Email Address'];
+  }
   if($('regObs')) $('regObs').value = record['Observaciones:'] || record['Observaciones'] || '';
   DISCIPLINES.forEach(d=>{
     const el=$('reg_'+normalizeKey(d));
@@ -1982,7 +2010,8 @@ function refreshRegisterDayPanels(){
 
 function clearRecordForm(){
   $('regFecha').value=todayISO();
-  $('regEmail').value='';
+  if(getRegisterSessionEmail()){fillResponsibleSelect('regEmail', false, getRegisterSessionEmail()); $('regEmail').value=getRegisterSessionEmail(); $('regEmail').disabled=true; $('regEmail').classList.add('session-locked');}
+  else $('regEmail').value='';
   $('regObs').value='';
   DISCIPLINES.forEach(d=>{const el=$('reg_'+normalizeKey(d)); if(el){el.value=''; delete el.dataset.prevValue;} const undo=$('undo_reg_'+normalizeKey(d)); if(undo) undo.classList.remove('show');});
   refreshRegisterDayPanels();
@@ -1994,6 +2023,8 @@ function clearRecordForm(){
 async function saveRecord(){
   const password=getRegisterPassword();
   if(!password){openRegisterLoginModal(); setStatus('regStatus','Inicia la sesión de registro para guardar.','err'); return;}
+  if(!getRegisterSessionEmail()){openRegisterLoginModal(); setStatus('regStatus','La clave no está asociada a un responsable.','err'); return;}
+  if($('regEmail')) $('regEmail').value=getRegisterSessionEmail();
   if(!$('regFecha').value){setStatus('regStatus','Selecciona una fecha.','err'); return;}
   const btn=$('saveRecordBtn'); btn.disabled=true; setStatus('regStatus','Guardando registro...');
   try{
@@ -2057,7 +2088,8 @@ async function saveEditedRecord(unique, rowNumber){
 }
 function initAdminModule(){
   buildRegisterInputs();
-  fillResponsibleSelect('regEmail', false, $('regEmail') ? $('regEmail').value : '');
+  fillResponsibleSelect('regEmail', false, getRegisterSessionEmail() || ($('regEmail') ? $('regEmail').value : ''));
+  if(getRegisterSessionEmail() && $('regEmail')){$('regEmail').disabled=true; $('regEmail').classList.add('session-locked');}
   if($('regFecha') && !$('regFecha').value) $('regFecha').value=todayISO();
   if($('editFecha') && !$('editFecha').value) $('editFecha').value=todayISO();
   $('saveRecordBtn').onclick=saveRecord;
