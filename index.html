@@ -1058,6 +1058,52 @@ body{background:#f6f7fb;}
 .schedule-type-section+.schedule-type-section{margin-top:4px;padding-top:12px;border-top:1px solid var(--line)}
 .schedule-type-title{font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.05em;color:#7f1d1d}
 .schedule-day-block{display:grid;gap:7px}
+
+/* Alineación móvil: tarjetas de resumen */
+@media(max-width:650px){
+  #view-inicio #totalCollapseCard .landing-collapse-content{
+    box-sizing:border-box !important;
+    width:100% !important;
+    padding:0 22px 22px !important;
+  }
+  #view-inicio #totalCollapseCard .landing-collapse-content > .section-head{
+    width:100% !important;
+    margin-left:0 !important;
+    margin-right:0 !important;
+    padding:20px 0 0 !important;
+    box-sizing:border-box !important;
+  }
+  #view-inicio #totalCollapseCard #totalExportArea,
+  #view-inicio #totalCollapseCard .landing-mini,
+  #view-inicio #totalCollapseCard .mobile-export-actions{
+    width:100% !important;
+    max-width:100% !important;
+    margin-left:0 !important;
+    margin-right:0 !important;
+    box-sizing:border-box !important;
+  }
+  #view-inicio #totalCollapseCard #totalExportArea{
+    border-radius:24px !important;
+  }
+  #view-inicio #totalCollapseCard .landing-mini{
+    display:grid !important;
+    grid-template-columns:1fr !important;
+    gap:14px !important;
+    margin-top:16px !important;
+  }
+  #view-inicio #totalCollapseCard .mini-stat{
+    width:100% !important;
+    max-width:100% !important;
+    box-sizing:border-box !important;
+    border-radius:24px !important;
+    margin:0 !important;
+    padding:18px 22px !important;
+  }
+  #view-inicio #totalCollapseCard .mobile-export-actions{
+    padding:0 !important;
+    margin-top:12px !important;
+  }
+}
 </style>
 </head>
 <body>
