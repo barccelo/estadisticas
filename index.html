@@ -2211,14 +2211,13 @@ function scheduleButton(label, attr, value, active=false){return `<button class=
 function initScheduleModule(){
   const discBox=document.getElementById('scheduleDiscChips'), gradeBox=document.getElementById('scheduleGradeChips'), dayBox=document.getElementById('scheduleDayChips');
   if(!discBox || !gradeBox || !dayBox) return;
-  const hot=["Fútbol campo","Baloncesto","Béisbol","Atletismo","Tenis","Ajedrez","Futsal","Voleibol","Robótica","Astronomía","Gaita","Teclado"];
+  const hot=["Fútbol campo","Baloncesto","Béisbol","Atletismo","Tenis","Ajedrez","Futsal","Voleibol","Robótica","Astronomía","Iniciación musical","Violín","Percusión","Cuatro","Gaita","Teclado","Guitarra acústica"];
   discBox.innerHTML=hot.map(name=>scheduleButton(name,'data-sdisc',name)).join('');
   gradeBox.innerHTML=['Todos',...SCH_GRADE_ORDER].map((g,i)=>scheduleButton(g,'data-sgrade',g,i===0)).join('');
   const today=scheduleTodayName();
   const dayItems=['Todos','Hoy',...SCH_DAY_ORDER];
-  dayBox.innerHTML=dayItems.map(d=>scheduleButton(d,'data-sday',d,d==='Hoy' && SCH_DAY_ORDER.includes(today))).join('');
-  if(SCH_DAY_ORDER.includes(today)) scheduleSelectedDay=today;
-  else { const all=dayBox.querySelector('[data-sday="Todos"]'); if(all) all.classList.add('active'); }
+  dayBox.innerHTML=dayItems.map(d=>scheduleButton(d,'data-sday',d,d==='Todos')).join('');
+  scheduleSelectedDay='';
   discBox.addEventListener('click', e=>{
     const b=e.target.closest('[data-sdisc]'); if(!b) return;
     const will=!b.classList.contains('active');
