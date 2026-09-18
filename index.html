@@ -1053,11 +1053,6 @@ body{background:#f6f7fb;}
   }
 }
 
-/* Separación visual: Club Deportivo / Música y Ciencias */
-.schedule-type-section{display:grid;gap:9px;padding-top:4px}
-.schedule-type-section+.schedule-type-section{margin-top:4px;padding-top:12px;border-top:1px solid var(--line)}
-.schedule-type-title{font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.05em;color:#7f1d1d}
-.schedule-day-block{display:grid;gap:7px}
 
 /* Alineación móvil: tarjetas de resumen */
 @media(max-width:650px){
@@ -2361,45 +2356,24 @@ function renderSchedule(){
     const okText=!qText || searchable.includes(qText);
     return okDay && okGrade && okDisc && okText;
   });
-
-  // Mantener separado Club Deportivo de Música y Ciencias para que ninguna
-  // actividad musical/científica se pierda visualmente dentro del mismo día.
   const groups=new Map();
   for(const row of filtered){
     if(!groups.has(row.grade)) groups.set(row.grade,new Map());
-    const byType=groups.get(row.grade);
-    const type=row.type || 'Deportes';
-    if(!byType.has(type)) byType.set(type,new Map());
-    const byDay=byType.get(type);
+    const byDay=groups.get(row.grade);
     if(!byDay.has(row.day)) byDay.set(row.day,new Set());
     row.disciplines.forEach(d=>byDay.get(row.day).add(d));
   }
-
   results.innerHTML='';
   const gradesSorted=Array.from(groups.keys()).sort((a,b)=>SCH_GRADE_ORDER.indexOf(a)-SCH_GRADE_ORDER.indexOf(b));
-  const typeOrder=['Deportes','Música y Ciencias'];
-
   gradesSorted.forEach(grade=>{
-    const byType=groups.get(grade);
+    const byDay=groups.get(grade);
+    const daysSorted=Array.from(byDay.keys()).sort((a,b)=>SCH_DAY_ORDER.indexOf(a)-SCH_DAY_ORDER.indexOf(b));
     const card=document.createElement('article'); card.className='schedule-card-item';
-
-    const typeBlocks=Array.from(byType.keys())
-      .sort((a,b)=>{
-        const ia=typeOrder.indexOf(a), ib=typeOrder.indexOf(b);
-        return (ia===-1?99:ia)-(ib===-1?99:ib);
-      })
-      .map(type=>{
-        const byDay=byType.get(type);
-        const daysSorted=Array.from(byDay.keys()).sort((a,b)=>SCH_DAY_ORDER.indexOf(a)-SCH_DAY_ORDER.indexOf(b));
-        const daysHtml=daysSorted.map(day=>{
-          const disc=Array.from(byDay.get(day)).sort((a,b)=>a.localeCompare(b,'es',{numeric:true}));
-          return `<div class="schedule-day-block"><span class="schedule-day">${escapeHtml(day)}</span><div class="schedule-tags">${disc.map(d=>`<button class="schedule-tag" type="button" data-schedule-d="${escapeHtml(d)}">${escapeHtml(d)}</button>`).join('')}</div></div>`;
-        }).join('');
-        const label=type==='Deportes' ? 'Club Deportivo' : type;
-        return `<section class="schedule-type-section"><div class="schedule-type-title">${escapeHtml(label)}</div>${daysHtml}</section>`;
-      }).join('');
-
-    card.innerHTML=`<h3>${escapeHtml(grade)}</h3>${typeBlocks}`;
+    const dayBlocks=daysSorted.map(day=>{
+      const disc=Array.from(byDay.get(day)).sort((a,b)=>a.localeCompare(b,'es',{numeric:true}));
+      return `<span class="schedule-day">${escapeHtml(day)}</span><div class="schedule-tags">${disc.map(d=>`<button class="schedule-tag" type="button" data-schedule-d="${escapeHtml(d)}">${escapeHtml(d)}</button>`).join('')}</div>`;
+    }).join('');
+    card.innerHTML=`<h3>${escapeHtml(grade)}</h3>${dayBlocks}`;
     card.addEventListener('click', e=>{
       const t=e.target.closest('[data-schedule-d]'); if(!t) return;
       scheduleSelectedDisc=t.dataset.scheduleD;
