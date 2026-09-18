@@ -2224,6 +2224,30 @@ const SCH_DATA = [
   SCH_D('Jueves','4to Grado',["Gaita"],'Música y Ciencias'),
   SCH_D('Jueves','5to Grado',["Guitarra acústica","Astronomía"],'Música y Ciencias'),
   SCH_D('Jueves','6to Grado',["Guitarra acústica","Astronomía"],'Música y Ciencias'),
+
+  // ===== CLUB DE MÚSICA Y CIENCIAS · EDUCACIÓN MEDIA GENERAL =====
+  SCH_D('Lunes','1er Año',["Astronomía"],'Música y Ciencias'),
+  SCH_D('Lunes','2do Año',["Astronomía"],'Música y Ciencias'),
+  SCH_D('Martes','1er Año',["Gaita"],'Música y Ciencias'),
+  SCH_D('Martes','2do Año',["Gaita"],'Música y Ciencias'),
+  SCH_D('Martes','3er Año',["Gaita"],'Música y Ciencias'),
+  SCH_D('Martes','4to Año',["Gaita"],'Música y Ciencias'),
+  SCH_D('Martes','5to Año',["Gaita"],'Música y Ciencias'),
+  SCH_D('Miércoles','1er Año',["Percusión"],'Música y Ciencias'),
+  SCH_D('Miércoles','2do Año',["Percusión"],'Música y Ciencias'),
+  SCH_D('Miércoles','3er Año',["Percusión"],'Música y Ciencias'),
+  SCH_D('Miércoles','4to Año',["Percusión"],'Música y Ciencias'),
+  SCH_D('Miércoles','5to Año',["Percusión"],'Música y Ciencias'),
+  SCH_D('Jueves','1er Año',["Violín","Guitarra acústica","Robótica"],'Música y Ciencias'),
+  SCH_D('Jueves','2do Año',["Violín","Guitarra acústica","Robótica"],'Música y Ciencias'),
+  SCH_D('Jueves','3er Año',["Guitarra acústica"],'Música y Ciencias'),
+  SCH_D('Jueves','4to Año',["Guitarra acústica"],'Música y Ciencias'),
+  SCH_D('Jueves','5to Año',["Guitarra acústica"],'Música y Ciencias'),
+  SCH_D('Viernes','1er Año',["Teclado","Guitarra eléctrica","Bajo eléctrico","Ensamble musical"],'Música y Ciencias'),
+  SCH_D('Viernes','2do Año',["Teclado","Guitarra eléctrica","Bajo eléctrico","Ensamble musical"],'Música y Ciencias'),
+  SCH_D('Viernes','3er Año',["Violín","Teclado","Guitarra eléctrica","Bajo eléctrico","Ensamble musical","Astronomía","Robótica"],'Música y Ciencias'),
+  SCH_D('Viernes','4to Año',["Violín","Teclado","Guitarra eléctrica","Bajo eléctrico","Ensamble musical","Astronomía","Robótica"],'Música y Ciencias'),
+  SCH_D('Viernes','5to Año',["Violín","Teclado","Guitarra eléctrica","Bajo eléctrico","Ensamble musical","Astronomía","Robótica"],'Música y Ciencias'),
 ].flat();
 let scheduleSelectedDay = '';
 let scheduleSelectedGrade = '';
@@ -2232,7 +2256,7 @@ function scheduleButton(label, attr, value, active=false){return `<button class=
 function initScheduleModule(){
   const discBox=document.getElementById('scheduleDiscChips'), gradeBox=document.getElementById('scheduleGradeChips'), dayBox=document.getElementById('scheduleDayChips');
   if(!discBox || !gradeBox || !dayBox) return;
-  const hot=["Fútbol campo","Baloncesto","Béisbol","Atletismo","Tenis","Ajedrez","Futsal","Voleibol","Robótica","Astronomía","Iniciación musical","Violín","Percusión","Cuatro","Gaita","Teclado","Guitarra acústica"];
+  const hot=["Fútbol campo","Baloncesto","Béisbol","Atletismo","Tenis","Ajedrez","Futsal","Voleibol","Robótica","Astronomía","Iniciación musical","Violín","Percusión","Cuatro","Gaita","Teclado","Guitarra acústica","Guitarra eléctrica","Bajo eléctrico","Ensamble musical"];
   discBox.innerHTML=hot.map(name=>scheduleButton(name,'data-sdisc',name)).join('');
   gradeBox.innerHTML=['Todos',...SCH_GRADE_ORDER].map((g,i)=>scheduleButton(g,'data-sgrade',g,i===0)).join('');
   const today=scheduleTodayName();
