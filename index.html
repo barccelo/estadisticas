@@ -1159,7 +1159,7 @@ body{background:#f6f7fb;}
         <section class="panel schedule-card">
           <div class="schedule-head">
             <div>
-              <h2>Horarios · Club Deportivo</h2>
+              <h2>Horarios · Clubes</h2>
               <p>Busca por disciplina, grado/año o día de la semana.</p>
             </div>
             <button class="btn secondary schedule-reset" id="scheduleResetBtn" type="button">Reiniciar filtros</button>
@@ -1167,7 +1167,7 @@ body{background:#f6f7fb;}
           <section class="panel schedule-filter-panel">
             <div class="field">
               <label for="scheduleSearch">Búsqueda rápida</label>
-              <input id="scheduleSearch" type="search" placeholder="Escribe: ajedrez, 3er, futsal…">
+              <input id="scheduleSearch" type="search" placeholder="Escribe: fútbol, robótica, violín, 3er…">
             </div>
             <div class="schedule-quick-groups">
               <div class="schedule-chip-row" id="scheduleDiscChips"></div>
@@ -2110,82 +2110,99 @@ const SCH_DAY_ORDER = ["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado
 const SCH_GRADE_ORDER = ["1er Grado","2do Grado","3er Grado","4to Grado","5to Grado","6to Grado","1er Año","2do Año","3er Año","4to Año","5to Año"];
 function scheduleTodayName(){const dias=["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"]; return dias[new Date().getDay()];}
 const SCH_DATA = [
-  SCH_D('Lunes','1er Grado',["Béisbol","Atletismo","Robótica","Iniciación musical"]),
-  SCH_D('Lunes','2do Grado',["Béisbol","Atletismo","Robótica","Iniciación musical"]),
-  SCH_D('Lunes','3er Grado',["Baloncesto","Ajedrez","Tenis","Música"]),
-  SCH_D('Martes','1er Grado',["Baloncesto","Ajedrez"]),
-  SCH_D('Martes','2do Grado',["Baloncesto","Ajedrez","Astronomía"]),
-  SCH_D('Martes','3er Grado',["Atletismo","Fútbol campo","Tenis","Futsal","Robótica","Roblegaita"]),
-  SCH_D('Miércoles','1er Grado',["Ajedrez","Robótica","Futsal"]),
-  SCH_D('Miércoles','2do Grado',["Ajedrez","Robótica","Futsal"]),
-  SCH_D('Miércoles','3er Grado',["Béisbol","Fútbol campo","Tenis","Música","Astronomía"]),
+  // ===== CLUB DEPORTIVO · EDUCACIÓN BÁSICA PRIMARIA · PRIMERA ETAPA =====
+  SCH_D('Lunes','1er Grado',["Béisbol","Futsal"]),
+  SCH_D('Lunes','2do Grado',["Béisbol","Futsal"]),
+  SCH_D('Lunes','3er Grado',["Ajedrez","Tenis"]),
+  SCH_D('Martes','1er Grado',["Baloncesto"]),
+  SCH_D('Martes','2do Grado',["Baloncesto"]),
+  SCH_D('Martes','3er Grado',["Béisbol","Futsal"]),
+  SCH_D('Miércoles','1er Grado',["Atletismo","Ajedrez"]),
+  SCH_D('Miércoles','2do Grado',["Atletismo","Ajedrez"]),
+  SCH_D('Miércoles','3er Grado',["Fútbol campo"]),
   SCH_D('Jueves','1er Grado',["Fútbol campo"]),
   SCH_D('Jueves','2do Grado',["Fútbol campo"]),
-  SCH_D('Jueves','3er Grado',["Atletismo","Béisbol","Ajedrez","Futsal","Robótica","Música"]),
-  SCH_D('Viernes','1er Grado',["Tenis","Atletismo"]),
-  SCH_D('Viernes','2do Grado',["Tenis","Atletismo"]),
-  SCH_D('Viernes','3er Grado',["Baloncesto","Béisbol","Astronomía"]),
+  SCH_D('Jueves','3er Grado',["Atletismo"]),
+  SCH_D('Viernes','1er Grado',["Tenis"]),
+  SCH_D('Viernes','2do Grado',["Tenis"]),
+  SCH_D('Viernes','3er Grado',["Baloncesto"]),
   SCH_D('Sábado','1er Grado',["Encuentros deportivos"]),
   SCH_D('Sábado','2do Grado',["Encuentros deportivos"]),
   SCH_D('Sábado','3er Grado',["Encuentros deportivos"]),
 
-  SCH_D('Lunes','4to Grado',["Baloncesto","Ajedrez","Tenis","Música"]),
-  SCH_D('Lunes','5to Grado',["Ajedrez","Tenis","Futsal","Música"]),
-  SCH_D('Lunes','6to Grado',["Ajedrez","Tenis","Futsal","Música"]),
-  SCH_D('Martes','4to Grado',["Atletismo","Fútbol campo","Tenis","Futsal","Robótica","Roblegaita"]),
-  SCH_D('Martes','5to Grado',["Atletismo","Fútbol campo","Tenis","Futsal","Robótica","Roblegaita"]),
-  SCH_D('Martes','6to Grado',["Atletismo","Fútbol campo","Tenis","Futsal","Robótica","Roblegaita"]),
-  SCH_D('Miércoles','4to Grado',["Béisbol","Fútbol campo","Tenis","Futsal","Música","Astronomía"]),
-  SCH_D('Miércoles','5to Grado',["Béisbol","Fútbol campo","Tenis","Música","Astronomía"]),
-  SCH_D('Miércoles','6to Grado',["Béisbol","Fútbol campo","Tenis","Música","Astronomía"]),
-  SCH_D('Jueves','4to Grado',["Atletismo","Béisbol","Ajedrez","Futsal","Robótica","Música"]),
-  SCH_D('Jueves','5to Grado',["Baloncesto","Atletismo","Béisbol","Ajedrez","Robótica","Música"]),
-  SCH_D('Jueves','6to Grado',["Baloncesto","Atletismo","Béisbol","Ajedrez","Robótica","Música"]),
-  SCH_D('Viernes','4to Grado',["Baloncesto","Béisbol","Astronomía"]),
-  SCH_D('Viernes','5to Grado',["Baloncesto","Béisbol","Astronomía"]),
-  SCH_D('Viernes','6to Grado',["Baloncesto","Béisbol","Astronomía"]),
+  // ===== CLUB DEPORTIVO · EDUCACIÓN BÁSICA PRIMARIA · SEGUNDA ETAPA =====
+  SCH_D('Lunes','4to Grado',["Ajedrez","Tenis"]),
+  SCH_D('Lunes','5to Grado',["Atletismo"]),
+  SCH_D('Lunes','6to Grado',["Atletismo"]),
+  SCH_D('Martes','4to Grado',["Béisbol","Futsal"]),
+  SCH_D('Martes','5to Grado',["Ajedrez","Tenis"]),
+  SCH_D('Martes','6to Grado',["Ajedrez","Tenis"]),
+  SCH_D('Miércoles','4to Grado',["Fútbol campo"]),
+  SCH_D('Miércoles','5to Grado',["Béisbol","Futsal"]),
+  SCH_D('Miércoles','6to Grado',["Béisbol","Futsal"]),
+  SCH_D('Jueves','4to Grado',["Atletismo"]),
+  SCH_D('Jueves','5to Grado',["Baloncesto"]),
+  SCH_D('Jueves','6to Grado',["Baloncesto"]),
+  SCH_D('Viernes','4to Grado',["Baloncesto"]),
+  SCH_D('Viernes','5to Grado',["Fútbol campo"]),
+  SCH_D('Viernes','6to Grado',["Fútbol campo"]),
   SCH_D('Sábado','4to Grado',["Encuentros deportivos"]),
   SCH_D('Sábado','5to Grado',["Encuentros deportivos"]),
   SCH_D('Sábado','6to Grado',["Encuentros deportivos"]),
 
-  SCH_D('Lunes','1er Año',["Fútbol campo","Astronomía"]),
-  SCH_D('Lunes','2do Año',["Fútbol campo","Astronomía"]),
+  // ===== CLUB DEPORTIVO · EDUCACIÓN MEDIA GENERAL · 1ER–3ER AÑO =====
+  SCH_D('Lunes','1er Año',["Baloncesto","Voleibol"]),
+  SCH_D('Lunes','2do Año',["Baloncesto","Voleibol"]),
   SCH_D('Lunes','3er Año',["Fútbol campo"]),
-  SCH_D('Martes','1er Año',["Béisbol","Roblegaita"]),
-  SCH_D('Martes','2do Año',["Béisbol","Roblegaita"]),
-  SCH_D('Martes','3er Año',["Béisbol","Roblegaita"]),
-  SCH_D('Miércoles','1er Año',["Baloncesto","Atletismo","Música"]),
-  SCH_D('Miércoles','2do Año',["Baloncesto","Atletismo","Música"]),
-  SCH_D('Miércoles','3er Año',["Baloncesto","Atletismo","Música"]),
-  SCH_D('Jueves','1er Año',["Tenis"]),
-  SCH_D('Jueves','2do Año',["Tenis"]),
-  SCH_D('Jueves','3er Año',["Tenis"]),
-  SCH_D('Viernes','1er Año',["Ajedrez","Futsal","Robótica","Música"]),
-  SCH_D('Viernes','2do Año',["Ajedrez","Futsal","Robótica","Música"]),
-  SCH_D('Viernes','3er Año',["Ajedrez","Futsal","Robótica","Música"]),
+  SCH_D('Martes','1er Año',["Atletismo","Fútbol campo"]),
+  SCH_D('Martes','2do Año',["Atletismo","Fútbol campo"]),
+  SCH_D('Martes','3er Año',["Voleibol"]),
+  SCH_D('Miércoles','1er Año',["Tenis"]),
+  SCH_D('Miércoles','2do Año',["Tenis"]),
+  SCH_D('Miércoles','3er Año',["Baloncesto"]),
+  SCH_D('Jueves','1er Año',["Futsal","Ajedrez"]),
+  SCH_D('Jueves','2do Año',["Futsal","Ajedrez"]),
+  SCH_D('Jueves','3er Año',["Béisbol","Voleibol","Tenis"]),
+  SCH_D('Viernes','1er Año',["Béisbol"]),
+  SCH_D('Viernes','2do Año',["Béisbol"]),
+  SCH_D('Viernes','3er Año',["Atletismo","Futsal","Ajedrez"]),
   SCH_D('Sábado','1er Año',["Encuentros deportivos"]),
   SCH_D('Sábado','2do Año',["Encuentros deportivos"]),
   SCH_D('Sábado','3er Año',["Encuentros deportivos"]),
 
-  SCH_D('Lunes','4to Año',["Fútbol campo","Astronomía"]),
-  SCH_D('Lunes','5to Año',["Fútbol campo","Astronomía"]),
-  SCH_D('Martes','4to Año',["Béisbol","Roblegaita"]),
-  SCH_D('Martes','5to Año',["Béisbol","Roblegaita"]),
-  SCH_D('Miércoles','4to Año',["Baloncesto","Música","Atletismo"]),
-  SCH_D('Miércoles','5to Año',["Baloncesto","Música","Atletismo"]),
-  SCH_D('Jueves','4to Año',["Tenis"]),
-  SCH_D('Jueves','5to Año',["Tenis"]),
-  SCH_D('Viernes','4to Año',["Ajedrez","Futsal","Robótica","Música"]),
-  SCH_D('Viernes','5to Año',["Ajedrez","Futsal","Robótica","Música"]),
+  // ===== CLUB DEPORTIVO · EDUCACIÓN MEDIA GENERAL · 4TO–5TO AÑO =====
+  SCH_D('Lunes','4to Año',["Fútbol campo"]),
+  SCH_D('Lunes','5to Año',["Fútbol campo"]),
+  SCH_D('Martes','4to Año',["Voleibol"]),
+  SCH_D('Martes','5to Año',["Voleibol"]),
+  SCH_D('Miércoles','4to Año',["Baloncesto"]),
+  SCH_D('Miércoles','5to Año',["Baloncesto"]),
+  SCH_D('Jueves','4to Año',["Béisbol","Voleibol","Tenis"]),
+  SCH_D('Jueves','5to Año',["Béisbol","Voleibol","Tenis"]),
+  SCH_D('Viernes','4to Año',["Atletismo","Futsal","Ajedrez"]),
+  SCH_D('Viernes','5to Año',["Atletismo","Futsal","Ajedrez"]),
   SCH_D('Sábado','4to Año',["Encuentros deportivos"]),
   SCH_D('Sábado','5to Año',["Encuentros deportivos"]),
 
-  SCH_D('Lunes','1er Grado',["Iniciación musical","Guitarra","Cuatro"],'Música'),
-  SCH_D('Lunes','2do Grado',["Iniciación musical","Guitarra","Cuatro"],'Música'),
-  ...['3er Grado','1er Año','2do Año','3er Año','4to Año','5to Año'].map(g=>SCH_D('Martes',g,["Roblegaita"],'Música')),
-  ...['3er Grado','1er Año','2do Año','3er Año','4to Año','5to Año'].map(g=>SCH_D('Miércoles',g,["Batería","Cuatro","Guitarra","Teclado"],'Música')),
-  ...['3er Grado','1er Año','2do Año','3er Año','4to Año','5to Año'].map(g=>SCH_D('Jueves',g,["Gaiteritos de Los Robles"],'Música')),
-  ...['3er Grado','1er Año','2do Año','3er Año','4to Año','5to Año'].map(g=>SCH_D('Viernes',g,["Batería","Cuatro","Bajo","Guitarra","Ensambles"],'Música')),
+  // ===== CLUB DE MÚSICA Y CIENCIAS · EDUCACIÓN PRIMARIA =====
+  SCH_D('Lunes','1er Grado',["Iniciación musical","Robótica"],'Música y Ciencias'),
+  SCH_D('Lunes','2do Grado',["Iniciación musical","Robótica"],'Música y Ciencias'),
+  SCH_D('Martes','1er Grado',["Astronomía"],'Música y Ciencias'),
+  SCH_D('Martes','2do Grado',["Astronomía"],'Música y Ciencias'),
+  SCH_D('Martes','3er Grado',["Violín","Teclado","Robótica"],'Música y Ciencias'),
+  SCH_D('Martes','4to Grado',["Violín","Teclado","Robótica"],'Música y Ciencias'),
+  SCH_D('Martes','5to Grado',["Cuatro","Gaita","Teclado"],'Música y Ciencias'),
+  SCH_D('Martes','6to Grado',["Cuatro","Gaita","Teclado"],'Música y Ciencias'),
+  SCH_D('Miércoles','3er Grado',["Astronomía"],'Música y Ciencias'),
+  SCH_D('Miércoles','4to Grado',["Astronomía"],'Música y Ciencias'),
+  SCH_D('Miércoles','5to Grado',["Violín","Percusión","Robótica"],'Música y Ciencias'),
+  SCH_D('Miércoles','6to Grado',["Violín","Percusión","Robótica"],'Música y Ciencias'),
+  SCH_D('Jueves','1er Grado',["Gaita"],'Música y Ciencias'),
+  SCH_D('Jueves','2do Grado',["Gaita"],'Música y Ciencias'),
+  SCH_D('Jueves','3er Grado',["Gaita"],'Música y Ciencias'),
+  SCH_D('Jueves','4to Grado',["Gaita"],'Música y Ciencias'),
+  SCH_D('Jueves','5to Grado',["Guitarra acústica","Astronomía"],'Música y Ciencias'),
+  SCH_D('Jueves','6to Grado',["Guitarra acústica","Astronomía"],'Música y Ciencias'),
 ].flat();
 let scheduleSelectedDay = '';
 let scheduleSelectedGrade = '';
@@ -2194,7 +2211,7 @@ function scheduleButton(label, attr, value, active=false){return `<button class=
 function initScheduleModule(){
   const discBox=document.getElementById('scheduleDiscChips'), gradeBox=document.getElementById('scheduleGradeChips'), dayBox=document.getElementById('scheduleDayChips');
   if(!discBox || !gradeBox || !dayBox) return;
-  const hot=["Fútbol campo","Baloncesto","Béisbol","Atletismo","Tenis","Ajedrez","Futsal","Robótica","Astronomía","Música","Roblegaita"];
+  const hot=["Fútbol campo","Baloncesto","Béisbol","Atletismo","Tenis","Ajedrez","Futsal","Voleibol","Robótica","Astronomía","Gaita","Teclado"];
   discBox.innerHTML=hot.map(name=>scheduleButton(name,'data-sdisc',name)).join('');
   gradeBox.innerHTML=['Todos',...SCH_GRADE_ORDER].map((g,i)=>scheduleButton(g,'data-sgrade',g,i===0)).join('');
   const today=scheduleTodayName();
