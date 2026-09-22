@@ -207,6 +207,77 @@ async function bootstrapUsers(request, env) {
   return json({ ok: true, users: results });
 }
 
+
+// TEMPORARY_BOOTSTRAP_UI
+function bootstrapPage() {
+  return new Response(`<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Inicializar usuarios</title>
+<style>
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#f6f7fb;color:#111827;margin:0;padding:24px}
+main{max-width:760px;margin:auto;background:#fff;border:1px solid #e5e7eb;border-radius:20px;padding:24px}
+h1{margin-top:0} .grid{display:grid;gap:12px}.row{display:grid;grid-template-columns:1.1fr 1.4fr 1fr;gap:10px}
+input{width:100%;box-sizing:border-box;padding:11px 12px;border:1px solid #d1d5db;border-radius:10px;font-size:16px}
+button{padding:12px 16px;border:0;border-radius:10px;background:#111827;color:#fff;font-weight:800;cursor:pointer}
+small{color:#6b7280}.status{margin-top:14px;font-weight:700}.ok{color:#166534}.err{color:#b91c1c}
+@media(max-width:700px){.row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main>
+<h1>Inicializar usuarios</h1>
+<p>Esta pantalla es temporal. Introduce el secreto de bootstrap y los usuarios iniciales. Las claves se convierten a hash dentro de Cloudflare y no se guardan en texto plano.</p>
+<div class="grid">
+  <input id="secret" type="password" placeholder="BOOTSTRAP_SECRET" autocomplete="off">
+  <div class="row"><input class="name" placeholder="Nombre"><input class="email" type="email" placeholder="Correo"><input class="pin" type="password" inputmode="numeric" placeholder="Clave"></div>
+  <div class="row"><input class="name" placeholder="Nombre"><input class="email" type="email" placeholder="Correo"><input class="pin" type="password" inputmode="numeric" placeholder="Clave"></div>
+  <div class="row"><input class="name" placeholder="Nombre"><input class="email" type="email" placeholder="Correo"><input class="pin" type="password" inputmode="numeric" placeholder="Clave"></div>
+  <div class="row"><input class="name" placeholder="Nombre"><input class="email" type="email" placeholder="Correo"><input class="pin" type="password" inputmode="numeric" placeholder="Clave"></div>
+  <button id="save">Crear / actualizar usuarios</button>
+  <small>Después de confirmar que funciona el inicio de sesión, elimina esta pantalla temporal y el secreto BOOTSTRAP_SECRET.</small>
+  <div id="status" class="status"></div>
+</div>
+<script>
+document.getElementById('save').addEventListener('click', async () => {
+  const status=document.getElementById('status');
+  status.className='status'; status.textContent='Procesando…';
+  const names=[...document.querySelectorAll('.name')];
+  const emails=[...document.querySelectorAll('.email')];
+  const pins=[...document.querySelectorAll('.pin')];
+  const users=names.map((n,i)=>({name:n.value.trim(),email:emails[i].value.trim(),pin:pins[i].value.trim()}))
+    .filter(u=>u.name||u.email||u.pin);
+  try{
+    const r=await fetch('/api/admin/bootstrap-users',{
+      method:'POST',
+      headers:{'content-type':'application/json','x-bootstrap-secret':document.getElementById('secret').value},
+      body:JSON.stringify({users})
+    });
+    const data=await r.json();
+    if(!r.ok) throw new Error(data.error||'Error');
+    status.className='status ok';
+    status.textContent='Usuarios creados correctamente: '+data.users.length;
+    document.querySelectorAll('.pin').forEach(i=>i.value='');
+    document.getElementById('secret').value='';
+  }catch(e){
+    status.className='status err';
+    status.textContent='No se pudo completar: '+e.message;
+  }
+});
+</script>
+</main>
+</body>
+</html>`, {
+    headers: {
+      "content-type": "text/html; charset=utf-8",
+      "cache-control": "no-store",
+      "x-robots-tag": "noindex, nofollow"
+    }
+  });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -218,7 +289,9 @@ export default {
 
     let response;
     try {
-      if (url.pathname === "/api/health" && request.method === "GET") {
+      if (url.pathname === "/bootstrap" && request.method === "GET") {
+        response = bootstrapPage();
+      } else if (url.pathname === "/api/health" && request.method === "GET") {
         response = json({
           ok: true,
           service: "club-deportivo-api",
