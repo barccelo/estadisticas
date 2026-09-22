@@ -4,8 +4,14 @@
   "main": "src/index.js",
   "compatibility_date": "2026-09-22",
   "keep_vars": true,
+  "secrets": {
+    "required": ["PIN_PEPPER", "SESSION_SECRET", "BOOTSTRAP_SECRET"]
+  },
   "observability": {
     "enabled": true
+  },
+  "vars": {
+    "ALLOWED_ORIGINS": "https://barccelo.github.io"
   },
   "d1_databases": [
     {
