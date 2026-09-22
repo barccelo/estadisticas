@@ -5,5 +5,12 @@
   "compatibility_date": "2026-09-22",
   "observability": {
     "enabled": true
-  }
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "club-deportivo-db",
+      "database_id": "a3074782-a9bd-4db6-9f90-16e658eda43c"
+    }
+  ]
 }
