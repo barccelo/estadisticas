@@ -152,6 +152,61 @@ async function session(request, env) {
   });
 }
 
+
+// TEMPORARY_BOOTSTRAP_ROUTE
+async function bootstrapUsers(request, env) {
+  if (!env.DB) return json({ ok: false, error: "D1_NOT_BOUND" }, 503);
+  if (!env.PIN_PEPPER || !env.BOOTSTRAP_SECRET) {
+    return json({ ok: false, error: "BOOTSTRAP_NOT_CONFIGURED" }, 503);
+  }
+
+  const suppliedSecret = request.headers.get("x-bootstrap-secret") || "";
+  if (!suppliedSecret || suppliedSecret !== env.BOOTSTRAP_SECRET) {
+    return json({ ok: false, error: "UNAUTHORIZED" }, 401);
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ ok: false, error: "INVALID_JSON" }, 400);
+  }
+
+  const users = Array.isArray(body?.users) ? body.users : [];
+  if (!users.length || users.length > 20) {
+    return json({ ok: false, error: "INVALID_USERS" }, 400);
+  }
+
+  const results = [];
+  for (const item of users) {
+    const id = String(item?.id || crypto.randomUUID()).trim();
+    const email = String(item?.email || "").trim().toLowerCase();
+    const name = String(item?.name || "").trim();
+    const pin = String(item?.pin || "").trim();
+
+    if (!email || !name || !/^\d{4,20}$/.test(pin)) {
+      return json({ ok: false, error: "INVALID_USER_DATA", email }, 400);
+    }
+
+    const pinHash = await sha256Hex(`${env.PIN_PEPPER}:${pin}`);
+    await env.DB.prepare(
+      `INSERT INTO users (id, email, display_name, pin_hash, active)
+       VALUES (?1, ?2, ?3, ?4, 1)
+       ON CONFLICT(email) DO UPDATE SET
+         display_name = excluded.display_name,
+         pin_hash = excluded.pin_hash,
+         active = 1,
+         updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')`
+    )
+      .bind(id, email, name, pinHash)
+      .run();
+
+    results.push({ id, email, name });
+  }
+
+  return json({ ok: true, users: results });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -174,6 +229,8 @@ export default {
         response = await login(request, env);
       } else if (url.pathname === "/api/session" && request.method === "GET") {
         response = await session(request, env);
+      } else if (url.pathname === "/api/admin/bootstrap-users" && request.method === "POST") {
+        response = await bootstrapUsers(request, env);
       } else {
         response = json({ ok: false, error: "NOT_FOUND" }, 404);
       }
