@@ -289,7 +289,16 @@ export default {
 
     let response;
     try {
-      if (url.pathname === "/bootstrap" && request.method === "GET") {
+      if (url.pathname === "/api/env-check" && request.method === "GET") {
+        response = json({
+          ok: true,
+          DB: Boolean(env.DB),
+          PIN_PEPPER: Boolean(env.PIN_PEPPER),
+          SESSION_SECRET: Boolean(env.SESSION_SECRET),
+          BOOTSTRAP_SECRET: Boolean(env.BOOTSTRAP_SECRET),
+          ALLOWED_ORIGINS: Boolean(env.ALLOWED_ORIGINS)
+        });
+      } else if (url.pathname === "/bootstrap" && request.method === "GET") {
         response = bootstrapPage();
       } else if (url.pathname === "/api/health" && request.method === "GET") {
         response = json({
