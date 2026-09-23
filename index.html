@@ -2338,7 +2338,9 @@ async function processEditBackupJob(job,password){
   if(job.operation==='delete'){
     const original=payload.record||{};
     const legacy=await findLegacyBackupRow(password,original);
-    if(!legacy || !legacy.__rowNumber) throw new Error('BACKUP_ROW_NOT_FOUND');
+    // Eliminar es idempotente: si la fila ya no existe en Sheets,
+    // el estado deseado ya se alcanzó y el respaldo puede darse por completado.
+    if(!legacy || !legacy.__rowNumber) return true;
     const removed=await apiCall('deleteRecord',{password,rowNumber:legacy.__rowNumber});
     if(!removed?.ok) throw new Error(removed?.message||'BACKUP_DELETE_FAILED');
     return true;
