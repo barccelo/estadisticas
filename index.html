@@ -1957,6 +1957,7 @@ function setupRegisterLoginModal(){
 function currentRegisterSnapshot(){
   return {
     password: getRegisterPassword(),
+    token: registerSessionToken,
     date: $('regFecha') ? $('regFecha').value : '',
     email: $('regEmail') ? $('regEmail').value : '',
     record: makeRecordFromPrefix('reg')
@@ -2005,44 +2006,47 @@ function fillRegisterFormFromRecord(record){
   setTimeout(()=>{draftSuppressAutosave=false;}, 250);
   updateDailyRecordStatus();
 }
-async function checkSharedDraft(){
+async async function checkSharedDraft(){
   const snap=currentRegisterSnapshot();
   if(!snap.date){setDraftStatus('<strong>Borrador compartido:</strong> selecciona una fecha para verificar.', true); return;}
-  if(!snap.password){
+  if(!snap.token){
     setDraftStatus('<strong>Borrador compartido:</strong> inicia la sesión de registro para verificar borradores entre dispositivos.', true);
     return;
   }
   setDraftStatus('<strong>Borrador compartido:</strong> verificando…', true);
   try{
-    const result=await apiCall('getDraft', {password:snap.password, date:snap.date});
-    if(!result.ok) throw new Error(result.message || 'No se pudo consultar el borrador.');
+    const result=await cloudApi('/api/drafts?date='+encodeURIComponent(snap.date),{token:snap.token});
     if(!result.draft){
       setDraftStatus('<strong>Borrador compartido:</strong> no hay borrador activo para esta fecha.', true);
       draftLoadedId='';
       return;
     }
     const draft=result.draft;
-    const updated = draft.updatedAt || draft['Última actualización'] || '';
-    const by = draft.updatedBy || draft.responsable || 'responsable no identificado';
-    draftLoadedId = draft.id || '';
-    setDraftStatus(`<strong>Borrador compartido activo.</strong><span class="log-muted">Última actualización: ${escapeHtml(updated)} · Responsable: ${escapeHtml(responsibleShort(by))}</span><div class="draft-actions"><button class="btn secondary" type="button" id="loadSharedDraftBtn">Cargar borrador</button><button class="btn secondary" type="button" id="discardSharedDraftBtn">Descartar borrador</button></div>`, true);
+    const updated = draft.updatedAt || '';
+    const by = draft.updatedByName || draft.updatedBy || 'responsable no identificado';
+    draftLoadedId = String(draft.version || '');
+    setDraftStatus(`<strong>Borrador compartido activo.</strong><span class="log-muted">Última actualización: ${escapeHtml(updated)} · Responsable: ${escapeHtml(by)}</span><div class="draft-actions"><button class="btn secondary" type="button" id="loadSharedDraftBtn">Cargar borrador</button><button class="btn secondary" type="button" id="discardSharedDraftBtn">Descartar borrador</button></div>`, true);
     const loadBtn=$('loadSharedDraftBtn');
     const discardBtn=$('discardSharedDraftBtn');
     if(loadBtn) loadBtn.onclick=()=>{fillRegisterFormFromRecord(draft.record || {}); setDraftStatus('<strong>Borrador cargado.</strong><span class="log-muted">No se actualizará hasta que modifiques algún campo.</span>', true);};
     if(discardBtn) discardBtn.onclick=()=>discardSharedDraft();
   }catch(err){
-    setDraftStatus(`<strong>Borrador compartido:</strong> ${escapeHtml(err.message)}`, true);
+    if(err.message==='UNAUTHORIZED'){await clearRegisterSession(); openRegisterLoginModal();}
+    setDraftStatus(`<strong>Borrador compartido:</strong> ${escapeHtml(err.message==='UNAUTHORIZED'?'La sesión venció. Inicia sesión nuevamente.':err.message)}`, true);
   }
 }
 async function discardSharedDraft(){
   const snap=currentRegisterSnapshot();
-  if(!snap.password || !snap.date) return;
+  if(!snap.token || !snap.date) return;
   try{
-    const result=await apiCall('discardDraft', {password:snap.password, date:snap.date});
-    if(!result.ok) throw new Error(result.message || 'No se pudo descartar.');
+    await cloudApi('/api/drafts?date='+encodeURIComponent(snap.date),{method:'DELETE',token:snap.token});
     draftLoadedId='';
+    draftLastSavedSignature='';
     setDraftStatus('<strong>Borrador descartado.</strong>', true);
-  }catch(err){setDraftStatus(`<strong>No se pudo descartar el borrador:</strong> ${escapeHtml(err.message)}`, true);}
+  }catch(err){
+    if(err.message==='UNAUTHORIZED'){await clearRegisterSession(); openRegisterLoginModal();}
+    setDraftStatus(`<strong>No se pudo descartar el borrador:</strong> ${escapeHtml(err.message==='UNAUTHORIZED'?'La sesión venció.':err.message)}`, true);
+  }
 }
 function markDraftDirty(delay=5000){
   if(draftSuppressAutosave) return;
@@ -2057,20 +2061,22 @@ function scheduleDraftAutosave(delay=5000){
 async function saveSharedDraft(){
   if(!draftFormDirty) return;
   const snap=currentRegisterSnapshot();
-  if(!snap.password || !snap.date) return;
+  if(!snap.token || !snap.date) return;
   if(!recordHasContent(snap.record)) return;
   const sig=draftSignature(snap.record);
   if(sig===draftLastSavedSignature) return;
   setDraftStatus('<strong>Borrador compartido:</strong> <span class="draft-autosave-dot">guardando cambios…</span>', true);
   try{
-    const result=await apiCall('saveDraft', {password:snap.password, date:snap.date, record:snap.record});
-    if(!result.ok) throw new Error(result.message || 'No se pudo guardar el borrador.');
+    const result=await cloudApi('/api/drafts',{method:'PUT',token:snap.token,body:{date:snap.date,record:snap.record}});
     draftLastSavedSignature=sig;
     draftFormDirty=false;
-    draftLoadedId=result.id || draftLoadedId;
-    const time = result.updatedAt || 'ahora';
-    setDraftStatus(`<strong>Borrador compartido guardado.</strong><span class="log-muted">Última actualización: ${escapeHtml(time)}</span>`, true);
-  }catch(err){setDraftStatus(`<strong>No se pudo autoguardar:</strong> ${escapeHtml(err.message)}`, true);}
+    draftLoadedId=String(result.version || draftLoadedId || '');
+    const time=result.updatedAt || 'ahora';
+    setDraftStatus(`<strong>Borrador compartido guardado en Cloudflare.</strong><span class="log-muted">Última actualización: ${escapeHtml(time)}</span>`, true);
+  }catch(err){
+    if(err.message==='UNAUTHORIZED'){await clearRegisterSession(); openRegisterLoginModal();}
+    setDraftStatus(`<strong>No se pudo autoguardar:</strong> ${escapeHtml(err.message==='UNAUTHORIZED'?'La sesión venció.':err.message)}`, true);
+  }
 }
 async function updateDayLogStatus(){
   const date=$('regFecha') ? $('regFecha').value : '';
@@ -2120,6 +2126,9 @@ async function saveRecord(){
     const result=await apiCall('addRecord', {password, record: makeRecordFromPrefix('reg')});
     if(!result.ok) throw new Error(result.message || 'No se pudo guardar.');
     setStatus('regStatus', result.message || 'Registro guardado correctamente.','ok');
+    try{
+      if(registerSessionToken) await cloudApi('/api/drafts?date='+encodeURIComponent($('regFecha').value),{method:'DELETE',token:registerSessionToken});
+    }catch(_e){}
     try{await apiCall('discardDraft', {password, date:$('regFecha').value});}catch(_e){}
     draftFormDirty=false;
     draftLastSavedSignature='';
