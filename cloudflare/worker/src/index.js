@@ -1008,7 +1008,13 @@ async function listAdminUsers(request, env) {
   if(!adminAllowed) return json({ok:false,error:"ADMIN_LOCKED"},403);
   await ensureEditSchema(env);
   const rows=await env.DB.prepare(
-    "SELECT id,email,display_name,active,role,created_at,updated_at FROM users ORDER BY display_name"
+    `SELECT u.id,u.email,u.display_name,u.active,u.role,u.created_at,u.updated_at,
+            (SELECT COUNT(*) FROM auth_sessions s
+             WHERE s.user_id=u.id AND s.expires_at>strftime('%s','now')) AS active_sessions,
+            (SELECT MAX(l.created_at) FROM app_log l
+             WHERE l.user_id=u.id AND l.event_type='login') AS last_login
+     FROM users u
+     ORDER BY u.display_name`
   ).all();
   return json({ok:true,users:rows.results||[]});
 }
