@@ -27,60 +27,75 @@ const corsHeaders = (request, env) => {
   return {};
 };
 
+const utf8 = (value) => new TextEncoder().encode(value);
+
 const base64url = (bytes) => {
   let binary = "";
   for (const b of bytes) binary += String.fromCharCode(b);
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 };
 
-const utf8 = (value) => new TextEncoder().encode(value);
-
-async function sha256Hex(value) {
-  const hash = await crypto.subtle.digest("SHA-256", utf8(value));
-  return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-async function signToken(payload, secret) {
-  const header = base64url(utf8(JSON.stringify({ alg: "HS256", typ: "JWT" })));
-  const body = base64url(utf8(JSON.stringify(payload)));
-  const key = await crypto.subtle.importKey(
-    "raw",
-    utf8(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-  const signature = await crypto.subtle.sign("HMAC", key, utf8(`${header}.${body}`));
-  return `${header}.${body}.${base64url(new Uint8Array(signature))}`;
-}
-
-function decodeBase64url(value) {
+const fromBase64url = (value) => {
   const padded = value.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((value.length + 3) % 4);
   const raw = atob(padded);
   return Uint8Array.from(raw, (c) => c.charCodeAt(0));
+};
+
+async function sha256Hex(value) {
+  const hash = await crypto.subtle.digest("SHA-256", typeof value === "string" ? utf8(value) : value);
+  return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function verifyToken(token, secret) {
-  const parts = String(token || "").split(".");
-  if (parts.length !== 3) return null;
-  const [header, body, signature] = parts;
-  const key = await crypto.subtle.importKey(
-    "raw",
-    utf8(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["verify"]
+const PIN_ITERATIONS = 100000;
+
+async function hashPin(pin, saltBytes = null) {
+  const salt = saltBytes || crypto.getRandomValues(new Uint8Array(16));
+  const keyMaterial = await crypto.subtle.importKey("raw", utf8(pin), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", hash: "SHA-256", salt, iterations: PIN_ITERATIONS },
+    keyMaterial,
+    256
   );
-  const ok = await crypto.subtle.verify(
-    "HMAC",
-    key,
-    decodeBase64url(signature),
-    utf8(`${header}.${body}`)
+  return `pbkdf2$${PIN_ITERATIONS}$${base64url(salt)}$${base64url(new Uint8Array(bits))}`;
+}
+
+async function verifyPin(pin, stored) {
+  const parts = String(stored || "").split("$");
+  if (parts.length !== 4 || parts[0] !== "pbkdf2") return false;
+  const iterations = Number(parts[1]);
+  if (!Number.isInteger(iterations) || iterations < 10000 || iterations > 1000000) return false;
+  const salt = fromBase64url(parts[2]);
+  const expected = fromBase64url(parts[3]);
+  const keyMaterial = await crypto.subtle.importKey("raw", utf8(pin), "PBKDF2", false, ["deriveBits"]);
+  const bits = new Uint8Array(
+    await crypto.subtle.deriveBits(
+      { name: "PBKDF2", hash: "SHA-256", salt, iterations },
+      keyMaterial,
+      expected.length * 8
+    )
   );
-  if (!ok) return null;
-  const payload = JSON.parse(new TextDecoder().decode(decodeBase64url(body)));
-  if (!payload.exp || Date.now() >= payload.exp * 1000) return null;
-  return payload;
+  if (bits.length !== expected.length) return false;
+  let diff = 0;
+  for (let i = 0; i < bits.length; i++) diff |= bits[i] ^ expected[i];
+  return diff === 0;
+}
+
+let authSchemaReady = false;
+async function ensureAuthSchema(env) {
+  if (authSchemaReady) return;
+  await env.DB.prepare(
+    `CREATE TABLE IF NOT EXISTS auth_sessions (
+      token_hash TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      expires_at INTEGER NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`
+  ).run();
+  await env.DB.prepare(
+    "CREATE INDEX IF NOT EXISTS idx_auth_sessions_expiry ON auth_sessions(expires_at)"
+  ).run();
+  authSchemaReady = true;
 }
 
 function bearer(request) {
@@ -88,17 +103,41 @@ function bearer(request) {
   return auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
 }
 
+async function createSession(env, userId) {
+  await ensureAuthSchema(env);
+  const raw = crypto.getRandomValues(new Uint8Array(32));
+  const token = base64url(raw);
+  const tokenHash = await sha256Hex(raw);
+  const now = Math.floor(Date.now() / 1000);
+  const expiresIn = 60 * 60 * 12;
+  const expiresAt = now + expiresIn;
+
+  await env.DB.prepare(
+    "INSERT INTO auth_sessions (token_hash, user_id, expires_at) VALUES (?1, ?2, ?3)"
+  ).bind(tokenHash, userId, expiresAt).run();
+
+  return { token, expiresIn, expiresAt };
+}
+
 async function requireSession(request, env) {
   const token = bearer(request);
-  if (!token || !env.SESSION_SECRET) return null;
-  return verifyToken(token, env.SESSION_SECRET);
+  if (!token || !env.DB) return null;
+  await ensureAuthSchema(env);
+  const tokenHash = await sha256Hex(fromBase64url(token));
+  const now = Math.floor(Date.now() / 1000);
+  const row = await env.DB.prepare(
+    `SELECT s.user_id, s.expires_at, u.email, u.display_name
+     FROM auth_sessions s
+     JOIN users u ON u.id = s.user_id
+     WHERE s.token_hash = ?1 AND s.expires_at > ?2 AND u.active = 1
+     LIMIT 1`
+  ).bind(tokenHash, now).first();
+
+  return row || null;
 }
 
 async function login(request, env) {
   if (!env.DB) return json({ ok: false, error: "D1_NOT_BOUND" }, 503);
-  if (!env.PIN_PEPPER || !env.SESSION_SECRET) {
-    return json({ ok: false, error: "AUTH_SECRETS_NOT_CONFIGURED" }, 503);
-  }
 
   let body;
   try {
@@ -112,32 +151,30 @@ async function login(request, env) {
     return json({ ok: false, error: "INVALID_CREDENTIALS" }, 401);
   }
 
-  const pinHash = await sha256Hex(`${env.PIN_PEPPER}:${pin}`);
-  const user = await env.DB.prepare(
-    "SELECT id, email, display_name FROM users WHERE pin_hash = ?1 AND active = 1 LIMIT 1"
-  )
-    .bind(pinHash)
-    .first();
+  const users = await env.DB.prepare(
+    "SELECT id, email, display_name, pin_hash FROM users WHERE active = 1 ORDER BY display_name"
+  ).all();
+
+  let user = null;
+  for (const candidate of users.results || []) {
+    if (await verifyPin(pin, candidate.pin_hash)) {
+      user = candidate;
+      break;
+    }
+  }
 
   if (!user) return json({ ok: false, error: "INVALID_CREDENTIALS" }, 401);
 
-  const now = Math.floor(Date.now() / 1000);
-  const expiresIn = 60 * 60 * 12;
-  const token = await signToken(
-    { sub: user.id, email: user.email, name: user.display_name, iat: now, exp: now + expiresIn },
-    env.SESSION_SECRET
-  );
+  const sessionData = await createSession(env, user.id);
 
   await env.DB.prepare(
     "INSERT INTO app_log (event_type, user_id, details_json) VALUES ('login', ?1, ?2)"
-  )
-    .bind(user.id, JSON.stringify({ source: "cloudflare" }))
-    .run();
+  ).bind(user.id, JSON.stringify({ source: "cloudflare", auth: "d1-session" })).run();
 
   return json({
     ok: true,
-    token,
-    expires_in: expiresIn,
+    token: sessionData.token,
+    expires_in: sessionData.expiresIn,
     user: { id: user.id, email: user.email, name: user.display_name },
   });
 }
@@ -147,22 +184,31 @@ async function session(request, env) {
   if (!auth) return json({ ok: false, error: "UNAUTHORIZED" }, 401);
   return json({
     ok: true,
-    user: { id: auth.sub, email: auth.email, name: auth.name },
-    expires_at: auth.exp,
+    user: { id: auth.user_id, email: auth.email, name: auth.display_name },
+    expires_at: auth.expires_at,
   });
 }
 
+const INITIAL_EMAILS = new Set([
+  "cesarperozo@losroblesenlinea.com.ve",
+  "davidbarcelo@losroblesenlinea.com.ve",
+  "alexandropolanco@losroblesenlinea.com.ve",
+  "inrifereira@losroblesenlinea.com.ve",
+]);
 
-// TEMPORARY_BOOTSTRAP_ROUTE
+async function bootstrapStatus(env) {
+  if (!env.DB) return json({ ok: false, error: "D1_NOT_BOUND" }, 503);
+  const row = await env.DB.prepare("SELECT COUNT(*) AS total FROM users").first();
+  const total = Number(row?.total || 0);
+  return json({ ok: true, initialized: total > 0, users: total });
+}
+
 async function bootstrapUsers(request, env) {
   if (!env.DB) return json({ ok: false, error: "D1_NOT_BOUND" }, 503);
-  if (!env.PIN_PEPPER || !env.BOOTSTRAP_SECRET) {
-    return json({ ok: false, error: "BOOTSTRAP_NOT_CONFIGURED" }, 503);
-  }
 
-  const suppliedSecret = request.headers.get("x-bootstrap-secret") || "";
-  if (!suppliedSecret || suppliedSecret !== env.BOOTSTRAP_SECRET) {
-    return json({ ok: false, error: "UNAUTHORIZED" }, 401);
+  const existing = await env.DB.prepare("SELECT COUNT(*) AS total FROM users").first();
+  if (Number(existing?.total || 0) > 0) {
+    return json({ ok: false, error: "BOOTSTRAP_CLOSED" }, 409);
   }
 
   let body;
@@ -173,42 +219,55 @@ async function bootstrapUsers(request, env) {
   }
 
   const users = Array.isArray(body?.users) ? body.users : [];
-  if (!users.length || users.length > 20) {
-    return json({ ok: false, error: "INVALID_USERS" }, 400);
+  if (users.length !== INITIAL_EMAILS.size) {
+    return json({ ok: false, error: "INITIAL_USERS_REQUIRED" }, 400);
   }
 
-  const results = [];
+  const seenEmails = new Set();
+  const seenPins = new Set();
+  const prepared = [];
+
   for (const item of users) {
-    const id = String(item?.id || crypto.randomUUID()).trim();
+    const id = crypto.randomUUID();
     const email = String(item?.email || "").trim().toLowerCase();
     const name = String(item?.name || "").trim();
     const pin = String(item?.pin || "").trim();
 
-    if (!email || !name || !/^\d{4,20}$/.test(pin)) {
+    if (!INITIAL_EMAILS.has(email) || seenEmails.has(email) || !name || !/^\d{4,20}$/.test(pin)) {
       return json({ ok: false, error: "INVALID_USER_DATA", email }, 400);
     }
+    if (seenPins.has(pin)) {
+      return json({ ok: false, error: "DUPLICATE_PIN" }, 400);
+    }
 
-    const pinHash = await sha256Hex(`${env.PIN_PEPPER}:${pin}`);
-    await env.DB.prepare(
-      `INSERT INTO users (id, email, display_name, pin_hash, active)
-       VALUES (?1, ?2, ?3, ?4, 1)
-       ON CONFLICT(email) DO UPDATE SET
-         display_name = excluded.display_name,
-         pin_hash = excluded.pin_hash,
-         active = 1,
-         updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')`
-    )
-      .bind(id, email, name, pinHash)
-      .run();
-
-    results.push({ id, email, name });
+    seenEmails.add(email);
+    seenPins.add(pin);
+    prepared.push({ id, email, name, pinHash: await hashPin(pin) });
   }
 
-  return json({ ok: true, users: results });
+  if (seenEmails.size !== INITIAL_EMAILS.size) {
+    return json({ ok: false, error: "INITIAL_USERS_REQUIRED" }, 400);
+  }
+
+  const statements = prepared.map((u) =>
+    env.DB.prepare(
+      "INSERT INTO users (id, email, display_name, pin_hash, active) VALUES (?1, ?2, ?3, ?4, 1)"
+    ).bind(u.id, u.email, u.name, u.pinHash)
+  );
+
+  await env.DB.batch(statements);
+
+  await env.DB.prepare(
+    "INSERT INTO app_log (event_type, details_json) VALUES ('bootstrap_users', ?1)"
+  ).bind(JSON.stringify({ count: prepared.length, auth: "pbkdf2+d1-session" })).run();
+
+  return json({
+    ok: true,
+    users: prepared.map(({ id, email, name }) => ({ id, email, name })),
+    bootstrap_closed: true,
+  });
 }
 
-
-// TEMPORARY_BOOTSTRAP_UI
 function bootstrapPage() {
   return new Response(`<!doctype html>
 <html lang="es">
@@ -219,53 +278,58 @@ function bootstrapPage() {
 <style>
 body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#f6f7fb;color:#111827;margin:0;padding:24px}
 main{max-width:760px;margin:auto;background:#fff;border:1px solid #e5e7eb;border-radius:20px;padding:24px}
-h1{margin-top:0} .grid{display:grid;gap:12px}.row{display:grid;grid-template-columns:1.1fr 1.4fr 1fr;gap:10px}
+h1{margin-top:0}.grid{display:grid;gap:12px}.row{display:grid;grid-template-columns:1.1fr 1.4fr 1fr;gap:10px}
 input{width:100%;box-sizing:border-box;padding:11px 12px;border:1px solid #d1d5db;border-radius:10px;font-size:16px}
 button{padding:12px 16px;border:0;border-radius:10px;background:#111827;color:#fff;font-weight:800;cursor:pointer}
-small{color:#6b7280}.status{margin-top:14px;font-weight:700}.ok{color:#166534}.err{color:#b91c1c}
+button:disabled{opacity:.55;cursor:not-allowed}small{color:#6b7280}.status{margin-top:14px;font-weight:700}.ok{color:#166534}.err{color:#b91c1c}
 @media(max-width:700px){.row{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <main>
 <h1>Inicializar usuarios</h1>
-<p>Esta pantalla es temporal. Introduce el secreto de bootstrap y los usuarios iniciales. Las claves se convierten a hash dentro de Cloudflare y no se guardan en texto plano.</p>
-<div class="grid">
-  <input id="secret" type="password" placeholder="BOOTSTRAP_SECRET" autocomplete="off">
-  <div class="row"><input class="name" placeholder="Nombre"><input class="email" type="email" placeholder="Correo"><input class="pin" type="password" inputmode="numeric" placeholder="Clave"></div>
-  <div class="row"><input class="name" placeholder="Nombre"><input class="email" type="email" placeholder="Correo"><input class="pin" type="password" inputmode="numeric" placeholder="Clave"></div>
-  <div class="row"><input class="name" placeholder="Nombre"><input class="email" type="email" placeholder="Correo"><input class="pin" type="password" inputmode="numeric" placeholder="Clave"></div>
-  <div class="row"><input class="name" placeholder="Nombre"><input class="email" type="email" placeholder="Correo"><input class="pin" type="password" inputmode="numeric" placeholder="Clave"></div>
-  <button id="save">Crear / actualizar usuarios</button>
-  <small>Después de confirmar que funciona el inicio de sesión, elimina esta pantalla temporal y el secreto BOOTSTRAP_SECRET.</small>
+<p>Esta pantalla solo funciona mientras la base de datos no tenga usuarios. Las claves se transforman con PBKDF2 y una sal individual dentro de Cloudflare; no se guardan en texto plano. Al crear los usuarios, esta función se cierra automáticamente.</p>
+<div class="grid" id="form">
+  <div class="row"><input class="name" value="César Perozo"><input class="email" type="email" value="cesarperozo@losroblesenlinea.com.ve"><input class="pin" type="password" inputmode="numeric" placeholder="Clave"></div>
+  <div class="row"><input class="name" value="David Barceló"><input class="email" type="email" value="davidbarcelo@losroblesenlinea.com.ve"><input class="pin" type="password" inputmode="numeric" placeholder="Clave"></div>
+  <div class="row"><input class="name" value="Alexandro Polanco"><input class="email" type="email" value="alexandropolanco@losroblesenlinea.com.ve"><input class="pin" type="password" inputmode="numeric" placeholder="Clave"></div>
+  <div class="row"><input class="name" value="Inri Fereira"><input class="email" type="email" value="inrifereira@losroblesenlinea.com.ve"><input class="pin" type="password" inputmode="numeric" placeholder="Clave"></div>
+  <button id="save">Crear usuarios y cerrar inicialización</button>
+  <small>Después podrás probar cada clave desde /login-test.</small>
   <div id="status" class="status"></div>
 </div>
 <script>
-document.getElementById('save').addEventListener('click', async () => {
+const save=document.getElementById('save');
+async function check(){
+  const r=await fetch('/api/setup-status');
+  const d=await r.json();
+  if(d.initialized){
+    save.disabled=true;
+    document.getElementById('status').className='status ok';
+    document.getElementById('status').textContent='La base ya está inicializada con '+d.users+' usuarios. Esta pantalla está cerrada.';
+  }
+}
+save.addEventListener('click', async () => {
   const status=document.getElementById('status');
-  status.className='status'; status.textContent='Procesando…';
+  status.className='status';status.textContent='Procesando…';save.disabled=true;
   const names=[...document.querySelectorAll('.name')];
   const emails=[...document.querySelectorAll('.email')];
   const pins=[...document.querySelectorAll('.pin')];
-  const users=names.map((n,i)=>({name:n.value.trim(),email:emails[i].value.trim(),pin:pins[i].value.trim()}))
-    .filter(u=>u.name||u.email||u.pin);
+  const users=names.map((n,i)=>({name:n.value.trim(),email:emails[i].value.trim(),pin:pins[i].value.trim()}));
   try{
-    const r=await fetch('/api/admin/bootstrap-users',{
-      method:'POST',
-      headers:{'content-type':'application/json','x-bootstrap-secret':document.getElementById('secret').value},
-      body:JSON.stringify({users})
-    });
+    const r=await fetch('/api/admin/bootstrap-users',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({users})});
     const data=await r.json();
     if(!r.ok) throw new Error(data.error||'Error');
     status.className='status ok';
-    status.textContent='Usuarios creados correctamente: '+data.users.length;
+    status.textContent='Usuarios creados correctamente. La inicialización quedó cerrada.';
     document.querySelectorAll('.pin').forEach(i=>i.value='');
-    document.getElementById('secret').value='';
   }catch(e){
+    save.disabled=false;
     status.className='status err';
     status.textContent='No se pudo completar: '+e.message;
   }
 });
+check();
 </script>
 </main>
 </body>
@@ -273,8 +337,42 @@ document.getElementById('save').addEventListener('click', async () => {
     headers: {
       "content-type": "text/html; charset=utf-8",
       "cache-control": "no-store",
-      "x-robots-tag": "noindex, nofollow"
-    }
+      "x-robots-tag": "noindex, nofollow",
+    },
+  });
+}
+
+function loginTestPage() {
+  return new Response(`<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Prueba de inicio de sesión</title>
+<style>
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#f6f7fb;color:#111827;margin:0;padding:24px}
+main{max-width:520px;margin:auto;background:#fff;border:1px solid #e5e7eb;border-radius:20px;padding:24px}
+input,button{width:100%;box-sizing:border-box;padding:12px 14px;border-radius:10px;font-size:16px}
+input{border:1px solid #d1d5db;margin:12px 0}button{border:0;background:#111827;color:#fff;font-weight:800;cursor:pointer}
+.status{margin-top:14px;font-weight:700}.ok{color:#166534}.err{color:#b91c1c}
+</style></head><body><main>
+<h1>Prueba de inicio de sesión</h1>
+<p>Introduce una de las claves configuradas. La prueba también valida la sesión creada en D1.</p>
+<input id="pin" type="password" inputmode="numeric" placeholder="Clave" autocomplete="off">
+<button id="go">Probar acceso</button><div id="status" class="status"></div>
+<script>
+document.getElementById('go').addEventListener('click',async()=>{
+ const status=document.getElementById('status');status.className='status';status.textContent='Verificando…';
+ try{
+  const r=await fetch('/api/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({pin:document.getElementById('pin').value.trim()})});
+  const d=await r.json();if(!r.ok)throw new Error(d.error||'Error');
+  const s=await fetch('/api/session',{headers:{authorization:'Bearer '+d.token}});
+  const sd=await s.json();if(!s.ok)throw new Error(sd.error||'Sesión inválida');
+  status.className='status ok';status.textContent='Acceso correcto: '+sd.user.name+' · '+sd.user.email;
+  document.getElementById('pin').value='';
+ }catch(e){status.className='status err';status.textContent='No se pudo iniciar sesión: '+e.message;}
+});
+</script></main></body></html>`, {
+    headers: {"content-type":"text/html; charset=utf-8","cache-control":"no-store","x-robots-tag":"noindex, nofollow"},
   });
 }
 
@@ -293,18 +391,21 @@ export default {
         response = json({
           ok: true,
           DB: Boolean(env.DB),
-          PIN_PEPPER: Boolean(env.PIN_PEPPER),
-          SESSION_SECRET: Boolean(env.SESSION_SECRET),
-          BOOTSTRAP_SECRET: Boolean(env.BOOTSTRAP_SECRET),
-          ALLOWED_ORIGINS: Boolean(env.ALLOWED_ORIGINS)
+          ALLOWED_ORIGINS: Boolean(env.ALLOWED_ORIGINS),
+          auth_mode: "pbkdf2+d1-sessions",
         });
+      } else if (url.pathname === "/api/setup-status" && request.method === "GET") {
+        response = await bootstrapStatus(env);
       } else if (url.pathname === "/bootstrap" && request.method === "GET") {
         response = bootstrapPage();
+      } else if (url.pathname === "/login-test" && request.method === "GET") {
+        response = loginTestPage();
       } else if (url.pathname === "/api/health" && request.method === "GET") {
         response = json({
           ok: true,
           service: "club-deportivo-api",
           d1: Boolean(env.DB),
+          auth: "d1-sessions",
           time: new Date().toISOString(),
         });
       } else if (url.pathname === "/api/login" && request.method === "POST") {
