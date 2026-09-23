@@ -2336,11 +2336,11 @@ async function processEditBackupJob(job,password){
 }
 async function processEditBackupQueue(){
   const password=editSessionPassword;
-  if(!editSessionToken || !password) return {done:0,pending:0};
+  if(!editSessionToken || !password) return {done:0,pending:0,error:''};
   let result;
   try{result=await cloudApi('/api/backup/jobs',{headers:{'x-edit-token':editSessionToken}});}
-  catch(_e){return {done:0,pending:0};}
-  let done=0,pending=0;
+  catch(_e){return {done:0,pending:0,error:''};}
+  let done=0,pending=0,firstError='';
   for(const job of result.jobs||[]){
     try{
       await processEditBackupJob(job,password);
@@ -2348,10 +2348,12 @@ async function processEditBackupQueue(){
       done++;
     }catch(err){
       pending++;
-      await reportBackupJobResult(job,false,err?.message||'BACKUP_EDIT_FAILED','edit');
+      const message=err?.message||'BACKUP_EDIT_FAILED';
+      if(!firstError) firstError=message;
+      await reportBackupJobResult(job,false,message,'edit');
     }
   }
-  return {done,pending};
+  return {done,pending,error:firstError};
 }
 
 async function saveRecord(){
@@ -2516,7 +2518,7 @@ async function saveEditedRecord(unique, recordId){
       setStatus(
         unique+'_status',
         backup.pending
-          ? 'Registro actualizado en Cloudflare. Respaldo en Google Sheets pendiente de reintento.'
+          ? 'Registro actualizado en Cloudflare. Respaldo en Google Sheets pendiente: '+(backup.error||'reintento necesario')+'.'
           : 'Registro actualizado en Cloudflare. Respaldo en Google Sheets actualizado.',
         'ok'
       );
@@ -2557,7 +2559,7 @@ async function deleteEditedRecord(unique, recordId){
       setStatus(
         'editStatus',
         backup.pending
-          ? 'Registro eliminado de Cloudflare D1. Respaldo en Google Sheets pendiente de reintento.'
+          ? 'Registro eliminado de Cloudflare D1. Respaldo en Google Sheets pendiente: '+(backup.error||'reintento necesario')+'.'
           : 'Registro eliminado de Cloudflare D1. Eliminación reflejada en el respaldo de Google Sheets.',
         'ok'
       );
