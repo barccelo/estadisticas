@@ -2245,11 +2245,6 @@ async function saveRecord(){
 async function findEditableRecords(){
   const date=$('editFecha').value;
   const password=$('editPassword').value.trim();
-  if(!registerSessionToken){
-    openRegisterLoginModal();
-    setStatus('editStatus','Inicia sesión para editar registros.','err');
-    return;
-  }
   if(!password){setStatus('editStatus','Escribe la clave de edición.','err'); return;}
   if(!date){setStatus('editStatus','Selecciona una fecha para buscar.','err'); return;}
   const btn=$('findRecordsBtn'); btn.disabled=true; $('editResults').innerHTML=''; setStatus('editStatus',editSessionToken?'Buscando registros...':'Verificando clave de edición...');
@@ -2257,7 +2252,6 @@ async function findEditableRecords(){
     if(!editSessionToken){
       const unlocked=await cloudApi('/api/edit/unlock',{
         method:'POST',
-        token:registerSessionToken,
         body:{password}
       });
       editSessionToken=String(unlocked.edit_token||'');
@@ -2271,11 +2265,6 @@ async function findEditableRecords(){
     if(err.message==='INVALID_EDIT_KEY'){
       editSessionToken='';
       setStatus('editStatus','Clave de edición incorrecta.','err');
-    }else if(err.message==='UNAUTHORIZED'){
-      editSessionToken='';
-      await clearRegisterSession();
-      openRegisterLoginModal();
-      setStatus('editStatus','La sesión venció. Inicia sesión nuevamente.','err');
     }else{
       setStatus('editStatus',err.message || 'No se pudieron mostrar los registros.','err');
     }
@@ -2329,11 +2318,6 @@ async function syncEditedRecordBackup(original, updated, password){
   return saved && saved.ok ? {ok:true} : {ok:false,reason:saved?.message||'BACKUP_UPDATE_FAILED'};
 }
 async function saveEditedRecord(unique, recordId){
-  if(!registerSessionToken){
-    openRegisterLoginModal();
-    setStatus(unique+'_status','Inicia sesión para editar.','err');
-    return;
-  }
   const password=getRegisterPassword();
   const original=editLoadedRecords.get(String(recordId));
   if(!original){setStatus(unique+'_status','No se encontró el registro cargado. Vuelve a buscar.','err'); return;}
@@ -2348,7 +2332,6 @@ async function saveEditedRecord(unique, recordId){
   try{
     const result=await cloudApi('/api/records/'+encodeURIComponent(recordId),{
       method:'PUT',
-      token:registerSessionToken,
       headers:{'x-edit-token':editSessionToken},
       body:{date,responsible_email:email,observations,attendance}
     });
@@ -2377,9 +2360,7 @@ async function saveEditedRecord(unique, recordId){
       ? 'Ese cambio produciría un registro duplicado y no se guardó.'
       : err.message==='EDIT_LOCKED'
         ? 'La autorización de edición venció. Vuelve a introducir la clave de edición.'
-        : err.message==='UNAUTHORIZED'
-          ? 'La sesión venció. Inicia sesión nuevamente.'
-          : err.message;
+        : err.message;
     setStatus(unique+'_status',msg,'err');
   }finally{btn.disabled=false;}
 }
