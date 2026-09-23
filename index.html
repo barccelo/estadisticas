@@ -2269,14 +2269,19 @@ async function ensureLegacyTimestamp(password, payload){
   return true;
 }
 
-async function processRegisterBackupQueue(){
+async function processRegisterBackupQueue(targetJobId='', onlyTarget=false){
   const password=getRegisterPassword();
-  if(!registerSessionToken || !password) return {done:0,pending:0};
+  if(!registerSessionToken || !password) return {done:0,pending:0,error:'',targetDone:false,targetPending:false};
   let result;
   try{result=await cloudApi('/api/backup/jobs',{token:registerSessionToken});}
-  catch(_e){return {done:0,pending:0};}
-  let done=0,pending=0;
-  for(const job of result.jobs||[]){
+  catch(_e){return {done:0,pending:0,error:'',targetDone:false,targetPending:false};}
+  let jobs=[...(result.jobs||[])];
+  if(targetJobId){
+    jobs.sort((a,b)=>(String(a.id)===String(targetJobId)?-1:String(b.id)===String(targetJobId)?1:0));
+    if(onlyTarget) jobs=jobs.filter(job=>String(job.id)===String(targetJobId));
+  }
+  let done=0,pending=0,firstError='',targetDone=false,targetPending=false;
+  for(const job of jobs){
     try{
       const payload=job.payload||{};
       const backup=await apiCall('addRecord',{password,record:legacyRecordFromBackupPayload(payload)});
@@ -2284,12 +2289,16 @@ async function processRegisterBackupQueue(){
       await ensureLegacyTimestamp(password,payload);
       await reportBackupJobResult(job,true,'','register');
       done++;
+      if(targetJobId && String(job.id)===String(targetJobId)) targetDone=true;
     }catch(err){
       pending++;
-      await reportBackupJobResult(job,false,err?.message||'BACKUP_CREATE_FAILED','register');
+      const message=err?.message||'BACKUP_CREATE_FAILED';
+      if(!firstError) firstError=message;
+      if(targetJobId && String(job.id)===String(targetJobId)) targetPending=true;
+      await reportBackupJobResult(job,false,message,'register');
     }
   }
-  return {done,pending};
+  return {done,pending,error:firstError,targetDone,targetPending};
 }
 async function findLegacyBackupRow(password, cloudRecord){
   const found=await apiCall('getRecordsByDate',{password,date:cloudRecord.fecha});
@@ -2401,14 +2410,15 @@ async function saveRecord(){
     );
 
     if(!result.duplicate){
-      processRegisterBackupQueue().then(backup=>{
+      processRegisterBackupQueue(result.backup?.jobId||'',true).then(backup=>{
         setStatus(
           'regStatus',
-          backup.pending
-            ? 'Registro guardado correctamente en Cloudflare. Respaldo en Google Sheets pendiente de reintento.'
+          backup.targetPending
+            ? 'Registro guardado correctamente en Cloudflare. Respaldo en Google Sheets pendiente: '+(backup.error||'reintento necesario')+'.'
             : 'Registro guardado correctamente en Cloudflare. Respaldo en Google Sheets actualizado.',
           'ok'
         );
+        setTimeout(()=>processRegisterBackupQueue().catch(()=>{}),0);
       });
     }
 
