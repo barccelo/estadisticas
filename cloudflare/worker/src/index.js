@@ -19,7 +19,7 @@ const corsHeaders = (request, env) => {
     return {
       "access-control-allow-origin": origin || "*",
       "access-control-allow-methods": "GET,POST,PUT,DELETE,OPTIONS",
-      "access-control-allow-headers": "content-type,authorization",
+      "access-control-allow-headers": "content-type,authorization,x-edit-token",
       "access-control-max-age": "86400",
       vary: "Origin",
     };
@@ -48,6 +48,7 @@ async function sha256Hex(value) {
 
 const RECORD_DISCIPLINES = ["Ajedrez","Astronomía","Atletismo","Baloncesto","Béisbol","Fútbol campo","Fútbol sala","Música","Tenis de campo","Robótica"];
 const LEGACY_SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQi7LJ9GkWvS8xSGabaKdLwMRzhaMXppm8Vt8Z5chsQr92cWEOYF2SKeNPI15SYc1oryFw3eJP1SQkg/pub?gid=590274017&single=true&output=csv";
+const LEGACY_APPS_SCRIPT_URL = "https://script.google.com/a/macros/losroblesenlinea.com.ve/s/AKfycbzHHgoVMHLbCWYYPnPgtWsG3Ipq3Q_5dkMRKBFbJYW5uG3mkhlHWkLwi1DyOuKCDAGh/exec";
 
 const PIN_ITERATIONS = 100000;
 
@@ -236,6 +237,8 @@ async function saveDraft(request, env) {
   if (!env.DB) return json({ ok: false, error: "D1_NOT_BOUND" }, 503);
   const auth = await requireSession(request, env);
   if (!auth) return json({ ok: false, error: "UNAUTHORIZED" }, 401);
+  const editAllowed = await requireEditSession(request, env, auth.user_id);
+  if (!editAllowed) return json({ ok: false, error: "EDIT_LOCKED" }, 403);
 
   let body;
   try { body = await request.json(); }
@@ -524,6 +527,104 @@ async function listRecords(request, env, ctx) {
   return json({ ok: true, records: [...grouped.values()], migration });
 }
 
+async function ensureEditSchema(env) {
+  await env.DB.prepare(
+    `CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY,
+      value_text TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    )`
+  ).run();
+  await env.DB.prepare(
+    `CREATE TABLE IF NOT EXISTS edit_sessions (
+      token_hash TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      expires_at INTEGER NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`
+  ).run();
+  await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_edit_sessions_expiry ON edit_sessions(expires_at)").run();
+}
+
+async function validateLegacyEditPassword(password) {
+  try {
+    const callback="cf";
+    const url=new URL(LEGACY_APPS_SCRIPT_URL);
+    url.searchParams.set("action","getRecordsByDate");
+    url.searchParams.set("callback",callback);
+    url.searchParams.set("password",password);
+    url.searchParams.set("date","2000-01-01");
+    const response=await fetch(url.toString(),{redirect:"follow"});
+    if(!response.ok) return false;
+    const text=await response.text();
+    const match=text.match(/^\s*cf\((.*)\)\s*;?\s*$/s);
+    if(!match) return false;
+    const data=JSON.parse(match[1]);
+    return Boolean(data && data.ok);
+  } catch (_) {
+    return false;
+  }
+}
+
+async function unlockEditing(request, env) {
+  const auth=await requireSession(request,env);
+  if(!auth) return json({ok:false,error:"UNAUTHORIZED"},401);
+  await ensureEditSchema(env);
+
+  let body;
+  try { body=await request.json(); }
+  catch { return json({ok:false,error:"INVALID_JSON"},400); }
+  const password=String(body?.password||"").trim();
+  if(!password) return json({ok:false,error:"INVALID_EDIT_KEY"},401);
+
+  const setting=await env.DB.prepare("SELECT value_text FROM app_settings WHERE key='edit_key_hash' LIMIT 1").first();
+  let valid=false;
+  if(setting?.value_text){
+    valid=await verifyPin(password,setting.value_text);
+  }else{
+    valid=await validateLegacyEditPassword(password);
+    if(valid){
+      const hashed=await hashPin(password);
+      await env.DB.prepare(
+        `INSERT INTO app_settings (key,value_text,updated_at)
+         VALUES ('edit_key_hash',?1,strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+         ON CONFLICT(key) DO UPDATE SET value_text=?1,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')`
+      ).bind(hashed).run();
+    }
+  }
+  if(!valid) return json({ok:false,error:"INVALID_EDIT_KEY"},401);
+
+  const raw=crypto.getRandomValues(new Uint8Array(32));
+  const token=base64url(raw);
+  const tokenHash=await sha256Hex(raw);
+  const expiresIn=60*30;
+  const expiresAt=Math.floor(Date.now()/1000)+expiresIn;
+  await env.DB.prepare(
+    "INSERT INTO edit_sessions (token_hash,user_id,expires_at) VALUES (?1,?2,?3)"
+  ).bind(tokenHash,auth.user_id,expiresAt).run();
+
+  await env.DB.prepare(
+    "INSERT INTO app_log (event_type,user_id,details_json) VALUES ('edit_unlocked',?1,?2)"
+  ).bind(auth.user_id,JSON.stringify({expires_in:expiresIn})).run();
+
+  return json({ok:true,edit_token:token,expires_in:expiresIn});
+}
+
+async function requireEditSession(request, env, userId) {
+  await ensureEditSchema(env);
+  const token=String(request.headers.get("x-edit-token")||"").trim();
+  if(!token) return false;
+  let tokenHash;
+  try { tokenHash=await sha256Hex(fromBase64url(token)); }
+  catch { return false; }
+  const now=Math.floor(Date.now()/1000);
+  const row=await env.DB.prepare(
+    "SELECT token_hash FROM edit_sessions WHERE token_hash=?1 AND user_id=?2 AND expires_at>?3 LIMIT 1"
+  ).bind(tokenHash,userId,now).first();
+  return Boolean(row);
+}
+
 async function createRecord(request, env) {
   if (!env.DB) return json({ ok: false, error: "D1_NOT_BOUND" }, 503);
   const auth = await requireSession(request, env);
@@ -627,6 +728,9 @@ async function updateRecord(request, env, recordId) {
   if (!env.DB) return json({ ok: false, error: "D1_NOT_BOUND" }, 503);
   const auth = await requireSession(request, env);
   if (!auth) return json({ ok: false, error: "UNAUTHORIZED" }, 401);
+
+  const editAllowed = await requireEditSession(request, env, auth.user_id);
+  if (!editAllowed) return json({ ok: false, error: "EDIT_LOCKED" }, 403);
 
   let body;
   try { body = await request.json(); }
@@ -775,6 +879,8 @@ export default {
         response = await saveDraft(request, env);
       } else if (url.pathname === "/api/drafts" && request.method === "DELETE") {
         response = await deleteDraft(request, env);
+      } else if (url.pathname === "/api/edit/unlock" && request.method === "POST") {
+        response = await unlockEditing(request, env);
       } else if (url.pathname === "/api/records" && request.method === "GET") {
         response = await listRecords(request, env, ctx);
       } else if (url.pathname === "/api/records" && request.method === "POST") {
