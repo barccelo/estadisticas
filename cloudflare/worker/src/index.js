@@ -623,6 +623,118 @@ async function createRecord(request, env) {
   }, 201);
 }
 
+async function updateRecord(request, env, recordId) {
+  if (!env.DB) return json({ ok: false, error: "D1_NOT_BOUND" }, 503);
+  const auth = await requireSession(request, env);
+  if (!auth) return json({ ok: false, error: "UNAUTHORIZED" }, 401);
+
+  let body;
+  try { body = await request.json(); }
+  catch { return json({ ok: false, error: "INVALID_JSON" }, 400); }
+
+  const date = String(body?.date || "").trim();
+  const observations = String(body?.observations || "").trim();
+  const attendance = body?.attendance;
+  const responsibleEmail = String(body?.responsible_email || auth.email || "").trim().toLowerCase();
+
+  if (!recordId || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !attendance || typeof attendance !== "object" || Array.isArray(attendance)) {
+    return json({ ok: false, error: "INVALID_RECORD" }, 400);
+  }
+  if (observations.length > 5000) return json({ ok: false, error: "OBSERVATIONS_TOO_LONG" }, 400);
+
+  const currentRows = await env.DB.prepare(
+    `SELECT r.id, r.record_date, r.responsible_user_id, r.observations, r.idempotency_key,
+            u.email, u.display_name, a.discipline, a.attendance
+     FROM records r
+     JOIN users u ON u.id = r.responsible_user_id
+     LEFT JOIN attendance_entries a ON a.record_id = r.id
+     WHERE r.id = ?1`
+  ).bind(recordId).all();
+
+  if (!(currentRows.results || []).length) return json({ ok: false, error: "RECORD_NOT_FOUND" }, 404);
+
+  const responsible = await env.DB.prepare(
+    "SELECT id, email, display_name FROM users WHERE lower(email)=?1 AND active=1 LIMIT 1"
+  ).bind(responsibleEmail).first();
+  if (!responsible) return json({ ok: false, error: "RESPONSIBLE_NOT_FOUND" }, 400);
+
+  const clean = {};
+  for (const discipline of RECORD_DISCIPLINES) {
+    const raw = Number(attendance[discipline] ?? 0);
+    if (!Number.isFinite(raw) || raw < 0 || !Number.isInteger(raw) || raw > 100000) {
+      return json({ ok: false, error: "INVALID_ATTENDANCE", discipline }, 400);
+    }
+    clean[discipline] = raw;
+  }
+
+  const canonical = JSON.stringify([date, observations, RECORD_DISCIPLINES.map((d) => [d, clean[d]])]);
+  const contentKey = await sha256Hex(canonical);
+  const idempotencyKey = await sha256Hex(responsible.id + ":" + contentKey);
+
+  const duplicate = await env.DB.prepare(
+    "SELECT id FROM records WHERE idempotency_key=?1 AND id<>?2 LIMIT 1"
+  ).bind(idempotencyKey, recordId).first();
+  if (duplicate) return json({ ok: false, error: "DUPLICATE_RECORD" }, 409);
+
+  const first = currentRows.results[0];
+  const oldAttendance = {};
+  for (const d of RECORD_DISCIPLINES) oldAttendance[d] = 0;
+  for (const row of currentRows.results) {
+    if (row.discipline && Object.prototype.hasOwnProperty.call(oldAttendance, row.discipline)) {
+      oldAttendance[row.discipline] = Number(row.attendance || 0);
+    }
+  }
+
+  const before = {
+    date: first.record_date,
+    responsible_email: first.email,
+    observations: first.observations || "",
+    attendance: oldAttendance,
+  };
+  const after = {
+    date,
+    responsible_email: responsible.email,
+    observations,
+    attendance: clean,
+  };
+
+  const statements = [
+    env.DB.prepare(
+      `UPDATE records
+       SET record_date=?1, responsible_user_id=?2, observations=?3, idempotency_key=?4,
+           updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
+       WHERE id=?5`
+    ).bind(date, responsible.id, observations, idempotencyKey, recordId),
+    ...RECORD_DISCIPLINES.map((discipline) =>
+      env.DB.prepare(
+        `INSERT INTO attendance_entries (record_id, discipline, attendance)
+         VALUES (?1, ?2, ?3)
+         ON CONFLICT(record_id, discipline) DO UPDATE SET attendance=excluded.attendance`
+      ).bind(recordId, discipline, clean[discipline])
+    ),
+  ];
+  await env.DB.batch(statements);
+
+  await env.DB.prepare(
+    "INSERT INTO app_log (event_type, user_id, record_id, details_json) VALUES ('record_updated', ?1, ?2, ?3)"
+  ).bind(auth.user_id, recordId, JSON.stringify({ before, after })).run();
+
+  return json({
+    ok: true,
+    record: {
+      id: recordId,
+      fecha: date,
+      email: responsible.email,
+      responsable: responsible.display_name,
+      observaciones: observations,
+      valores: clean,
+      total: RECORD_DISCIPLINES.reduce((sum,d)=>sum+clean[d],0),
+      source: "cloudflare",
+    },
+    message: "Registro actualizado correctamente.",
+  });
+}
+
 async function logout(request, env) {
   const token = bearer(request);
   if (!token || !env.DB) return json({ ok: true });
@@ -667,6 +779,8 @@ export default {
         response = await listRecords(request, env, ctx);
       } else if (url.pathname === "/api/records" && request.method === "POST") {
         response = await createRecord(request, env);
+      } else if (url.pathname.startsWith("/api/records/") && request.method === "PUT") {
+        response = await updateRecord(request, env, decodeURIComponent(url.pathname.slice("/api/records/".length)));
       } else if (url.pathname === "/api/logout" && request.method === "POST") {
         response = await logout(request, env);
       } else {
