@@ -1248,7 +1248,7 @@ body{background:#f6f7fb;}
         <section class="panel editing-wrap">
           <div class="admin-card">
             <h2>Editar datos guardados</h2>
-            <p>Usa la contraseña de edición para buscar registros de una fecha y modificarlos.</p>
+            <p>Busca y modifica los registros guardados en Cloudflare D1. La contraseña de edición se usa temporalmente para sincronizar la corrección con el respaldo de Google Sheets.</p>
             <div class="mini-grid">
               <div class="field"><label>Contraseña</label><input id="editPassword" type="password" inputmode="numeric" placeholder="Contraseña de edición"></div>
               <div class="field"><label>Fecha</label><input id="editFecha" type="date"></div>
@@ -1282,6 +1282,7 @@ let registerSessionPassword = '';
 let registerSessionUser = null;
 let registerSessionToken = '';
 let lastSubmittedRecordSignature = '';
+let editLoadedRecords = new Map();
 const fmt = new Intl.NumberFormat('es-VE');
 function $(id){return document.getElementById(id)}
 function escapeHtml(v){return String(v ?? '').replace(/[<>&]/g, m=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[m]))}
@@ -2241,18 +2242,34 @@ async function saveRecord(){
 }
 async function findEditableRecords(){
   const password=$('editPassword').value.trim(), date=$('editFecha').value;
-  if(!password){setStatus('editStatus','Escribe la contraseña de edición.','err'); return;}
+  if(!registerSessionToken){
+    openRegisterLoginModal();
+    setStatus('editStatus','Inicia sesión para editar registros.','err');
+    return;
+  }
+  if(!password){setStatus('editStatus','Escribe la contraseña de edición para mantener sincronizado el respaldo de Google Sheets.','err'); return;}
   if(!date){setStatus('editStatus','Selecciona una fecha para buscar.','err'); return;}
-  const btn=$('findRecordsBtn'); btn.disabled=true; $('editResults').innerHTML=''; setStatus('editStatus','Buscando registros...');
+  const btn=$('findRecordsBtn'); btn.disabled=true; $('editResults').innerHTML=''; setStatus('editStatus','Buscando registros en Cloudflare...');
   try{
-    const result=await apiCall('getRecordsByDate', {password, date});
-    if(!result.ok) throw new Error(result.message || 'No se pudo buscar.');
-    renderEditResults(result.records || []);
-    setStatus('editStatus', (result.records || []).length ? `${(result.records || []).length} registro(s) encontrado(s).` : 'No se encontraron registros para esa fecha.', (result.records||[]).length ? 'ok' : '');
-  }catch(err){setStatus('editStatus', err.message, 'err');}
-  finally{btn.disabled=false;}
+    const result=await cloudApi('/api/records?from='+encodeURIComponent(date)+'&to='+encodeURIComponent(date),{token:registerSessionToken});
+    const records=result.records || [];
+    editLoadedRecords=new Map(records.map(rec=>[String(rec.id),rec]));
+    renderEditResults(records);
+    setStatus('editStatus', records.length ? `${records.length} registro(s) encontrado(s) en Cloudflare D1.` : 'No se encontraron registros para esa fecha.', records.length ? 'ok' : '');
+  }catch(err){
+    if(err.message==='UNAUTHORIZED'){await clearRegisterSession(); openRegisterLoginModal();}
+    setStatus('editStatus', err.message==='UNAUTHORIZED'?'La sesión venció. Inicia sesión nuevamente.':err.message, 'err');
+  }finally{btn.disabled=false;}
 }
 function valueFromRecord(rec, ...names){
+  if(rec && rec.valores){
+    for(const name of names){
+      if(name==='Fecha:' || name==='Fecha') return rec.fecha || '';
+      if(name==='Email Address' || name==='Dirección de correo electrónico' || name==='Correo electrónico') return rec.email || '';
+      if(name==='Observaciones:' || name==='Observaciones') return rec.observaciones || '';
+      if(Object.prototype.hasOwnProperty.call(rec.valores,name)) return rec.valores[name] ?? '';
+    }
+  }
   const map={}; Object.keys(rec||{}).forEach(k=>map[normalizeKey(k)]=k);
   for(const name of names){const k=map[normalizeKey(name)]; if(k!==undefined) return rec[k] ?? '';}
   return '';
@@ -2260,31 +2277,86 @@ function valueFromRecord(rec, ...names){
 function renderEditResults(records){
   const box=$('editResults'); box.innerHTML='';
   records.forEach((rec, idx)=>{
-    const rowNumber=rec.__rowNumber;
-    const card=document.createElement('div'); card.className='edit-card'; card.dataset.rowNumber=rowNumber;
-    const unique='edit_'+rowNumber+'_'+idx;
-    let html=`<div class="edit-card-title"><span>Registro ${idx+1} · Fila ${rowNumber}</span><span>${escapeHtml(valueFromRecord(rec,'Email Address','Dirección de correo electrónico','Correo electrónico'))}</span></div>`;
+    const recordId=String(rec.id || '');
+    const card=document.createElement('div'); card.className='edit-card'; card.dataset.recordId=recordId;
+    const unique='edit_'+recordId.replace(/[^a-zA-Z0-9_-]/g,'_')+'_'+idx;
+    let html=`<div class="edit-card-title"><span>Registro ${idx+1}</span><span>${escapeHtml(rec.responsable || valueFromRecord(rec,'Email Address','Dirección de correo electrónico','Correo electrónico'))}</span></div>`;
     html+=`<div class="mini-grid"><div class="field"><label>Fecha</label><input id="${unique}_fecha" type="date" value="${escapeHtml(normalizeDate(valueFromRecord(rec,'Fecha:','Fecha')))}"></div><div class="field full"><label>Responsable / correo</label><select id="${unique}_email">${responsibleOptions(valueFromRecord(rec,'Email Address','Dirección de correo electrónico','Correo electrónico'), false)}</select></div></div>`;
     html+=`<div class="num-grid">`;
     DISCIPLINES.forEach(d=>{html+=`<div class="field"><label>${escapeHtml(d)}</label><input id="${unique}_${normalizeKey(d)}" type="number" min="0" step="1" value="${escapeHtml(valueFromRecord(rec,d))}"></div>`;});
     html+=`</div><div class="field" style="margin-top:10px"><label>Observaciones</label><textarea id="${unique}_obs">${escapeHtml(valueFromRecord(rec,'Observaciones:','Observaciones'))}</textarea></div>`;
-    html+=`<div class="admin-row"><button class="btn" type="button" data-save-edit="${unique}" data-row="${rowNumber}">Guardar cambios</button><span id="${unique}_status" class="status"></span></div>`;
+    html+=`<div class="admin-row"><button class="btn" type="button" data-save-edit="${unique}" data-record-id="${escapeHtml(recordId)}">Guardar cambios</button><span id="${unique}_status" class="status"></span></div>`;
     card.innerHTML=html; box.appendChild(card);
   });
-  box.querySelectorAll('[data-save-edit]').forEach(btn=>btn.onclick=()=>saveEditedRecord(btn.dataset.saveEdit, btn.dataset.row));
+  box.querySelectorAll('[data-save-edit]').forEach(btn=>btn.onclick=()=>saveEditedRecord(btn.dataset.saveEdit, btn.dataset.recordId));
 }
-async function saveEditedRecord(unique, rowNumber){
+function legacyRecordMatchesCloud(legacy, cloud){
+  if(!legacy || !cloud) return false;
+  if(normalizeDate(valueFromRecord(legacy,'Fecha:','Fecha')) !== String(cloud.fecha||'')) return false;
+  if(String(valueFromRecord(legacy,'Email Address','Dirección de correo electrónico','Correo electrónico')||'').trim().toLowerCase() !== String(cloud.email||'').trim().toLowerCase()) return false;
+  if(String(valueFromRecord(legacy,'Observaciones:','Observaciones')||'').trim() !== String(cloud.observaciones||'').trim()) return false;
+  return DISCIPLINES.every(d=>Math.trunc(parseNumber(valueFromRecord(legacy,d)))===Math.trunc(parseNumber(cloud.valores?.[d])));
+}
+async function syncEditedRecordBackup(original, updated, password){
+  if(!password || !original) return {ok:false,reason:'NO_BACKUP_PASSWORD'};
+  const found=await apiCall('getRecordsByDate',{password,date:original.fecha});
+  if(!found.ok) return {ok:false,reason:found.message||'BACKUP_LOOKUP_FAILED'};
+  const legacy=(found.records||[]).find(rec=>legacyRecordMatchesCloud(rec,original));
+  if(!legacy || !legacy.__rowNumber) return {ok:false,reason:'BACKUP_ROW_NOT_FOUND'};
+  const backupRecord={'Fecha:':updated.fecha,'Email Address':updated.email,'Observaciones:':updated.observaciones};
+  DISCIPLINES.forEach(d=>backupRecord[d]=updated.valores?.[d] ?? 0);
+  const saved=await apiCall('updateRecord',{password,rowNumber:legacy.__rowNumber,record:backupRecord});
+  return saved && saved.ok ? {ok:true} : {ok:false,reason:saved?.message||'BACKUP_UPDATE_FAILED'};
+}
+async function saveEditedRecord(unique, recordId){
+  if(!registerSessionToken){
+    openRegisterLoginModal();
+    setStatus(unique+'_status','Inicia sesión para editar.','err');
+    return;
+  }
   const password=$('editPassword').value.trim();
-  const record={'Fecha:':$(unique+'_fecha').value, 'Email Address':$(unique+'_email').value, 'Observaciones:':$(unique+'_obs').value};
-  DISCIPLINES.forEach(d=>{record[d]=$(unique+'_'+normalizeKey(d)).value;});
-  const btn=document.querySelector(`[data-save-edit="${unique}"]`); btn.disabled=true; setStatus(unique+'_status','Guardando...');
+  if(!password){setStatus(unique+'_status','Escribe la contraseña de edición para sincronizar el respaldo.','err'); return;}
+  const original=editLoadedRecords.get(String(recordId));
+  if(!original){setStatus(unique+'_status','No se encontró el registro cargado. Vuelve a buscar.','err'); return;}
+
+  const date=$(unique+'_fecha').value;
+  const email=$(unique+'_email').value;
+  const observations=$(unique+'_obs').value;
+  const attendance={};
+  DISCIPLINES.forEach(d=>attendance[d]=Math.max(0,Math.trunc(parseNumber($(unique+'_'+normalizeKey(d)).value))));
+
+  const btn=document.querySelector(`[data-save-edit="${unique}"]`); btn.disabled=true; setStatus(unique+'_status','Guardando en Cloudflare...');
   try{
-    const result=await apiCall('updateRecord', {password, rowNumber, record});
-    if(!result.ok) throw new Error(result.message || 'No se pudo actualizar.');
-    setStatus(unique+'_status', result.message || 'Registro actualizado.','ok');
-    await loadData({keepFilters:true});
-  }catch(err){setStatus(unique+'_status', err.message, 'err');}
-  finally{btn.disabled=false;}
+    const result=await cloudApi('/api/records/'+encodeURIComponent(recordId),{
+      method:'PUT',
+      token:registerSessionToken,
+      body:{date,responsible_email:email,observations,attendance}
+    });
+    editLoadedRecords.set(String(recordId),result.record);
+    setStatus(unique+'_status','Registro actualizado en Cloudflare. Sincronizando respaldo…','ok');
+
+    syncEditedRecordBackup(original,result.record,password)
+      .then(backup=>{
+        setStatus(
+          unique+'_status',
+          backup.ok
+            ? 'Registro actualizado en Cloudflare. Respaldo en Google Sheets actualizado.'
+            : 'Registro actualizado en Cloudflare. El respaldo en Google Sheets quedó pendiente.',
+          'ok'
+        );
+      })
+      .catch(()=>setStatus(unique+'_status','Registro actualizado en Cloudflare. El respaldo en Google Sheets quedó pendiente.','ok'));
+
+    loadData({keepFilters:true}).catch(()=>{});
+  }catch(err){
+    if(err.message==='UNAUTHORIZED'){await clearRegisterSession(); openRegisterLoginModal();}
+    const msg=err.message==='DUPLICATE_RECORD'
+      ? 'Ese cambio produciría un registro duplicado y no se guardó.'
+      : err.message==='UNAUTHORIZED'
+        ? 'La sesión venció. Inicia sesión nuevamente.'
+        : err.message;
+    setStatus(unique+'_status',msg,'err');
+  }finally{btn.disabled=false;}
 }
 function initAdminModule(){
   buildRegisterInputs();
