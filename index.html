@@ -1971,7 +1971,10 @@ async function cloudApi(path, options={}){
   });
   let data={};
   try{data=await response.json();}catch(_e){}
-  if(!response.ok) throw new Error(data.error || 'No se pudo conectar con Cloudflare.');
+  if(!response.ok){
+    const message=data.error==='ROLE_FORBIDDEN' ? 'Tu usuario no tiene permisos para esta acción.' : (data.error || 'No se pudo conectar con Cloudflare.');
+    throw new Error(message);
+  }
   return data;
 }
 function setRegisterPasswordSession(password, user, token=''){
@@ -1990,7 +1993,7 @@ function setRegisterPasswordSession(password, user, token=''){
   const pill=$('registerSessionPill');
   if(pill){
     pill.hidden = !registerSessionUser;
-    pill.innerHTML = sessionEmail ? `Sesión activa · <span class="session-email">${escapeHtml(registerSessionUser?.name || responsibleShort(sessionEmail))}</span><button class="session-logout" id="registerSessionLogoutBtn" type="button">Salir</button>` : 'Sesión de registro activa';
+    pill.innerHTML = sessionEmail ? `Sesión activa · <span class="session-email">${escapeHtml(registerSessionUser?.name || responsibleShort(sessionEmail))}</span>${registerSessionUser?.role ? ` · <span class="session-role">${escapeHtml(({registrador:'Registrador',editor:'Editor',admin:'Administrador'})[registerSessionUser.role] || registerSessionUser.role)}</span>` : ''}<button class="session-logout" id="registerSessionLogoutBtn" type="button">Salir</button>` : 'Sesión de registro activa';
     const logoutBtn=$('registerSessionLogoutBtn');
     if(logoutBtn) logoutBtn.onclick=()=>clearRegisterSession();
   }
