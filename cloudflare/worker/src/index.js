@@ -130,7 +130,7 @@ async function requireSession(request, env) {
   const tokenHash = await sha256Hex(fromBase64url(token));
   const now = Math.floor(Date.now() / 1000);
   const row = await env.DB.prepare(
-    `SELECT s.user_id, s.expires_at, u.email, u.display_name
+    `SELECT s.user_id, s.expires_at, u.email, u.display_name, COALESCE(u.role,'registrador') AS role
      FROM auth_sessions s
      JOIN users u ON u.id = s.user_id
      WHERE s.token_hash = ?1 AND s.expires_at > ?2 AND u.active = 1
@@ -138,6 +138,11 @@ async function requireSession(request, env) {
   ).bind(tokenHash, now).first();
 
   return row || null;
+}
+
+function accountRoleAllowed(auth, allowed) {
+  const role=String(auth?.role || "registrador");
+  return Array.isArray(allowed) && allowed.includes(role);
 }
 
 async function login(request, env, ctx) {
@@ -156,7 +161,7 @@ async function login(request, env, ctx) {
   }
 
   const users = await env.DB.prepare(
-    "SELECT id, email, display_name, pin_hash FROM users WHERE active = 1 ORDER BY display_name"
+    "SELECT id, email, display_name, pin_hash, COALESCE(role,'registrador') AS role FROM users WHERE active = 1 ORDER BY display_name"
   ).all();
 
   let user = null;
@@ -180,7 +185,7 @@ async function login(request, env, ctx) {
     ok: true,
     token: sessionData.token,
     expires_in: sessionData.expiresIn,
-    user: { id: user.id, email: user.email, name: user.display_name },
+    user: { id: user.id, email: user.email, name: user.display_name, role: user.role || "registrador" },
     migration,
   });
 }
@@ -190,7 +195,7 @@ async function session(request, env) {
   if (!auth) return json({ ok: false, error: "UNAUTHORIZED" }, 401);
   return json({
     ok: true,
-    user: { id: auth.user_id, email: auth.email, name: auth.display_name },
+    user: { id: auth.user_id, email: auth.email, name: auth.display_name, role: auth.role || "registrador" },
     expires_at: auth.expires_at,
   });
 }
@@ -199,6 +204,7 @@ async function getDraft(request, env) {
   if (!env.DB) return json({ ok: false, error: "D1_NOT_BOUND" }, 503);
   const auth = await requireSession(request, env);
   if (!auth) return json({ ok: false, error: "UNAUTHORIZED" }, 401);
+  if (!accountRoleAllowed(auth, ["registrador","editor","admin"])) return json({ ok:false, error:"ROLE_FORBIDDEN" },403);
 
   const url = new URL(request.url);
   const date = String(url.searchParams.get("date") || "").trim();
@@ -237,8 +243,7 @@ async function saveDraft(request, env) {
   if (!env.DB) return json({ ok: false, error: "D1_NOT_BOUND" }, 503);
   const auth = await requireSession(request, env);
   if (!auth) return json({ ok: false, error: "UNAUTHORIZED" }, 401);
-  const editAllowed = await requireEditSession(request, env, auth.user_id);
-  if (!editAllowed) return json({ ok: false, error: "EDIT_LOCKED" }, 403);
+  if (!accountRoleAllowed(auth, ["registrador","editor","admin"])) return json({ ok:false, error:"ROLE_FORBIDDEN" },403);
 
   let body;
   try { body = await request.json(); }
@@ -282,6 +287,7 @@ async function deleteDraft(request, env) {
   if (!env.DB) return json({ ok: false, error: "D1_NOT_BOUND" }, 503);
   const auth = await requireSession(request, env);
   if (!auth) return json({ ok: false, error: "UNAUTHORIZED" }, 401);
+  if (!accountRoleAllowed(auth, ["registrador","editor","admin"])) return json({ ok:false, error:"ROLE_FORBIDDEN" },403);
 
   const url = new URL(request.url);
   const date = String(url.searchParams.get("date") || "").trim();
@@ -830,6 +836,7 @@ async function createRecord(request, env) {
   if (!env.DB) return json({ ok: false, error: "D1_NOT_BOUND" }, 503);
   const auth = await requireSession(request, env);
   if (!auth) return json({ ok: false, error: "UNAUTHORIZED" }, 401);
+  if (!accountRoleAllowed(auth, ["registrador","editor","admin"])) return json({ ok:false, error:"ROLE_FORBIDDEN" },403);
 
   let body;
   try { body = await request.json(); }
@@ -939,6 +946,7 @@ async function deleteRecord(request, env, recordId) {
   const editAllowed = await requireEditSession(request, env);
   if (!editAllowed) return json({ ok: false, error: "EDIT_LOCKED" }, 403);
   const auth = await requireSession(request, env);
+  if (auth && !accountRoleAllowed(auth, ["editor","admin"])) return json({ok:false,error:"ROLE_FORBIDDEN"},403);
 
   const current = await env.DB.prepare(
     `SELECT r.id, r.record_date, r.observations, r.source, r.created_at,
@@ -1089,6 +1097,7 @@ async function updateRecord(request, env, recordId) {
   const editAllowed = await requireEditSession(request, env);
   if (!editAllowed) return json({ ok: false, error: "EDIT_LOCKED" }, 403);
   const auth = await requireSession(request, env);
+  if (auth && !accountRoleAllowed(auth, ["editor","admin"])) return json({ok:false,error:"ROLE_FORBIDDEN"},403);
 
   let body;
   try { body = await request.json(); }
