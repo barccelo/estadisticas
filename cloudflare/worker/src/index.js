@@ -915,6 +915,7 @@ async function createRecord(request, env) {
   ).bind(auth.user_id, recordId, JSON.stringify({ date, idempotency_key: idempotencyKey })).run();
 
   const backupJobId=await enqueueBackupJob(env,"create",recordId,auth.email,{
+    timestamp:saved?.created_at || new Date().toISOString(),
     date,
     email:auth.email,
     observations,
@@ -967,6 +968,7 @@ async function deleteRecord(request, env, recordId) {
   const backupJobId=await enqueueBackupJob(env,"delete",recordId,current.email,{
     record:{
       id:recordId,
+      timestamp:current.created_at || "",
       fecha:current.record_date,
       email:current.email,
       responsable:current.display_name,
@@ -1090,7 +1092,7 @@ async function updateRecord(request, env, recordId) {
   if (observations.length > 5000) return json({ ok: false, error: "OBSERVATIONS_TOO_LONG" }, 400);
 
   const currentRows = await env.DB.prepare(
-    `SELECT r.id, r.record_date, r.responsible_user_id, r.observations, r.idempotency_key,
+    `SELECT r.id, r.record_date, r.responsible_user_id, r.observations, r.idempotency_key, r.created_at,
             u.email, u.display_name, a.discipline, a.attendance
      FROM records r
      JOIN users u ON u.id = r.responsible_user_id
@@ -1133,12 +1135,14 @@ async function updateRecord(request, env, recordId) {
   }
 
   const before = {
+    timestamp: first.created_at || "",
     date: first.record_date,
     responsible_email: first.email,
     observations: first.observations || "",
     attendance: oldAttendance,
   };
   const after = {
+    timestamp: first.created_at || "",
     date,
     responsible_email: responsible.email,
     observations,
