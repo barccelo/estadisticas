@@ -1290,6 +1290,10 @@ body{background:#f6f7fb;}
               <div class="admin-row"><button class="btn" id="adminCreateUserBtn" type="button">Crear usuario</button></div>
               <div id="adminUsers" class="edit-results"></div>
 
+              <div class="section-head" style="margin-top:22px"><div><h2>Respaldo en Google Sheets</h2><p>D1 es la fuente principal. Aquí se muestran operaciones de respaldo pendientes o completadas.</p></div></div>
+              <div class="admin-row"><button class="btn secondary" id="adminRefreshBackupsBtn" type="button">Actualizar estado</button><span id="adminBackupSummary" class="status"></span></div>
+              <div id="adminBackups" class="edit-results"></div>
+
               <div class="section-head" style="margin-top:22px"><div><h2>Auditoría reciente</h2><p>Últimos accesos, registros, ediciones y eliminaciones.</p></div></div>
               <div class="admin-row"><button class="btn secondary" id="adminRefreshAuditBtn" type="button">Actualizar auditoría</button></div>
               <div id="adminAudit" class="edit-results"></div>
@@ -1322,6 +1326,7 @@ let registerSessionToken = '';
 let lastSubmittedRecordSignature = '';
 let editLoadedRecords = new Map();
 let editSessionToken = '';
+let editSessionPassword = '';
 let adminSessionToken = '';
 const fmt = new Intl.NumberFormat('es-VE');
 function $(id){return document.getElementById(id)}
@@ -1994,6 +1999,7 @@ async function clearRegisterSession(){
   registerSessionUser=null;
   registerSessionToken='';
   editSessionToken='';
+  editSessionPassword='';
   if($('regPassword')) $('regPassword').value='';
   if($('regEmail')){
     $('regEmail').disabled=false;
@@ -2215,6 +2221,114 @@ function clearRecordForm(){
   clearTimeout(draftAutosaveTimer);
   setStatus('regStatus','');
 }
+function legacyRecordFromBackupPayload(payload){
+  const rec={'Fecha:':payload.date||payload.fecha||'', 'Email Address':payload.email||'', 'Observaciones:':payload.observations||payload.observaciones||''};
+  const values=payload.attendance||payload.valores||{};
+  DISCIPLINES.forEach(d=>rec[d]=values[d] ?? 0);
+  return rec;
+}
+async function reportBackupJobResult(job, success, error='', mode='register'){
+  const headers={};
+  const options={method:'POST',body:{success,error}};
+  if(mode==='edit') headers['x-edit-token']=editSessionToken;
+  else options.token=registerSessionToken;
+  if(Object.keys(headers).length) options.headers=headers;
+  try{await cloudApi('/api/backup/jobs/'+encodeURIComponent(job.id),options);}catch(_e){}
+}
+async function processRegisterBackupQueue(){
+  const password=getRegisterPassword();
+  if(!registerSessionToken || !password) return {done:0,pending:0};
+  let result;
+  try{result=await cloudApi('/api/backup/jobs',{token:registerSessionToken});}
+  catch(_e){return {done:0,pending:0};}
+  let done=0,pending=0;
+  for(const job of result.jobs||[]){
+    try{
+      const backup=await apiCall('addRecord',{password,record:legacyRecordFromBackupPayload(job.payload||{})});
+      if(!backup?.ok) throw new Error(backup?.message||'BACKUP_CREATE_FAILED');
+      await reportBackupJobResult(job,true,'','register');
+      done++;
+    }catch(err){
+      pending++;
+      await reportBackupJobResult(job,false,err?.message||'BACKUP_CREATE_FAILED','register');
+    }
+  }
+  return {done,pending};
+}
+async function findLegacyBackupRow(password, cloudRecord){
+  const found=await apiCall('getRecordsByDate',{password,date:cloudRecord.fecha});
+  if(!found?.ok) throw new Error(found?.message||'BACKUP_LOOKUP_FAILED');
+  return (found.records||[]).find(rec=>legacyRecordMatchesCloud(rec,cloudRecord)) || null;
+}
+function cloudRecordFromQueueSide(side){
+  return {
+    fecha:side?.date||'',
+    email:side?.responsible_email||'',
+    observaciones:side?.observations||'',
+    valores:{...(side?.attendance||{})}
+  };
+}
+async function processEditBackupJob(job,password){
+  const payload=job.payload||{};
+  if(job.operation==='update'){
+    const before=cloudRecordFromQueueSide(payload.before||{});
+    const after=cloudRecordFromQueueSide(payload.after||{});
+    let legacy=await findLegacyBackupRow(password,before);
+    if(!legacy){
+      const already=await findLegacyBackupRow(password,after);
+      if(already) return true;
+      throw new Error('BACKUP_ROW_NOT_FOUND');
+    }
+    const backupRecord=legacyRecordFromBackupPayload({
+      date:after.fecha,email:after.email,observations:after.observaciones,attendance:after.valores
+    });
+    const saved=await apiCall('updateRecord',{password,rowNumber:legacy.__rowNumber,record:backupRecord});
+    if(!saved?.ok) throw new Error(saved?.message||'BACKUP_UPDATE_FAILED');
+    return true;
+  }
+  if(job.operation==='delete'){
+    const original=payload.record||{};
+    let legacy=await findLegacyBackupRow(password,original);
+    if(!legacy){
+      const found=await apiCall('getRecordsByDate',{password,date:original.fecha});
+      if(found?.ok){
+        const tombstone=(found.records||[]).find(rec=>{
+          const sameEmail=String(valueFromRecord(rec,'Email Address','Dirección de correo electrónico','Correo electrónico')||'').trim().toLowerCase()===String(original.email||'').trim().toLowerCase();
+          const obs=String(valueFromRecord(rec,'Observaciones:','Observaciones')||'');
+          return sameEmail && obs.includes('[ELIMINADO EN D1]');
+        });
+        if(tombstone) return true;
+      }
+      throw new Error('BACKUP_ROW_NOT_FOUND');
+    }
+    const tombstone={'Fecha:':original.fecha,'Email Address':original.email,'Observaciones:':'[ELIMINADO EN D1] '+String(original.observaciones||'')};
+    DISCIPLINES.forEach(d=>tombstone[d]=0);
+    const saved=await apiCall('updateRecord',{password,rowNumber:legacy.__rowNumber,record:tombstone});
+    if(!saved?.ok) throw new Error(saved?.message||'BACKUP_DELETE_FAILED');
+    return true;
+  }
+  return false;
+}
+async function processEditBackupQueue(){
+  const password=editSessionPassword;
+  if(!editSessionToken || !password) return {done:0,pending:0};
+  let result;
+  try{result=await cloudApi('/api/backup/jobs',{headers:{'x-edit-token':editSessionToken}});}
+  catch(_e){return {done:0,pending:0};}
+  let done=0,pending=0;
+  for(const job of result.jobs||[]){
+    try{
+      await processEditBackupJob(job,password);
+      await reportBackupJobResult(job,true,'','edit');
+      done++;
+    }catch(err){
+      pending++;
+      await reportBackupJobResult(job,false,err?.message||'BACKUP_EDIT_FAILED','edit');
+    }
+  }
+  return {done,pending};
+}
+
 async function saveRecord(){
   if(!registerSessionToken || !getRegisterSessionEmail()){
     openRegisterLoginModal();
@@ -2251,23 +2365,15 @@ async function saveRecord(){
     );
 
     if(!result.duplicate){
-      apiCall('addRecord',{password:getRegisterPassword(),record})
-        .then(backup=>{
-          setStatus(
-            'regStatus',
-            backup && backup.ok
-              ? 'Registro guardado correctamente en Cloudflare. Respaldo en Google Sheets actualizado.'
-              : 'Registro guardado correctamente en Cloudflare. El respaldo en Google Sheets quedó pendiente.',
-            'ok'
-          );
-        })
-        .catch(()=>{
-          setStatus(
-            'regStatus',
-            'Registro guardado correctamente en Cloudflare. El respaldo en Google Sheets quedó pendiente.',
-            'ok'
-          );
-        });
+      processRegisterBackupQueue().then(backup=>{
+        setStatus(
+          'regStatus',
+          backup.pending
+            ? 'Registro guardado correctamente en Cloudflare. Respaldo en Google Sheets pendiente de reintento.'
+            : 'Registro guardado correctamente en Cloudflare. Respaldo en Google Sheets actualizado.',
+          'ok'
+        );
+      });
     }
 
     draftFormDirty=false;
@@ -2294,7 +2400,9 @@ async function findEditableRecords(){
         body:{password}
       });
       editSessionToken=String(unlocked.edit_token||'');
+      editSessionPassword=password;
       if(!editSessionToken) throw new Error('No se pudo habilitar la edición.');
+      processEditBackupQueue().catch(()=>{});
     }
     const records=DATA.filter(rec=>String(rec.fecha||'')===date && rec.id);
     editLoadedRecords=new Map(records.map(rec=>[String(rec.id),rec]));
@@ -2303,6 +2411,7 @@ async function findEditableRecords(){
   }catch(err){
     if(err.message==='INVALID_EDIT_KEY'){
       editSessionToken='';
+  editSessionPassword='';
       setStatus('editStatus','Clave de edición incorrecta.','err');
     }else{
       setStatus('editStatus',err.message || 'No se pudieron mostrar los registros.','err');
@@ -2378,24 +2487,21 @@ async function saveEditedRecord(unique, recordId){
     editLoadedRecords.set(String(recordId),result.record);
     setStatus(unique+'_status','Registro actualizado en Cloudflare. Sincronizando respaldo…','ok');
 
-    if(password){
-      syncEditedRecordBackup(original,result.record,password)
-        .then(backup=>{
-          if(backup.ok){
-            setStatus(unique+'_status','Registro actualizado en Cloudflare. Respaldo en Google Sheets actualizado.','ok');
-          }else{
-            setStatus(unique+'_status','Registro actualizado en Cloudflare. Respaldo de Google Sheets pendiente.','ok');
-          }
-        })
-        .catch(()=>setStatus(unique+'_status','Registro actualizado en Cloudflare. Respaldo de Google Sheets pendiente.','ok'));
-    }else{
-      setStatus(unique+'_status','Registro actualizado en Cloudflare. Respaldo de Google Sheets pendiente.','ok');
-    }
+    processEditBackupQueue().then(backup=>{
+      setStatus(
+        unique+'_status',
+        backup.pending
+          ? 'Registro actualizado en Cloudflare. Respaldo en Google Sheets pendiente de reintento.'
+          : 'Registro actualizado en Cloudflare. Respaldo en Google Sheets actualizado.',
+        'ok'
+      );
+    });
 
     loadData({keepFilters:true}).catch(()=>{});
   }catch(err){
     if(err.message==='UNAUTHORIZED'){await clearRegisterSession(); openRegisterLoginModal();}
     if(err.message==='EDIT_LOCKED') editSessionToken='';
+  editSessionPassword='';
     const msg=err.message==='DUPLICATE_RECORD'
       ? 'Ese cambio produciría un registro duplicado y no se guardó.'
       : err.message==='EDIT_LOCKED'
@@ -2421,10 +2527,20 @@ async function deleteEditedRecord(unique, recordId){
     editLoadedRecords.delete(String(recordId));
     const card=btn?.closest('.edit-card');
     if(card) card.remove();
-    setStatus('editStatus','Registro eliminado correctamente de Cloudflare D1.','ok');
+    setStatus('editStatus','Registro eliminado correctamente de Cloudflare D1. Sincronizando respaldo…','ok');
+    processEditBackupQueue().then(backup=>{
+      setStatus(
+        'editStatus',
+        backup.pending
+          ? 'Registro eliminado de Cloudflare D1. Respaldo en Google Sheets pendiente de reintento.'
+          : 'Registro eliminado de Cloudflare D1. Eliminación reflejada en el respaldo de Google Sheets.',
+        'ok'
+      );
+    });
     loadData({keepFilters:true}).catch(()=>{});
   }catch(err){
     if(err.message==='EDIT_LOCKED') editSessionToken='';
+  editSessionPassword='';
     setStatus(unique+'_status',err.message==='EDIT_LOCKED'?'La autorización de edición venció. Vuelve a introducir la clave.':err.message,'err');
   }finally{if(btn) btn.disabled=false;}
 }
@@ -2508,6 +2624,29 @@ async function createAdminUser(){
     await loadAdminUsers();
   }catch(err){setStatus('adminStatus',err.message,'err');}
 }
+async function loadAdminBackups(){
+  try{
+    const result=await cloudApi('/api/admin/backups',{headers:{'x-admin-token':adminSessionToken}});
+    const counts=result.counts||[];
+    const pending=result.pending||[];
+    const totalPending=pending.length;
+    const summary=$('adminBackupSummary');
+    if(summary){
+      summary.textContent=totalPending ? totalPending+' respaldo(s) pendiente(s).' : 'Todos los respaldos registrados están al día.';
+      summary.className='status '+(totalPending?'':'ok');
+    }
+    const box=$('adminBackups');
+    if(!box) return;
+    box.innerHTML='';
+    pending.forEach(job=>{
+      const card=document.createElement('div'); card.className='edit-card';
+      card.innerHTML=`<div class="edit-card-title"><span>${escapeHtml(job.operation)}</span><span>${escapeHtml(job.created_at||'')}</span></div><div class="small">${escapeHtml(job.responsible_email||'')}</div><div class="small" style="margin-top:6px">Intentos: ${Number(job.attempts||0)}${job.last_error?' · '+escapeHtml(job.last_error):''}</div>`;
+      box.appendChild(card);
+    });
+  }catch(err){
+    setStatus('adminStatus',err.message,'err');
+  }
+}
 async function loadAdminAudit(){
   const result=await cloudApi('/api/admin/audit',{headers:{'x-admin-token':adminSessionToken}});
   const box=$('adminAudit'); box.innerHTML='';
@@ -2542,6 +2681,7 @@ async function changeAccessKey(kind){
       setStatus('adminStatus','Clave de administración actualizada. Vuelve a introducir la nueva clave para continuar.','ok');
     }else{
       editSessionToken='';
+  editSessionPassword='';
       setStatus('adminStatus',result.message || 'Clave de edición actualizada.','ok');
     }
   }catch(err){
@@ -2553,7 +2693,7 @@ async function openAdminPanel(){
   if(!await ensureAdminUnlocked()) return;
   $('adminContent').hidden=false;
   setStatus('adminStatus','Administración habilitada.','ok');
-  await Promise.all([loadAdminUsers(),loadAdminAudit()]);
+  await Promise.all([loadAdminUsers(),loadAdminAudit(),loadAdminBackups()]);
 }
 function initAdminModule(){
   buildRegisterInputs();
@@ -2567,6 +2707,7 @@ function initAdminModule(){
   if($('adminUnlockBtn')) $('adminUnlockBtn').onclick=openAdminPanel;
   if($('adminCreateUserBtn')) $('adminCreateUserBtn').onclick=createAdminUser;
   if($('adminRefreshAuditBtn')) $('adminRefreshAuditBtn').onclick=loadAdminAudit;
+  if($('adminRefreshBackupsBtn')) $('adminRefreshBackupsBtn').onclick=loadAdminBackups;
   if($('adminChangeAdminKeyBtn')) $('adminChangeAdminKeyBtn').onclick=()=>changeAccessKey('admin');
   if($('adminChangeEditKeyBtn')) $('adminChangeEditKeyBtn').onclick=()=>changeAccessKey('edit');
   const checkBtn=$('checkDraftBtn'); if(checkBtn) checkBtn.onclick=()=>{if(!getRegisterPassword()){openRegisterLoginModal(); return;} checkSharedDraft();};
