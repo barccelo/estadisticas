@@ -2223,7 +2223,7 @@ function clearRecordForm(){
   setStatus('regStatus','');
 }
 function legacyRecordFromBackupPayload(payload){
-  const rec={'Fecha:':payload.date||payload.fecha||'', 'Email Address':payload.email||'', 'Observaciones:':payload.observations||payload.observaciones||''};
+  const rec={'Timestamp':payload.timestamp||payload.createdAt||'', 'Fecha:':payload.date||payload.fecha||'', 'Email Address':payload.email||'', 'Observaciones:':payload.observations||payload.observaciones||''};
   const values=payload.attendance||payload.valores||{};
   DISCIPLINES.forEach(d=>rec[d]=values[d] ?? 0);
   return rec;
@@ -2263,6 +2263,7 @@ async function findLegacyBackupRow(password, cloudRecord){
 }
 function cloudRecordFromQueueSide(side){
   return {
+    timestamp:side?.timestamp||'',
     fecha:side?.date||'',
     email:side?.responsible_email||'',
     observaciones:side?.observations||'',
@@ -2281,6 +2282,7 @@ async function processEditBackupJob(job,password){
       throw new Error('BACKUP_ROW_NOT_FOUND');
     }
     const backupRecord=legacyRecordFromBackupPayload({
+      timestamp:valueFromRecord(legacy,'Timestamp','Marca temporal') || after.timestamp || before.timestamp || '',
       date:after.fecha,email:after.email,observations:after.observaciones,attendance:after.valores
     });
     const saved=await apiCall('updateRecord',{password,rowNumber:legacy.__rowNumber,record:backupRecord});
@@ -2302,7 +2304,7 @@ async function processEditBackupJob(job,password){
       }
       throw new Error('BACKUP_ROW_NOT_FOUND');
     }
-    const tombstone={'Fecha:':original.fecha,'Email Address':original.email,'Observaciones:':'[ELIMINADO EN D1] '+String(original.observaciones||'')};
+    const tombstone={'Timestamp':valueFromRecord(legacy,'Timestamp','Marca temporal') || original.timestamp || '', 'Fecha:':original.fecha,'Email Address':original.email,'Observaciones:':'[ELIMINADO EN D1] '+String(original.observaciones||'')};
     DISCIPLINES.forEach(d=>tombstone[d]=0);
     const saved=await apiCall('updateRecord',{password,rowNumber:legacy.__rowNumber,record:tombstone});
     if(!saved?.ok) throw new Error(saved?.message||'BACKUP_DELETE_FAILED');
