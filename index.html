@@ -2006,7 +2006,7 @@ function fillRegisterFormFromRecord(record){
   setTimeout(()=>{draftSuppressAutosave=false;}, 250);
   updateDailyRecordStatus();
 }
-async async function checkSharedDraft(){
+async function checkSharedDraft(){
   const snap=currentRegisterSnapshot();
   if(!snap.date){setDraftStatus('<strong>Borrador compartido:</strong> selecciona una fecha para verificar.', true); return;}
   if(!snap.token){
