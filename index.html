@@ -1294,6 +1294,10 @@ body{background:#f6f7fb;}
 
               <div class="section-head" style="margin-top:22px"><div><h2>Respaldo en Google Sheets</h2><p>D1 es la fuente principal. Aquí se muestran operaciones de respaldo pendientes o completadas.</p></div></div>
               <div class="admin-row"><button class="btn secondary" id="adminRefreshBackupsBtn" type="button">Actualizar estado</button><span id="adminBackupSummary" class="status"></span></div>
+              <div class="mini-grid" style="margin-top:10px">
+                <div class="field"><label>Clave de edición para reintentar pendientes</label><input id="adminRetryEditKey" type="password" inputmode="numeric" placeholder="Clave de edición"></div>
+                <div class="field"><label>&nbsp;</label><button class="btn secondary" id="adminRetryBackupsBtn" type="button">Reintentar pendientes</button></div>
+              </div>
               <div id="adminBackups" class="edit-results"></div>
 
               <div class="section-head" style="margin-top:22px"><div><h2>Auditoría reciente</h2><p>Últimos accesos, registros, ediciones y eliminaciones.</p></div></div>
@@ -2239,7 +2243,7 @@ async function reportBackupJobResult(job, success, error='', mode='register'){
   if(mode==='edit') headers['x-edit-token']=editSessionToken;
   else options.token=registerSessionToken;
   if(Object.keys(headers).length) options.headers=headers;
-  try{await cloudApi('/api/backup/jobs/'+encodeURIComponent(job.id),options);}catch(_e){}
+  return await cloudApi('/api/backup/jobs/'+encodeURIComponent(job.id),options);
 }
 async function ensureLegacyTimestamp(password, payload){
   const timestamp=String(payload?.timestamp||payload?.createdAt||'').trim();
@@ -2679,6 +2683,29 @@ async function createAdminUser(){
     await loadAdminUsers();
   }catch(err){setStatus('adminStatus',err.message,'err');}
 }
+async function retryAdminBackups(){
+  const input=$('adminRetryEditKey');
+  const password=String(input?.value||'').trim();
+  if(!password){setStatus('adminStatus','Escribe la clave de edición para reintentar los respaldos pendientes.','err');return;}
+  const btn=$('adminRetryBackupsBtn'); if(btn) btn.disabled=true;
+  setStatus('adminStatus','Reintentando respaldos pendientes…');
+  try{
+    const unlocked=await cloudApi('/api/edit/unlock',{method:'POST',body:{password}});
+    editSessionToken=String(unlocked.edit_token||'');
+    editSessionPassword=password;
+    if(!editSessionToken) throw new Error('No se pudo habilitar la edición.');
+    const result=await processEditBackupQueue();
+    if(input) input.value='';
+    await loadAdminBackups();
+    if(result.pending){
+      setStatus('adminStatus',`Se completaron ${result.done} respaldo(s). Quedan ${result.pending} pendiente(s): ${result.error||'error no especificado'}.`,'err');
+    }else{
+      setStatus('adminStatus',`Respaldos reintentados correctamente. Se completaron ${result.done} operación(es).`,'ok');
+    }
+  }catch(err){
+    setStatus('adminStatus',err.message==='INVALID_EDIT_KEY'?'Clave de edición incorrecta.':err.message,'err');
+  }finally{if(btn) btn.disabled=false;}
+}
 async function loadAdminBackups(){
   try{
     const result=await cloudApi('/api/admin/backups',{headers:{'x-admin-token':adminSessionToken}});
@@ -2803,6 +2830,7 @@ function initAdminModule(){
   if($('adminCreateUserBtn')) $('adminCreateUserBtn').onclick=createAdminUser;
   if($('adminRefreshAuditBtn')) $('adminRefreshAuditBtn').onclick=loadAdminAudit;
   if($('adminRefreshBackupsBtn')) $('adminRefreshBackupsBtn').onclick=loadAdminBackups;
+  if($('adminRetryBackupsBtn')) $('adminRetryBackupsBtn').onclick=retryAdminBackups;
   if($('adminChangeAdminKeyBtn')) $('adminChangeAdminKeyBtn').onclick=()=>changeAccessKey('admin');
   if($('adminChangeEditKeyBtn')) $('adminChangeEditKeyBtn').onclick=()=>changeAccessKey('edit');
   const checkBtn=$('checkDraftBtn'); if(checkBtn) checkBtn.onclick=()=>{if(!getRegisterPassword()){openRegisterLoginModal(); return;} checkSharedDraft();};
