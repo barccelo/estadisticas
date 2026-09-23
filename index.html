@@ -1268,6 +1268,7 @@ const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQi7LJ9GkWvS8
 const APPS_SCRIPT_URL = "https://script.google.com/a/macros/losroblesenlinea.com.ve/s/AKfycbzHHgoVMHLbCWYYPnPgtWsG3Ipq3Q_5dkMRKBFbJYW5uG3mkhlHWkLwi1DyOuKCDAGh/exec";
 const CLOUD_API_URL = "https://club-deportivo-api.github-016.workers.dev";
 let DATA = [];
+let DATA_SOURCE_LABEL = 'Cloudflare D1';
 const DISCIPLINES = ["Ajedrez", "Astronomía", "Atletismo", "Baloncesto", "Béisbol", "Fútbol campo", "Fútbol sala", "Música", "Tenis de campo", "Robótica"];
 const RESPONSIBLES = ["cesarperozo@losroblesenlinea.com.ve", "alexandropolanco@losroblesenlinea.com.ve", "inrifereira@losroblesenlinea.com.ve", "davidbarcelo@losroblesenlinea.com.ve"];
 let selected = new Set(DISCIPLINES);
@@ -1405,10 +1406,13 @@ async function loadCloudRecords(){
     const response=await fetch(CLOUD_API_URL+'/api/records',{cache:'no-store'});
     if(!response.ok) throw new Error('No se pudieron leer los registros de Cloudflare.');
     const data=await response.json();
-    return Array.isArray(data.records) ? data.records : [];
+    return {
+      records:Array.isArray(data.records) ? data.records : [],
+      migration:data.migration || {status:'pending'}
+    };
   }catch(error){
     console.error(error);
-    return [];
+    return {records:[],migration:{status:'error'}};
   }
 }
 function recordMergeSignature(r){
@@ -1416,28 +1420,44 @@ function recordMergeSignature(r){
   return JSON.stringify([r.fecha||'',r.email||'',r.observaciones||'',values]);
 }
 async function loadData({keepFilters=false}={}){
-  setLoading('Cargando datos...');
+  setLoading('Cargando datos desde Cloudflare...');
   try{
-    const [cloudRows, sheetRows] = await Promise.all([
-      loadCloudRecords(),
-      (async()=>{
-        const url=SHEET_URL+(SHEET_URL.includes('?')?'&':'?')+'cacheBust='+Date.now();
-        const response=await fetch(url,{cache:'no-store'});
-        if(!response.ok) throw new Error('No se pudo leer la hoja publicada.');
-        return transformRows(parseCSV(await response.text()));
-      })()
-    ]);
+    const cloud=await loadCloudRecords();
+    const cloudRows=cloud.records || [];
+    const migrationStatus=cloud.migration?.status || 'pending';
+
+    if(migrationStatus==='done'){
+      DATA_SOURCE_LABEL='Cloudflare D1';
+      DATA=cloudRows.sort((a,b)=>String(a.fecha||'').localeCompare(String(b.fecha||'')));
+      if(!DATA.length) throw new Error('No se encontraron registros válidos.');
+      init(keepFilters);
+      return;
+    }
+
+    DATA_SOURCE_LABEL='Cloudflare D1 + histórico de Google Sheets';
+    const url=SHEET_URL+(SHEET_URL.includes('?')?'&':'?')+'cacheBust='+Date.now();
+    const response=await fetch(url,{cache:'no-store'});
+    if(!response.ok) throw new Error('No se pudo leer la hoja publicada.');
+    const sheetRows=transformRows(parseCSV(await response.text()));
     const cloudSignatures=new Set(cloudRows.map(recordMergeSignature));
     const legacyRows=sheetRows.filter(r=>!cloudSignatures.has(recordMergeSignature(r)));
     DATA=[...legacyRows,...cloudRows].sort((a,b)=>String(a.fecha||'').localeCompare(String(b.fecha||'')));
     if(!DATA.length) throw new Error('No se encontraron registros válidos.');
     init(keepFilters);
+
+    if(migrationStatus==='running'){
+      setTimeout(()=>loadData({keepFilters:true}),8000);
+    }
   }catch(error){
     console.error(error);
-    try{
-      const cloudRows=await loadCloudRecords();
-      if(cloudRows.length){DATA=cloudRows;init(keepFilters);return;}
-    }catch(_e){}
+    const cloud=await loadCloudRecords();
+    const cloudRows=cloud.records || [];
+    if(cloudRows.length){
+      DATA_SOURCE_LABEL='Cloudflare D1';
+      DATA=cloudRows;
+      init(keepFilters);
+      return;
+    }
     setLoading('No se pudieron cargar los datos.');
   }
 }
@@ -1727,7 +1747,7 @@ function downloadTotalPDF(){
 }
 
 function renderLine(rows){const canvas=$('lineChart'), rect=canvas.parentElement.getBoundingClientRect(), dpr=window.devicePixelRatio||1; canvas.width=rect.width*dpr; canvas.height=rect.height*dpr; const ctx=canvas.getContext('2d'); ctx.scale(dpr,dpr); const w=rect.width,h=rect.height,p={l:46,r:18,t:18,b:38}; ctx.clearRect(0,0,w,h); ctx.font='12px system-ui'; ctx.strokeStyle='#e5e7eb'; ctx.lineWidth=1; if(selected.size===0){ctx.fillStyle='#6b7280'; ctx.fillText('No hay disciplinas seleccionadas.',p.l+10,h/2); return;} const byDate={}; rows.forEach(r=>{if(!byDate[r.fecha]){byDate[r.fecha]={}; DISCIPLINES.forEach(d=>byDate[r.fecha][d]=0)} DISCIPLINES.forEach(d=>byDate[r.fecha][d]+=Number(r.valores[d]||0));}); const dates=Object.keys(byDate).sort(); const max=Math.max(1,...dates.flatMap(date=>[...selected].map(d=>byDate[date][d]||0))); for(let i=0;i<=4;i++){const y=p.t+(h-p.t-p.b)*i/4; ctx.beginPath(); ctx.moveTo(p.l,y); ctx.lineTo(w-p.r,y); ctx.stroke(); ctx.fillStyle='#6b7280'; ctx.fillText(Math.round(max*(1-i/4)),6,y+4)} if(dates.length===0){ctx.fillStyle='#6b7280';ctx.fillText('No hay datos para mostrar.',p.l+10,h/2);return} const colors=['#991b1b','#111827','#4b5563','#b45309','#166534','#1d4ed8','#7c3aed','#be185d','#0f766e','#92400e']; let ci=0; [...selected].forEach(d=>{ctx.strokeStyle=colors[ci++%colors.length]; ctx.lineWidth=2; ctx.beginPath(); dates.forEach((date,i)=>{const x=p.l+(dates.length===1?0:(w-p.l-p.r)*i/(dates.length-1)); const y=p.t+(h-p.t-p.b)*(1-(byDate[date][d]||0)/max); if(i===0)ctx.moveTo(x,y); else ctx.lineTo(x,y);}); ctx.stroke();}); ctx.fillStyle='#6b7280'; const step=Math.ceil(dates.length/6); dates.forEach((date,i)=>{if(i%step===0||i===dates.length-1){const x=p.l+(dates.length===1?0:(w-p.l-p.r)*i/(dates.length-1)); ctx.save(); ctx.translate(x,h-12); ctx.rotate(-0.45); ctx.fillText(niceDate(date),0,0); ctx.restore();}});}
-function renderTable(rows){const table=$('dataTable'); const heads=['Fecha','Responsable',...DISCIPLINES.filter(d=>selected.has(d)),'Total','Observaciones']; let html='<thead><tr>'+heads.map(h=>`<th>${escapeHtml(h)}</th>`).join('')+'</tr></thead><tbody>'; rows.slice().sort((a,b)=>b.fecha.localeCompare(a.fecha)).forEach(r=>{html+='<tr>'; html+=`<td>${niceDate(r.fecha)}</td><td>${escapeHtml(responsibleShort(r.email))}</td>`; DISCIPLINES.filter(d=>selected.has(d)).forEach(d=>html+=`<td>${fmt.format(r.valores[d]||0)}</td>`); html+=`<td><strong>${fmt.format(totalSelected(r))}</strong></td><td class="obs">${escapeHtml(r.observaciones)}</td></tr>`;}); html+='</tbody>'; table.innerHTML=html; $('tableCount').textContent=fmt.format(rows.length)+' registros mostrados · fuente: Google Sheets';}
+function renderTable(rows){const table=$('dataTable'); const heads=['Fecha','Responsable',...DISCIPLINES.filter(d=>selected.has(d)),'Total','Observaciones']; let html='<thead><tr>'+heads.map(h=>`<th>${escapeHtml(h)}</th>`).join('')+'</tr></thead><tbody>'; rows.slice().sort((a,b)=>b.fecha.localeCompare(a.fecha)).forEach(r=>{html+='<tr>'; html+=`<td>${niceDate(r.fecha)}</td><td>${escapeHtml(responsibleShort(r.email))}</td>`; DISCIPLINES.filter(d=>selected.has(d)).forEach(d=>html+=`<td>${fmt.format(r.valores[d]||0)}</td>`); html+=`<td><strong>${fmt.format(totalSelected(r))}</strong></td><td class="obs">${escapeHtml(r.observaciones)}</td></tr>`;}); html+='</tbody>'; table.innerHTML=html; $('tableCount').textContent=fmt.format(rows.length)+' registros mostrados · fuente: '+DATA_SOURCE_LABEL;}
 function downloadCSV(){const rows=filtered(); const visible=DISCIPLINES.filter(d=>selected.has(d)); const cols=['Fecha','Responsable',...visible,'Total','Observaciones']; const csv=[cols.join(',')].concat(rows.map(r=>[r.fecha,r.email,...visible.map(d=>r.valores[d]),totalSelected(r),(r.observaciones||'').replace(/\n/g,' ')].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(','))).join('\n'); const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='club_deportivo_filtrado.csv'; a.click(); URL.revokeObjectURL(a.href);}
 
 function setStatus(id, message, type=''){
@@ -1965,6 +1985,9 @@ async function confirmRegisterLogin(){
     closeRegisterLoginModal();
     refreshRegisterDayPanels();
     checkSharedDraft();
+    if(result.migration && result.migration.status!=='done'){
+      setTimeout(()=>loadData({keepFilters:true}),2500);
+    }
   }catch(err){
     if(status){status.textContent=(err.message==='INVALID_CREDENTIALS'?'Clave no válida.':err.message) || 'No se pudo iniciar sesión.'; status.className='session-modal-status err';}
   }finally{if(btn) btn.disabled=false;}
