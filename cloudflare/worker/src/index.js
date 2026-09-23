@@ -528,6 +528,7 @@ async function listRecords(request, env, ctx) {
 }
 
 async function ensureEditSchema(env) {
+  try { await env.DB.prepare("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'registrador'").run(); } catch (_) {}
   await env.DB.prepare(
     `CREATE TABLE IF NOT EXISTS app_settings (
       key TEXT PRIMARY KEY,
@@ -720,6 +721,125 @@ async function createRecord(request, env) {
   }, 201);
 }
 
+async function deleteRecord(request, env, recordId) {
+  if (!env.DB) return json({ ok: false, error: "D1_NOT_BOUND" }, 503);
+  const editAllowed = await requireEditSession(request, env);
+  if (!editAllowed) return json({ ok: false, error: "EDIT_LOCKED" }, 403);
+  const auth = await requireSession(request, env);
+
+  const current = await env.DB.prepare(
+    `SELECT r.id, r.record_date, r.observations, r.source, r.created_at,
+            u.email, u.display_name
+     FROM records r JOIN users u ON u.id=r.responsible_user_id
+     WHERE r.id=?1 LIMIT 1`
+  ).bind(recordId).first();
+  if (!current) return json({ ok:false, error:"RECORD_NOT_FOUND" },404);
+
+  const entries = await env.DB.prepare(
+    "SELECT discipline, attendance FROM attendance_entries WHERE record_id=?1 ORDER BY discipline"
+  ).bind(recordId).all();
+
+  await env.DB.prepare(
+    "INSERT INTO app_log (event_type,user_id,record_id,details_json) VALUES ('record_deleted',?1,?2,?3)"
+  ).bind(auth?.user_id || null, recordId, JSON.stringify({
+    authorization:"edit-key",
+    record: current,
+    attendance: entries.results || []
+  })).run();
+
+  await env.DB.prepare("DELETE FROM records WHERE id=?1").bind(recordId).run();
+  return json({ok:true,message:"Registro eliminado correctamente."});
+}
+
+async function listAdminUsers(request, env) {
+  const editAllowed=await requireEditSession(request,env);
+  if(!editAllowed) return json({ok:false,error:"EDIT_LOCKED"},403);
+  await ensureEditSchema(env);
+  const rows=await env.DB.prepare(
+    "SELECT id,email,display_name,active,role,created_at,updated_at FROM users ORDER BY display_name"
+  ).all();
+  return json({ok:true,users:rows.results||[]});
+}
+
+async function createAdminUser(request, env) {
+  const editAllowed=await requireEditSession(request,env);
+  if(!editAllowed) return json({ok:false,error:"EDIT_LOCKED"},403);
+  await ensureEditSchema(env);
+  let body; try{body=await request.json();}catch{return json({ok:false,error:"INVALID_JSON"},400);}
+  const email=String(body?.email||"").trim().toLowerCase();
+  const name=String(body?.name||"").trim();
+  const pin=String(body?.pin||"").trim();
+  const role=["admin","editor","registrador"].includes(String(body?.role||"")) ? String(body.role) : "registrador";
+  if(!email || !name || !/^\d{4,20}$/.test(pin)) return json({ok:false,error:"INVALID_USER"},400);
+  const pinHash=await hashPin(pin);
+  const id=crypto.randomUUID();
+  try{
+    await env.DB.prepare(
+      "INSERT INTO users (id,email,display_name,pin_hash,active,role) VALUES (?1,?2,?3,?4,1,?5)"
+    ).bind(id,email,name,pinHash,role).run();
+  }catch(e){
+    return json({ok:false,error:"USER_EXISTS"},409);
+  }
+  await env.DB.prepare(
+    "INSERT INTO app_log (event_type,details_json) VALUES ('user_created',?1)"
+  ).bind(JSON.stringify({id,email,name,role,authorization:"edit-key"})).run();
+  return json({ok:true,user:{id,email,display_name:name,active:1,role}});
+}
+
+async function updateAdminUser(request, env, userId) {
+  const editAllowed=await requireEditSession(request,env);
+  if(!editAllowed) return json({ok:false,error:"EDIT_LOCKED"},403);
+  await ensureEditSchema(env);
+  let body; try{body=await request.json();}catch{return json({ok:false,error:"INVALID_JSON"},400);}
+  const existing=await env.DB.prepare("SELECT id,email,display_name,active,role FROM users WHERE id=?1 LIMIT 1").bind(userId).first();
+  if(!existing) return json({ok:false,error:"USER_NOT_FOUND"},404);
+
+  const email=String(body?.email ?? existing.email).trim().toLowerCase();
+  const name=String(body?.name ?? existing.display_name).trim();
+  const active=body?.active===undefined ? Number(existing.active) : (body.active ? 1 : 0);
+  const role=["admin","editor","registrador"].includes(String(body?.role||"")) ? String(body.role) : String(existing.role||"registrador");
+  const pin=String(body?.pin||"").trim();
+
+  if(!email || !name || (pin && !/^\d{4,20}$/.test(pin))) return json({ok:false,error:"INVALID_USER"},400);
+
+  try{
+    if(pin){
+      const pinHash=await hashPin(pin);
+      await env.DB.prepare(
+        `UPDATE users SET email=?1,display_name=?2,active=?3,role=?4,pin_hash=?5,
+         updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?6`
+      ).bind(email,name,active,role,pinHash,userId).run();
+    }else{
+      await env.DB.prepare(
+        `UPDATE users SET email=?1,display_name=?2,active=?3,role=?4,
+         updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?5`
+      ).bind(email,name,active,role,userId).run();
+    }
+  }catch(e){
+    return json({ok:false,error:"USER_UPDATE_CONFLICT"},409);
+  }
+
+  if(!active){
+    await env.DB.prepare("DELETE FROM auth_sessions WHERE user_id=?1").bind(userId).run();
+  }
+  await env.DB.prepare(
+    "INSERT INTO app_log (event_type,details_json) VALUES ('user_updated',?1)"
+  ).bind(JSON.stringify({user_id:userId,before:existing,after:{email,name,active,role},pin_reset:Boolean(pin),authorization:"edit-key"})).run();
+  return json({ok:true,user:{id:userId,email,display_name:name,active,role}});
+}
+
+async function listAuditLog(request, env) {
+  const editAllowed=await requireEditSession(request,env);
+  if(!editAllowed) return json({ok:false,error:"EDIT_LOCKED"},403);
+  const rows=await env.DB.prepare(
+    `SELECT l.id,l.event_type,l.record_id,l.details_json,l.created_at,
+            u.display_name,u.email
+     FROM app_log l LEFT JOIN users u ON u.id=l.user_id
+     ORDER BY l.id DESC LIMIT 100`
+  ).all();
+  return json({ok:true,events:rows.results||[]});
+}
+
 async function updateRecord(request, env, recordId) {
   if (!env.DB) return json({ ok: false, error: "D1_NOT_BOUND" }, 503);
   const editAllowed = await requireEditSession(request, env);
@@ -881,6 +1001,16 @@ export default {
         response = await createRecord(request, env);
       } else if (url.pathname.startsWith("/api/records/") && request.method === "PUT") {
         response = await updateRecord(request, env, decodeURIComponent(url.pathname.slice("/api/records/".length)));
+      } else if (url.pathname.startsWith("/api/records/") && request.method === "DELETE") {
+        response = await deleteRecord(request, env, decodeURIComponent(url.pathname.slice("/api/records/".length)));
+      } else if (url.pathname === "/api/admin/users" && request.method === "GET") {
+        response = await listAdminUsers(request, env);
+      } else if (url.pathname === "/api/admin/users" && request.method === "POST") {
+        response = await createAdminUser(request, env);
+      } else if (url.pathname.startsWith("/api/admin/users/") && request.method === "PUT") {
+        response = await updateAdminUser(request, env, decodeURIComponent(url.pathname.slice("/api/admin/users/".length)));
+      } else if (url.pathname === "/api/admin/audit" && request.method === "GET") {
+        response = await listAuditLog(request, env);
       } else if (url.pathname === "/api/logout" && request.method === "POST") {
         response = await logout(request, env);
       } else {
