@@ -1255,6 +1255,7 @@ button{-webkit-tap-highlight-color:transparent}
 }
 
 </style>
+<link rel="stylesheet" href="./ui-v2.css?v=1">
 </head>
 <body>
 <div id="registerLoginModal" class="session-modal-backdrop" hidden>
@@ -1276,11 +1277,11 @@ button{-webkit-tap-highlight-color:transparent}
       <div class="brand-title">Menú</div>
     </div>
     <nav class="side-nav" aria-label="Menú principal">
-      <button class="side-link active" type="button" data-view="inicio">Inicio</button>
-      <button class="side-link" type="button" data-view="estadisticas">Estadísticas</button>
-      <button class="side-link" type="button" data-view="horarios">Horarios</button>
-      <button class="side-link" type="button" data-view="guardias">Guardias</button>
-      <button class="side-link" type="button" data-view="edicion">Editar datos</button>
+      <button class="side-link active" type="button" data-view="inicio"><span class="nav-icon" aria-hidden="true">⌂</span><span class="nav-label">Inicio</span></button>
+      <button class="side-link" type="button" data-view="estadisticas"><span class="nav-icon" aria-hidden="true">⌁</span><span class="nav-label">Estadísticas</span></button>
+      <button class="side-link" type="button" data-view="horarios"><span class="nav-icon" aria-hidden="true">▦</span><span class="nav-label">Horarios</span></button>
+      <button class="side-link" type="button" data-view="guardias"><span class="nav-icon" aria-hidden="true">◉</span><span class="nav-label">Guardias</span></button>
+      <button class="side-link" type="button" data-view="edicion"><span class="nav-icon" aria-hidden="true">✎</span><span class="nav-label">Editar</span></button>
     </nav>
     
   </aside>
@@ -1385,7 +1386,6 @@ button{-webkit-tap-highlight-color:transparent}
           <div class="app-page-head">
             <div>
               <h2>Horarios</h2>
-              <p>Consulta el horario oficial sin salir de la aplicación.</p>
             </div>
             <a class="icon-action" href="https://llr-edu.github.io/horarios-clubdeportivo/" target="_blank" rel="noopener" aria-label="Abrir horario en una pestaña nueva" title="Abrir en otra pestaña">↗</a>
           </div>
