@@ -2334,26 +2334,35 @@ async function processEditBackupJob(job,password){
   }
   return false;
 }
-async function processEditBackupQueue(){
+async function processEditBackupQueue(targetJobId='', onlyTarget=false){
   const password=editSessionPassword;
-  if(!editSessionToken || !password) return {done:0,pending:0,error:''};
+  if(!editSessionToken || !password) return {done:0,pending:0,error:'',targetDone:false,targetPending:false};
   let result;
   try{result=await cloudApi('/api/backup/jobs',{headers:{'x-edit-token':editSessionToken}});}
-  catch(_e){return {done:0,pending:0,error:''};}
-  let done=0,pending=0,firstError='';
-  for(const job of result.jobs||[]){
+  catch(_e){return {done:0,pending:0,error:'',targetDone:false,targetPending:false};}
+
+  let jobs=[...(result.jobs||[])];
+  if(targetJobId){
+    jobs.sort((a,b)=>(String(a.id)===String(targetJobId)?-1:String(b.id)===String(targetJobId)?1:0));
+    if(onlyTarget) jobs=jobs.filter(job=>String(job.id)===String(targetJobId));
+  }
+
+  let done=0,pending=0,firstError='',targetDone=false,targetPending=false;
+  for(const job of jobs){
     try{
       await processEditBackupJob(job,password);
       await reportBackupJobResult(job,true,'','edit');
       done++;
+      if(targetJobId && String(job.id)===String(targetJobId)) targetDone=true;
     }catch(err){
       pending++;
       const message=err?.message||'BACKUP_EDIT_FAILED';
       if(!firstError) firstError=message;
+      if(targetJobId && String(job.id)===String(targetJobId)) targetPending=true;
       await reportBackupJobResult(job,false,message,'edit');
     }
   }
-  return {done,pending,error:firstError};
+  return {done,pending,error:firstError,targetDone,targetPending};
 }
 
 async function saveRecord(){
@@ -2514,7 +2523,7 @@ async function saveEditedRecord(unique, recordId){
     editLoadedRecords.set(String(recordId),result.record);
     setStatus(unique+'_status','Registro actualizado en Cloudflare. Sincronizando respaldo…','ok');
 
-    processEditBackupQueue().then(backup=>{
+    processEditBackupQueue(result.backup?.jobId||'',true).then(backup=>{
       setStatus(
         unique+'_status',
         backup.pending
@@ -2522,6 +2531,7 @@ async function saveEditedRecord(unique, recordId){
           : 'Registro actualizado en Cloudflare. Respaldo en Google Sheets actualizado.',
         'ok'
       );
+      setTimeout(()=>processEditBackupQueue().catch(()=>{}),0);
     });
 
     loadData({keepFilters:true}).catch(()=>{});
@@ -2547,7 +2557,7 @@ async function deleteEditedRecord(unique, recordId){
   if(btn) btn.disabled=true;
   setStatus(unique+'_status','Eliminando de Cloudflare...');
   try{
-    await cloudApi('/api/records/'+encodeURIComponent(recordId),{
+    const result=await cloudApi('/api/records/'+encodeURIComponent(recordId),{
       method:'DELETE',
       headers:{'x-edit-token':editSessionToken}
     });
@@ -2555,7 +2565,7 @@ async function deleteEditedRecord(unique, recordId){
     const card=btn?.closest('.edit-card');
     if(card) card.remove();
     setStatus('editStatus','Registro eliminado correctamente de Cloudflare D1. Sincronizando respaldo…','ok');
-    processEditBackupQueue().then(backup=>{
+    processEditBackupQueue(result.backup?.jobId||'',true).then(backup=>{
       setStatus(
         'editStatus',
         backup.pending
@@ -2563,6 +2573,7 @@ async function deleteEditedRecord(unique, recordId){
           : 'Registro eliminado de Cloudflare D1. Eliminación reflejada en el respaldo de Google Sheets.',
         'ok'
       );
+      setTimeout(()=>processEditBackupQueue().catch(()=>{}),0);
     });
     loadData({keepFilters:true}).catch(()=>{});
   }catch(err){
