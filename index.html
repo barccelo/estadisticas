@@ -1248,10 +1248,9 @@ body{background:#f6f7fb;}
         <section class="panel editing-wrap">
           <div class="admin-card">
             <h2>Editar datos guardados</h2>
-            <p>Busca y modifica los registros guardados en Cloudflare D1. La contraseña de edición se usa temporalmente para sincronizar la corrección con el respaldo de Google Sheets.</p>
+            <p>Busca y modifica los registros guardados en Cloudflare D1.</p>
             <div class="mini-grid">
-              <div class="field"><label>Contraseña</label><input id="editPassword" type="password" inputmode="numeric" placeholder="Contraseña de edición"></div>
-              <div class="field"><label>Fecha</label><input id="editFecha" type="date"></div>
+              <div class="field full"><label>Fecha</label><input id="editFecha" type="date"></div>
             </div>
             <div class="admin-row"><button class="btn" id="findRecordsBtn" type="button">Buscar registros</button></div>
             <div id="editStatus" class="status"></div>
@@ -2241,24 +2240,21 @@ async function saveRecord(){
   }finally{btn.disabled=false;}
 }
 async function findEditableRecords(){
-  const password=$('editPassword').value.trim(), date=$('editFecha').value;
+  const date=$('editFecha').value;
   if(!registerSessionToken){
     openRegisterLoginModal();
     setStatus('editStatus','Inicia sesión para editar registros.','err');
     return;
   }
-  if(!password){setStatus('editStatus','Escribe la contraseña de edición para mantener sincronizado el respaldo de Google Sheets.','err'); return;}
   if(!date){setStatus('editStatus','Selecciona una fecha para buscar.','err'); return;}
-  const btn=$('findRecordsBtn'); btn.disabled=true; $('editResults').innerHTML=''; setStatus('editStatus','Buscando registros en Cloudflare...');
+  const btn=$('findRecordsBtn'); btn.disabled=true; $('editResults').innerHTML=''; setStatus('editStatus','Buscando registros...');
   try{
-    const result=await cloudApi('/api/records?from='+encodeURIComponent(date)+'&to='+encodeURIComponent(date),{token:registerSessionToken});
-    const records=result.records || [];
+    const records=DATA.filter(rec=>String(rec.fecha||'')===date && rec.id);
     editLoadedRecords=new Map(records.map(rec=>[String(rec.id),rec]));
     renderEditResults(records);
     setStatus('editStatus', records.length ? `${records.length} registro(s) encontrado(s) en Cloudflare D1.` : 'No se encontraron registros para esa fecha.', records.length ? 'ok' : '');
   }catch(err){
-    if(err.message==='UNAUTHORIZED'){await clearRegisterSession(); openRegisterLoginModal();}
-    setStatus('editStatus', err.message==='UNAUTHORIZED'?'La sesión venció. Inicia sesión nuevamente.':err.message, 'err');
+    setStatus('editStatus','No se pudieron mostrar los registros cargados.','err');
   }finally{btn.disabled=false;}
 }
 function valueFromRecord(rec, ...names){
@@ -2314,8 +2310,7 @@ async function saveEditedRecord(unique, recordId){
     setStatus(unique+'_status','Inicia sesión para editar.','err');
     return;
   }
-  const password=$('editPassword').value.trim();
-  if(!password){setStatus(unique+'_status','Escribe la contraseña de edición para sincronizar el respaldo.','err'); return;}
+  const password=getRegisterPassword();
   const original=editLoadedRecords.get(String(recordId));
   if(!original){setStatus(unique+'_status','No se encontró el registro cargado. Vuelve a buscar.','err'); return;}
 
@@ -2335,17 +2330,19 @@ async function saveEditedRecord(unique, recordId){
     editLoadedRecords.set(String(recordId),result.record);
     setStatus(unique+'_status','Registro actualizado en Cloudflare. Sincronizando respaldo…','ok');
 
-    syncEditedRecordBackup(original,result.record,password)
-      .then(backup=>{
-        setStatus(
-          unique+'_status',
-          backup.ok
-            ? 'Registro actualizado en Cloudflare. Respaldo en Google Sheets actualizado.'
-            : 'Registro actualizado en Cloudflare. El respaldo en Google Sheets quedó pendiente.',
-          'ok'
-        );
-      })
-      .catch(()=>setStatus(unique+'_status','Registro actualizado en Cloudflare. El respaldo en Google Sheets quedó pendiente.','ok'));
+    if(password){
+      syncEditedRecordBackup(original,result.record,password)
+        .then(backup=>{
+          if(backup.ok){
+            setStatus(unique+'_status','Registro actualizado en Cloudflare. Respaldo en Google Sheets actualizado.','ok');
+          }else{
+            setStatus(unique+'_status','Registro actualizado en Cloudflare. Respaldo de Google Sheets pendiente.','ok');
+          }
+        })
+        .catch(()=>setStatus(unique+'_status','Registro actualizado en Cloudflare. Respaldo de Google Sheets pendiente.','ok'));
+    }else{
+      setStatus(unique+'_status','Registro actualizado en Cloudflare. Respaldo de Google Sheets pendiente.','ok');
+    }
 
     loadData({keepFilters:true}).catch(()=>{});
   }catch(err){
