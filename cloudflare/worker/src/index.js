@@ -47,6 +47,7 @@ async function sha256Hex(value) {
 }
 
 const RECORD_DISCIPLINES = ["Ajedrez","Astronomía","Atletismo","Baloncesto","Béisbol","Fútbol campo","Fútbol sala","Música","Tenis de campo","Robótica"];
+const LEGACY_SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQi7LJ9GkWvS8xSGabaKdLwMRzhaMXppm8Vt8Z5chsQr92cWEOYF2SKeNPI15SYc1oryFw3eJP1SQkg/pub?gid=590274017&single=true&output=csv";
 
 const PIN_ITERATIONS = 100000;
 
@@ -138,7 +139,7 @@ async function requireSession(request, env) {
   return row || null;
 }
 
-async function login(request, env) {
+async function login(request, env, ctx) {
   if (!env.DB) return json({ ok: false, error: "D1_NOT_BOUND" }, 503);
 
   let body;
@@ -173,11 +174,13 @@ async function login(request, env) {
     "INSERT INTO app_log (event_type, user_id, details_json) VALUES ('login', ?1, ?2)"
   ).bind(user.id, JSON.stringify({ source: "cloudflare", auth: "d1-session" })).run();
 
+  const migration = await maybeStartLegacyImport(env, ctx);
   return json({
     ok: true,
     token: sessionData.token,
     expires_in: sessionData.expiresIn,
     user: { id: user.id, email: user.email, name: user.display_name },
+    migration,
   });
 }
 
@@ -291,6 +294,178 @@ async function deleteDraft(request, env) {
   return json({ ok: true });
 }
 
+function csvParse(text) {
+  const rows=[]; let row=[], value="", quoted=false;
+  for (let i=0;i<text.length;i++) {
+    const ch=text[i], next=text[i+1];
+    if (ch === '"') {
+      if (quoted && next === '"') { value+='"'; i++; }
+      else quoted=!quoted;
+    } else if (ch === ',' && !quoted) {
+      row.push(value); value="";
+    } else if ((ch === "\n" || ch === "\r") && !quoted) {
+      if (ch === "\r" && next === "\n") i++;
+      row.push(value); value="";
+      if (row.some((cell)=>String(cell).trim()!=="")) rows.push(row);
+      row=[];
+    } else value+=ch;
+  }
+  row.push(value);
+  if (row.some((cell)=>String(cell).trim()!=="")) rows.push(row);
+  if (!rows.length) return [];
+  const headers=rows[0].map((h)=>String(h).trim());
+  return rows.slice(1).map((r)=>{
+    const obj={}; headers.forEach((h,i)=>obj[h]=r[i] ?? ""); return obj;
+  });
+}
+
+function normalizedKey(value) {
+  return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]/g,"");
+}
+
+function rowGetter(row) {
+  const map={};
+  for (const key of Object.keys(row || {})) map[normalizedKey(key)] = key;
+  return (...names)=>{
+    for (const name of names) {
+      const key=map[normalizedKey(name)];
+      if (key !== undefined) return row[key];
+    }
+    return "";
+  };
+}
+
+function parseLegacyNumber(value) {
+  let s=String(value ?? "").trim().replace(/\s/g,"");
+  if (!s) return 0;
+  if (s.includes(",") && !s.includes(".")) s=s.replace(",",".");
+  const n=Number(s.replace(/[^0-9.-]/g,""));
+  return Number.isFinite(n) ? Math.max(0, Math.trunc(n)) : 0;
+}
+
+function parseLegacyDate(value) {
+  let s=String(value || "").trim();
+  if (!s) return "";
+  s=s.split(/\s+/)[0];
+  const parts=s.split(/[\/.-]/).map((v)=>parseInt(v,10));
+  if (parts.length<3 || parts.some(Number.isNaN)) return "";
+  let y,m,d;
+  if (String(parts[0]).length===4) [y,m,d]=parts;
+  else [d,m,y]=parts;
+  if (y<100) y+=2000;
+  if (!y || !m || !d) return "";
+  return `${String(y).padStart(4,"0")}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+}
+
+async function ensureMigrationSchema(env) {
+  await env.DB.prepare(
+    `CREATE TABLE IF NOT EXISTS migration_state (
+      name TEXT PRIMARY KEY,
+      status TEXT NOT NULL,
+      imported_count INTEGER NOT NULL DEFAULT 0,
+      skipped_count INTEGER NOT NULL DEFAULT 0,
+      error_text TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    )`
+  ).run();
+}
+
+async function migrationStatus(env) {
+  await ensureMigrationSchema(env);
+  const row=await env.DB.prepare(
+    "SELECT status, imported_count, skipped_count, error_text, updated_at FROM migration_state WHERE name='legacy_sheet' LIMIT 1"
+  ).first();
+  return row ? {
+    status: row.status,
+    imported: Number(row.imported_count || 0),
+    skipped: Number(row.skipped_count || 0),
+    error: row.error_text || "",
+    updatedAt: row.updated_at || "",
+  } : { status: "pending", imported: 0, skipped: 0, error: "", updatedAt: "" };
+}
+
+async function importLegacySheet(env) {
+  await ensureMigrationSchema(env);
+  try {
+    const response=await fetch(LEGACY_SHEET_URL, { cf: { cacheTtl: 0, cacheEverything: false } });
+    if (!response.ok) throw new Error("LEGACY_SHEET_FETCH_FAILED_"+response.status);
+    const rows=csvParse(await response.text());
+
+    const users=await env.DB.prepare("SELECT id, email FROM users WHERE active=1").all();
+    const byEmail=new Map((users.results || []).map((u)=>[String(u.email||"").trim().toLowerCase(),u.id]));
+
+    let imported=0, skipped=0;
+    for (const row of rows) {
+      const get=rowGetter(row);
+      const date=parseLegacyDate(get("Fecha:","Fecha"));
+      const email=String(get("Email Address","Dirección de correo electrónico","Correo electrónico") || "").trim().toLowerCase();
+      const userId=byEmail.get(email);
+      if (!date || !userId) { skipped++; continue; }
+
+      const observations=String(get("Observaciones:","Observaciones") || "").trim();
+      const attendance={};
+      for (const d of RECORD_DISCIPLINES) attendance[d]=parseLegacyNumber(get(d));
+
+      const canonical=JSON.stringify([date,observations,RECORD_DISCIPLINES.map((d)=>[d,attendance[d]])]);
+      const contentKey=await sha256Hex(canonical);
+      const idempotencyKey=await sha256Hex(userId+":"+contentKey);
+
+      const existing=await env.DB.prepare(
+        "SELECT id FROM records WHERE idempotency_key=?1 LIMIT 1"
+      ).bind(idempotencyKey).first();
+      if (existing) { skipped++; continue; }
+
+      const recordId=crypto.randomUUID();
+      const statements=[
+        env.DB.prepare(
+          `INSERT INTO records (id, record_date, responsible_user_id, observations, source, idempotency_key)
+           VALUES (?1, ?2, ?3, ?4, 'legacy-sheet', ?5)`
+        ).bind(recordId,date,userId,observations,idempotencyKey),
+        ...RECORD_DISCIPLINES.map((discipline)=>
+          env.DB.prepare(
+            "INSERT INTO attendance_entries (record_id, discipline, attendance) VALUES (?1, ?2, ?3)"
+          ).bind(recordId,discipline,attendance[discipline])
+        )
+      ];
+      await env.DB.batch(statements);
+      imported++;
+    }
+
+    await env.DB.prepare(
+      `INSERT INTO migration_state (name,status,imported_count,skipped_count,error_text,updated_at)
+       VALUES ('legacy_sheet','done',?1,?2,'',strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+       ON CONFLICT(name) DO UPDATE SET
+         status='done', imported_count=?1, skipped_count=?2, error_text='',
+         updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')`
+    ).bind(imported,skipped).run();
+
+    await env.DB.prepare(
+      "INSERT INTO app_log (event_type, details_json) VALUES ('legacy_sheet_import', ?1)"
+    ).bind(JSON.stringify({imported,skipped})).run();
+  } catch (error) {
+    await env.DB.prepare(
+      `INSERT INTO migration_state (name,status,imported_count,skipped_count,error_text,updated_at)
+       VALUES ('legacy_sheet','failed',0,0,?1,strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+       ON CONFLICT(name) DO UPDATE SET
+         status='failed', error_text=?1, updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')`
+    ).bind(String(error?.message || error || "IMPORT_FAILED").slice(0,500)).run();
+  }
+}
+
+async function maybeStartLegacyImport(env, ctx) {
+  const state=await migrationStatus(env);
+  if (state.status === "done" || state.status === "running") return state;
+  await env.DB.prepare(
+    `INSERT INTO migration_state (name,status,imported_count,skipped_count,error_text,updated_at)
+     VALUES ('legacy_sheet','running',0,0,'',strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+     ON CONFLICT(name) DO UPDATE SET
+       status='running', error_text='', updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')`
+  ).run();
+  if (ctx && typeof ctx.waitUntil === "function") ctx.waitUntil(importLegacySheet(env));
+  else await importLegacySheet(env);
+  return { ...state, status: "running" };
+}
+
 async function listRecords(request, env) {
   if (!env.DB) return json({ ok: false, error: "D1_NOT_BOUND" }, 503);
   const url = new URL(request.url);
@@ -344,7 +519,8 @@ async function listRecords(request, env) {
     record.total = RECORD_DISCIPLINES.reduce((sum, d) => sum + Number(record.valores[d] || 0), 0);
   }
 
-  return json({ ok: true, records: [...grouped.values()] });
+  const migration = await migrationStatus(env);
+  return json({ ok: true, records: [...grouped.values()], migration });
 }
 
 async function createRecord(request, env) {
@@ -458,7 +634,7 @@ async function logout(request, env) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const cors = corsHeaders(request, env);
 
@@ -477,7 +653,7 @@ export default {
           time: new Date().toISOString(),
         });
       } else if (url.pathname === "/api/login" && request.method === "POST") {
-        response = await login(request, env);
+        response = await login(request, env, ctx);
       } else if (url.pathname === "/api/session" && request.method === "GET") {
         response = await session(request, env);
       } else if (url.pathname === "/api/drafts" && request.method === "GET") {
