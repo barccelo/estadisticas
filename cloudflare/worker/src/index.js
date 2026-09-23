@@ -19,7 +19,7 @@ const corsHeaders = (request, env) => {
     return {
       "access-control-allow-origin": origin || "*",
       "access-control-allow-methods": "GET,POST,PUT,DELETE,OPTIONS",
-      "access-control-allow-headers": "content-type,authorization,x-edit-token",
+      "access-control-allow-headers": "content-type,authorization,x-edit-token,x-admin-token",
       "access-control-max-age": "86400",
       vary: "Origin",
     };
@@ -544,6 +544,14 @@ async function ensureEditSchema(env) {
     )`
   ).run();
   await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_edit_sessions_global_expiry ON edit_sessions_global(expires_at)").run();
+  await env.DB.prepare(
+    `CREATE TABLE IF NOT EXISTS admin_sessions_global (
+      token_hash TEXT PRIMARY KEY,
+      expires_at INTEGER NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    )`
+  ).run();
+  await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_admin_sessions_global_expiry ON admin_sessions_global(expires_at)").run();
 }
 
 async function validateLegacyEditPassword(password) {
@@ -620,6 +628,92 @@ async function requireEditSession(request, env) {
     "SELECT token_hash FROM edit_sessions_global WHERE token_hash=?1 AND expires_at>?2 LIMIT 1"
   ).bind(tokenHash,now).first();
   return Boolean(row);
+}
+
+async function unlockAdmin(request, env) {
+  await ensureEditSchema(env);
+  let body;
+  try { body=await request.json(); }
+  catch { return json({ok:false,error:"INVALID_JSON"},400); }
+  const password=String(body?.password||"").trim();
+  if(!password) return json({ok:false,error:"INVALID_ADMIN_KEY"},401);
+
+  let setting=await env.DB.prepare("SELECT value_text FROM app_settings WHERE key='admin_key_hash' LIMIT 1").first();
+  let valid=false;
+
+  if(setting?.value_text){
+    valid=await verifyPin(password,setting.value_text);
+  }else{
+    const editSetting=await env.DB.prepare("SELECT value_text FROM app_settings WHERE key='edit_key_hash' LIMIT 1").first();
+    if(editSetting?.value_text) valid=await verifyPin(password,editSetting.value_text);
+    else valid=await validateLegacyEditPassword(password);
+
+    if(valid){
+      const hashed=await hashPin(password);
+      await env.DB.prepare(
+        `INSERT INTO app_settings (key,value_text,updated_at)
+         VALUES ('admin_key_hash',?1,strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+         ON CONFLICT(key) DO UPDATE SET value_text=?1,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')`
+      ).bind(hashed).run();
+    }
+  }
+
+  if(!valid) return json({ok:false,error:"INVALID_ADMIN_KEY"},401);
+
+  const raw=crypto.getRandomValues(new Uint8Array(32));
+  const token=base64url(raw);
+  const tokenHash=await sha256Hex(raw);
+  const expiresIn=60*30;
+  const expiresAt=Math.floor(Date.now()/1000)+expiresIn;
+  await env.DB.prepare(
+    "INSERT INTO admin_sessions_global (token_hash,expires_at) VALUES (?1,?2)"
+  ).bind(tokenHash,expiresAt).run();
+
+  await env.DB.prepare(
+    "INSERT INTO app_log (event_type,details_json) VALUES ('admin_unlocked',?1)"
+  ).bind(JSON.stringify({expires_in:expiresIn,authorization:"admin-key"})).run();
+
+  return json({ok:true,admin_token:token,expires_in:expiresIn});
+}
+
+async function requireAdminSession(request, env) {
+  await ensureEditSchema(env);
+  const token=String(request.headers.get("x-admin-token")||"").trim();
+  if(!token) return false;
+  let tokenHash;
+  try { tokenHash=await sha256Hex(fromBase64url(token)); }
+  catch { return false; }
+  const now=Math.floor(Date.now()/1000);
+  const row=await env.DB.prepare(
+    "SELECT token_hash FROM admin_sessions_global WHERE token_hash=?1 AND expires_at>?2 LIMIT 1"
+  ).bind(tokenHash,now).first();
+  return Boolean(row);
+}
+
+async function changeAdminKey(request, env) {
+  const allowed=await requireAdminSession(request,env);
+  if(!allowed) return json({ok:false,error:"ADMIN_LOCKED"},403);
+  let body; try{body=await request.json();}catch{return json({ok:false,error:"INVALID_JSON"},400);}
+  const kind=String(body?.kind||"").trim();
+  const password=String(body?.password||"").trim();
+  if(!["admin","edit"].includes(kind) || !/^\d{4,20}$/.test(password)) return json({ok:false,error:"INVALID_NEW_KEY"},400);
+
+  const hash=await hashPin(password);
+  const key=kind==="admin" ? "admin_key_hash" : "edit_key_hash";
+  await env.DB.prepare(
+    `INSERT INTO app_settings (key,value_text,updated_at)
+     VALUES (?1,?2,strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+     ON CONFLICT(key) DO UPDATE SET value_text=?2,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')`
+  ).bind(key,hash).run();
+
+  if(kind==="admin") await env.DB.prepare("DELETE FROM admin_sessions_global").run();
+  else await env.DB.prepare("DELETE FROM edit_sessions_global").run();
+
+  await env.DB.prepare(
+    "INSERT INTO app_log (event_type,details_json) VALUES ('access_key_changed',?1)"
+  ).bind(JSON.stringify({kind,authorization:"admin-key"})).run();
+
+  return json({ok:true,kind,message:kind==="admin"?"Clave de administración actualizada.":"Clave de edición actualizada."});
 }
 
 async function createRecord(request, env) {
@@ -740,9 +834,10 @@ async function deleteRecord(request, env, recordId) {
   ).bind(recordId).all();
 
   await env.DB.prepare(
-    "INSERT INTO app_log (event_type,user_id,record_id,details_json) VALUES ('record_deleted',?1,?2,?3)"
-  ).bind(auth?.user_id || null, recordId, JSON.stringify({
+    "INSERT INTO app_log (event_type,user_id,record_id,details_json) VALUES ('record_deleted',?1,NULL,?2)"
+  ).bind(auth?.user_id || null, JSON.stringify({
     authorization:"edit-key",
+    deleted_record_id:recordId,
     record: current,
     attendance: entries.results || []
   })).run();
@@ -752,8 +847,8 @@ async function deleteRecord(request, env, recordId) {
 }
 
 async function listAdminUsers(request, env) {
-  const editAllowed=await requireEditSession(request,env);
-  if(!editAllowed) return json({ok:false,error:"EDIT_LOCKED"},403);
+  const adminAllowed=await requireAdminSession(request,env);
+  if(!adminAllowed) return json({ok:false,error:"ADMIN_LOCKED"},403);
   await ensureEditSchema(env);
   const rows=await env.DB.prepare(
     "SELECT id,email,display_name,active,role,created_at,updated_at FROM users ORDER BY display_name"
@@ -762,8 +857,8 @@ async function listAdminUsers(request, env) {
 }
 
 async function createAdminUser(request, env) {
-  const editAllowed=await requireEditSession(request,env);
-  if(!editAllowed) return json({ok:false,error:"EDIT_LOCKED"},403);
+  const adminAllowed=await requireAdminSession(request,env);
+  if(!adminAllowed) return json({ok:false,error:"ADMIN_LOCKED"},403);
   await ensureEditSchema(env);
   let body; try{body=await request.json();}catch{return json({ok:false,error:"INVALID_JSON"},400);}
   const email=String(body?.email||"").trim().toLowerCase();
@@ -787,8 +882,8 @@ async function createAdminUser(request, env) {
 }
 
 async function updateAdminUser(request, env, userId) {
-  const editAllowed=await requireEditSession(request,env);
-  if(!editAllowed) return json({ok:false,error:"EDIT_LOCKED"},403);
+  const adminAllowed=await requireAdminSession(request,env);
+  if(!adminAllowed) return json({ok:false,error:"ADMIN_LOCKED"},403);
   await ensureEditSchema(env);
   let body; try{body=await request.json();}catch{return json({ok:false,error:"INVALID_JSON"},400);}
   const existing=await env.DB.prepare("SELECT id,email,display_name,active,role FROM users WHERE id=?1 LIMIT 1").bind(userId).first();
@@ -829,8 +924,8 @@ async function updateAdminUser(request, env, userId) {
 }
 
 async function listAuditLog(request, env) {
-  const editAllowed=await requireEditSession(request,env);
-  if(!editAllowed) return json({ok:false,error:"EDIT_LOCKED"},403);
+  const adminAllowed=await requireAdminSession(request,env);
+  if(!adminAllowed) return json({ok:false,error:"ADMIN_LOCKED"},403);
   const rows=await env.DB.prepare(
     `SELECT l.id,l.event_type,l.record_id,l.details_json,l.created_at,
             u.display_name,u.email
@@ -995,6 +1090,10 @@ export default {
         response = await deleteDraft(request, env);
       } else if (url.pathname === "/api/edit/unlock" && request.method === "POST") {
         response = await unlockEditing(request, env);
+      } else if (url.pathname === "/api/admin/unlock" && request.method === "POST") {
+        response = await unlockAdmin(request, env);
+      } else if (url.pathname === "/api/admin/keys" && request.method === "PUT") {
+        response = await changeAdminKey(request, env);
       } else if (url.pathname === "/api/records" && request.method === "GET") {
         response = await listRecords(request, env, ctx);
       } else if (url.pathname === "/api/records" && request.method === "POST") {
