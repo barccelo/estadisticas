@@ -1293,7 +1293,8 @@ body{background:#f6f7fb;}
               <div id="adminUsers" class="edit-results"></div>
 
               <div class="section-head" style="margin-top:22px"><div><h2>Respaldo en Google Sheets</h2><p>D1 es la fuente principal. Aquí se muestran operaciones de respaldo pendientes o completadas.</p></div></div>
-              <div class="admin-row"><button class="btn secondary" id="adminRefreshBackupsBtn" type="button">Actualizar estado</button><span id="adminBackupSummary" class="status"></span></div>
+              <div class="admin-row"><button class="btn secondary" id="adminRefreshBackupsBtn" type="button">Actualizar estado</button><span id="adminBackupFeedback" class="status"></span></div>
+              <div id="adminBackupSummary" class="status"></div>
               <div class="mini-grid" style="margin-top:10px">
                 <div class="field"><label>Clave de edición para reintentar pendientes</label><input id="adminRetryEditKey" type="password" inputmode="numeric" placeholder="Clave de edición"></div>
                 <div class="field"><label>&nbsp;</label><button class="btn secondary" id="adminRetryBackupsBtn" type="button">Reintentar pendientes</button></div>
@@ -2288,7 +2289,10 @@ async function processRegisterBackupQueue(targetJobId='', onlyTarget=false){
     if(onlyTarget) jobs=jobs.filter(job=>String(job.id)===String(targetJobId));
   }
   let done=0,pending=0,firstError='',targetDone=false,targetPending=false;
+  let processed=0;
   for(const job of jobs){
+    processed++;
+    if(onProgress) onProgress({phase:'processing',processed,total:jobs.length,job});
     try{
       const payload=job.payload||{};
       const backup=await apiCall('addRecord',{password,record:legacyRecordFromBackupPayload(payload)});
@@ -2351,7 +2355,7 @@ async function processEditBackupJob(job,password){
   }
   return false;
 }
-async function processEditBackupQueue(targetJobId='', onlyTarget=false){
+async function processEditBackupQueue(targetJobId='', onlyTarget=false,onProgress=null){
   const password=editSessionPassword;
   if(!editSessionToken || !password) return {done:0,pending:0,error:'',targetDone:false,targetPending:false};
   let result;
@@ -2370,6 +2374,7 @@ async function processEditBackupQueue(targetJobId='', onlyTarget=false){
       await processEditBackupJob(job,password);
       await reportBackupJobResult(job,true,'','edit');
       done++;
+      if(onProgress) onProgress({phase:'done',processed,total:jobs.length,job});
       if(targetJobId && String(job.id)===String(targetJobId)) targetDone=true;
     }catch(err){
       pending++;
@@ -2377,6 +2382,7 @@ async function processEditBackupQueue(targetJobId='', onlyTarget=false){
       if(!firstError) firstError=message;
       if(targetJobId && String(job.id)===String(targetJobId)) targetPending=true;
       await reportBackupJobResult(job,false,message,'edit');
+      if(onProgress) onProgress({phase:'error',processed,total:jobs.length,job,error:message});
     }
   }
   return {done,pending,error:firstError,targetDone,targetPending};
@@ -2686,27 +2692,68 @@ async function createAdminUser(){
 async function retryAdminBackups(){
   const input=$('adminRetryEditKey');
   const password=String(input?.value||'').trim();
-  if(!password){setStatus('adminStatus','Escribe la clave de edición para reintentar los respaldos pendientes.','err');return;}
-  const btn=$('adminRetryBackupsBtn'); if(btn) btn.disabled=true;
-  setStatus('adminStatus','Reintentando respaldos pendientes…');
+  const feedback=$('adminBackupFeedback');
+  if(!password){
+    if(feedback){feedback.textContent='Escribe la clave de edición.';feedback.className='status err';}
+    return;
+  }
+  const btn=$('adminRetryBackupsBtn');
+  const original=btn?.textContent||'Reintentar pendientes';
+  if(btn){btn.disabled=true;btn.textContent='Verificando clave…';}
+  if(feedback){feedback.textContent='Verificando clave de edición…';feedback.className='status';}
   try{
     const unlocked=await cloudApi('/api/edit/unlock',{method:'POST',body:{password}});
     editSessionToken=String(unlocked.edit_token||'');
     editSessionPassword=password;
     if(!editSessionToken) throw new Error('No se pudo habilitar la edición.');
-    const result=await processEditBackupQueue();
+
+    if(btn) btn.textContent='Reintentando…';
+    if(feedback){feedback.textContent='Preparando respaldos pendientes…';feedback.className='status';}
+
+    const result=await processEditBackupQueue('',false,info=>{
+      const op=({create:'crear',update:'editar',delete:'eliminar'})[info.job?.operation]||'procesar';
+      if(btn) btn.textContent=`Reintentando ${info.processed}/${info.total}…`;
+      if(feedback){
+        feedback.textContent=info.phase==='processing'
+          ? `Procesando ${info.processed} de ${info.total}: ${op} registro…`
+          : info.phase==='error'
+            ? `El intento ${info.processed} falló: ${info.error||'error desconocido'}.`
+            : `Completado ${info.processed} de ${info.total}.`;
+        feedback.className='status '+(info.phase==='error'?'err':'');
+      }
+    });
+
     if(input) input.value='';
-    await loadAdminBackups();
+    await loadAdminBackups({silent:true});
     if(result.pending){
-      setStatus('adminStatus',`Se completaron ${result.done} respaldo(s). Quedan ${result.pending} pendiente(s): ${result.error||'error no especificado'}.`,'err');
+      if(feedback){
+        feedback.textContent=`Proceso terminado: ${result.done} completado(s), ${result.pending} pendiente(s). Último error: ${result.error||'no especificado'}.`;
+        feedback.className='status err';
+      }
     }else{
-      setStatus('adminStatus',`Respaldos reintentados correctamente. Se completaron ${result.done} operación(es).`,'ok');
+      if(feedback){
+        feedback.textContent=`Proceso terminado: ${result.done} respaldo(s) completado(s). No quedan pendientes procesables.`;
+        feedback.className='status ok';
+      }
     }
   }catch(err){
-    setStatus('adminStatus',err.message==='INVALID_EDIT_KEY'?'Clave de edición incorrecta.':err.message,'err');
-  }finally{if(btn) btn.disabled=false;}
+    if(feedback){
+      feedback.textContent=err.message==='INVALID_EDIT_KEY'?'Clave de edición incorrecta.':(err.message||'No se pudieron reintentar los respaldos.');
+      feedback.className='status err';
+    }
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent=original;}
+  }
 }
-async function loadAdminBackups(){
+async function loadAdminBackups(options={}){
+  const silent=Boolean(options?.silent);
+  const btn=$('adminRefreshBackupsBtn');
+  const feedback=$('adminBackupFeedback');
+  const original=btn?.textContent||'Actualizar estado';
+  if(!silent){
+    if(btn){btn.disabled=true;btn.textContent='Actualizando…';}
+    if(feedback){feedback.textContent='Consultando el estado de los respaldos…';feedback.className='status';}
+  }
   try{
     const result=await cloudApi('/api/admin/backups',{headers:{'x-admin-token':adminSessionToken}});
     const counts=result.counts||[];
@@ -2731,10 +2778,16 @@ async function loadAdminBackups(){
       card.innerHTML=`<div class="edit-card-title"><span>${escapeHtml(opLabel)}</span><span>${escapeHtml(job.created_at||'')}</span></div><div class="small">${escapeHtml(job.responsible_email||'')}</div><div class="audit-detail">Intentos: ${Number(job.attempts||0)}${job.last_error?' · Último error: '+escapeHtml(job.last_error):''}</div>`;
       box.appendChild(card);
     });
+    if(!silent && feedback){
+      feedback.textContent=totalPending ? `Estado actualizado: ${totalPending} respaldo(s) pendiente(s).` : 'Estado actualizado: todos los respaldos están al día.';
+      feedback.className='status '+(totalPending?'':'ok');
+    }
   }catch(err){
+    if(feedback){feedback.textContent=err.message||'No se pudo actualizar el estado.';feedback.className='status err';}
     setStatus('adminStatus',err.message,'err');
-  }
-}
+  }finally{
+    if(!silent && btn){btn.disabled=false;btn.textContent=original;}
+  }}
 function adminAuditLabel(type){
   return ({
     login:'Inicio de sesión',
