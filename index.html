@@ -2033,6 +2033,7 @@ async function confirmRegisterLogin(){
     closeRegisterLoginModal();
     refreshRegisterDayPanels();
     checkSharedDraft();
+    processRegisterBackupQueue().catch(()=>{});
     if(result.migration && result.migration.status!=='done'){
       setTimeout(()=>loadData({keepFilters:true}),2500);
     }
