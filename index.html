@@ -1255,7 +1255,7 @@ button{-webkit-tap-highlight-color:transparent}
 }
 
 </style>
-<link rel="stylesheet" href="./ui-v2.css?v=3">
+<link rel="stylesheet" href="./ui-v2.css?v=4">
 </head>
 <body>
 <div id="registerLoginModal" class="session-modal-backdrop" hidden>
@@ -2233,6 +2233,7 @@ function syncRegisterModalViewport(){
   const offsetTop=vv ? vv.offsetTop : 0;
   modal.style.setProperty('--modal-vv-height',Math.max(240,height)+'px');
   modal.style.setProperty('--modal-vv-top',Math.max(0,offsetTop)+'px');
+  modal.style.setProperty('--modal-vv-center',Math.max(120,offsetTop + height/2)+'px');
   modal.classList.toggle('keyboard-visible',height < window.innerHeight*0.78);
 }
 function openRegisterLoginModal(){
