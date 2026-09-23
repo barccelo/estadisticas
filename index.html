@@ -1255,7 +1255,7 @@ button{-webkit-tap-highlight-color:transparent}
 }
 
 </style>
-<link rel="stylesheet" href="./ui-v2.css?v=2">
+<link rel="stylesheet" href="./ui-v2.css?v=3">
 </head>
 <body>
 <div id="registerLoginModal" class="session-modal-backdrop" hidden>
@@ -2226,15 +2226,37 @@ async function clearRegisterSession(){
   const pill=$('registerSessionPill'); if(pill) pill.hidden=true;
   if(token){try{await cloudApi('/api/logout',{method:'POST',token});}catch(_e){}}
 }
+function syncRegisterModalViewport(){
+  const modal=$('registerLoginModal'); if(!modal) return;
+  const vv=window.visualViewport;
+  const height=vv ? vv.height : window.innerHeight;
+  const offsetTop=vv ? vv.offsetTop : 0;
+  modal.style.setProperty('--modal-vv-height',Math.max(240,height)+'px');
+  modal.style.setProperty('--modal-vv-top',Math.max(0,offsetTop)+'px');
+  modal.classList.toggle('keyboard-visible',height < window.innerHeight*0.78);
+}
 function openRegisterLoginModal(){
   const modal=$('registerLoginModal'); if(!modal) return;
   modal.hidden=false;
+  syncRegisterModalViewport();
+  const vv=window.visualViewport;
+  if(vv){
+    vv.addEventListener('resize',syncRegisterModalViewport);
+    vv.addEventListener('scroll',syncRegisterModalViewport);
+  }
   const input=$('registerSessionPassword');
   const status=$('registerLoginStatus');
   if(status){status.textContent=''; status.className='session-modal-status';}
-  if(input){input.value=''; setTimeout(()=>input.focus(), 50);}
+  if(input){input.value=''; setTimeout(()=>{syncRegisterModalViewport();input.focus();setTimeout(syncRegisterModalViewport,120);}, 50);}
 }
-function closeRegisterLoginModal(){const modal=$('registerLoginModal'); if(modal) modal.hidden=true;}
+function closeRegisterLoginModal(){
+  const modal=$('registerLoginModal'); if(modal) modal.hidden=true;
+  const vv=window.visualViewport;
+  if(vv){
+    vv.removeEventListener('resize',syncRegisterModalViewport);
+    vv.removeEventListener('scroll',syncRegisterModalViewport);
+  }
+}
 async function confirmRegisterLogin(){
   const input=$('registerSessionPassword');
   const status=$('registerLoginStatus');
