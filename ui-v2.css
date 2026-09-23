@@ -183,3 +183,83 @@ body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display"
   .guard-day-tabs{gap:5px!important}
   .guard-day-tabs button{font-size:12px!important;padding:0!important}
 }
+
+/* Home refinement */
+#view-inicio{max-width:900px!important;margin:0 auto!important}
+#view-inicio>.guard-today{box-shadow:none!important;border-radius:18px!important;background:rgba(255,255,255,.86)!important}
+#view-inicio>.view-grid{gap:10px!important}
+#registerCollapseCard,#totalCollapseCard{box-shadow:none!important;border-radius:18px!important}
+.landing-toggle{
+  display:flex!important;align-items:center!important;justify-content:space-between!important;
+  gap:12px!important;background:#fff!important;color:var(--ui-ink)!important;text-align:left!important;
+}
+.landing-toggle-copy{display:flex!important;flex-direction:column!important;gap:3px!important;min-width:0!important}
+.landing-toggle-copy strong{font-size:17px!important;line-height:1.1!important;letter-spacing:-.025em!important}
+.landing-toggle-copy small{font-size:12px!important;line-height:1.2!important;font-weight:600!important;color:var(--ui-muted)!important}
+#registerCollapseCard .landing-toggle::after,#totalCollapseCard .landing-toggle::after{
+  content:"›"!important;display:grid!important;place-items:center!important;
+  width:30px!important;height:30px!important;min-width:30px!important;flex-basis:30px!important;
+  border-radius:999px!important;background:#f4f4f6!important;border:0!important;
+  color:#6e6e73!important;font-size:24px!important;font-weight:500!important;line-height:1!important;
+  transform:rotate(0deg)!important;transition:transform .18s ease!important;
+}
+#registerCollapseCard.open .landing-toggle::after,#totalCollapseCard.open .landing-toggle::after{
+  content:"›"!important;transform:rotate(90deg)!important;
+}
+.register-card-body{padding:14px 16px 16px!important}
+.register-topline{display:flex!important;justify-content:flex-end!important;min-height:0!important}
+.register-session-pill{
+  margin:0 0 12px!important;padding:6px 8px!important;border-radius:10px!important;
+  background:#f4f4f6!important;border:0!important;color:var(--ui-ink)!important;
+  font-size:11px!important;font-weight:700!important;gap:6px!important
+}
+.register-session-pill .session-role{color:var(--ui-muted)!important;font-weight:600!important}
+.register-session-pill .session-logout{color:var(--ui-red)!important;border-left:1px solid var(--ui-line)!important;padding-left:7px!important}
+.register-primary-fields{display:grid!important;grid-template-columns:1fr 1.4fr!important;gap:10px!important;margin-bottom:10px!important}
+.register-card-body .field label{font-size:11px!important;letter-spacing:.02em!important;text-transform:none!important;color:var(--ui-muted)!important}
+.register-card-body input,.register-card-body select,.register-card-body textarea{
+  min-height:44px!important;border-radius:13px!important;background:#fafafa!important;border:1px solid var(--ui-line)!important;
+}
+.register-day-state{margin:0 0 10px!important;padding:10px 12px!important;border-radius:12px!important;background:#f7f7f9!important;border:0!important;font-size:12px!important;line-height:1.35!important;color:var(--ui-muted)!important}
+.register-day-state:not(.active){display:none!important}
+.register-disc-grid{gap:8px!important;margin-top:0!important}
+.register-observations{margin-top:10px!important}
+.register-observations textarea{min-height:68px!important}
+.register-actions{display:grid!important;grid-template-columns:1fr auto!important;gap:8px!important;margin-top:12px!important}
+.register-actions .btn{width:100%!important}
+.register-actions .btn.secondary{width:auto!important;padding-inline:18px!important}
+.register-save-status{min-height:0!important;margin-top:8px!important}
+.register-secondary{margin-top:10px!important;border-top:1px solid var(--ui-line)!important}
+.register-secondary summary{
+  list-style:none!important;padding:11px 2px 3px!important;color:var(--ui-muted)!important;
+  font-size:12px!important;font-weight:700!important;cursor:pointer!important
+}
+.register-secondary summary::-webkit-details-marker{display:none!important}
+.register-secondary summary::after{content:"›";float:right;font-size:17px;transform:rotate(90deg)}
+.register-secondary[open] summary::after{transform:rotate(-90deg)}
+.register-secondary-body{padding:8px 0 0!important}
+.register-secondary .draft-check-row{margin:0 0 8px!important}
+.register-secondary .draft-check-row .btn{width:auto!important;min-height:34px!important;padding:7px 10px!important;font-size:11px!important}
+.register-secondary .day-log-status,.register-secondary .draft-status{font-size:12px!important;margin-top:6px!important}
+#totalCollapseCard .landing-collapse-content{padding:0!important}
+#totalCollapseCard .landing-collapse-content>.section-head{padding:14px 16px 0!important;margin-bottom:10px!important}
+#totalCollapseCard .landing-collapse-content>.section-head h2{font-size:17px!important}
+#totalCollapseCard .landing-collapse-content>.section-head p{font-size:12px!important}
+#totalCollapseCard #totalExportArea{margin:0 16px!important;border-radius:14px!important;padding:12px!important}
+#totalCollapseCard .landing-mini{grid-template-columns:1fr 1fr!important;gap:8px!important;margin:10px 16px 16px!important}
+#totalCollapseCard .mini-stat{border-radius:14px!important;padding:12px!important;box-shadow:none!important}
+#totalCollapseCard .mini-stat .value{font-size:22px!important}
+@media(max-width:430px){
+  #view-inicio{max-width:none!important}
+  #view-inicio>.guard-today{padding:12px 13px!important}
+  .guard-today-title{font-size:16px!important}
+  .guard-today-head .btn{font-size:11px!important}
+  #registerCollapseCard .landing-toggle,#totalCollapseCard .landing-toggle{min-height:64px!important;padding:0 14px!important}
+  .landing-toggle-copy strong{font-size:16px!important}
+  .landing-toggle-copy small{font-size:11px!important}
+  .register-card-body{padding:12px 14px 14px!important}
+  .register-primary-fields{grid-template-columns:1fr!important}
+  .register-actions{grid-template-columns:1fr 92px!important}
+  #totalCollapseCard #totalExportArea{margin:0 14px!important}
+  #totalCollapseCard .landing-mini{margin:10px 14px 14px!important}
+}
