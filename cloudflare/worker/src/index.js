@@ -1042,6 +1042,202 @@ async function deleteRecord(request, env, recordId) {
   return json({ok:true,backup:{queued:Boolean(backupJobId),jobId:backupJobId},message:"Registro eliminado correctamente."});
 }
 
+
+let guardSchemaReady=false;
+async function ensureGuardSchema(env){
+  if(guardSchemaReady) return;
+  await env.DB.prepare(
+    `CREATE TABLE IF NOT EXISTS guard_people(
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      color TEXT NOT NULL DEFAULT '#d1d5db',
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      active INTEGER NOT NULL DEFAULT 1
+    )`
+  ).run();
+  await env.DB.prepare(
+    `CREATE TABLE IF NOT EXISTS guard_points(
+      code TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      active INTEGER NOT NULL DEFAULT 1
+    )`
+  ).run();
+  await env.DB.prepare(
+    `CREATE TABLE IF NOT EXISTS guard_assignments(
+      week_no INTEGER NOT NULL,
+      weekday INTEGER NOT NULL,
+      point_code TEXT NOT NULL,
+      person_id TEXT NOT NULL,
+      PRIMARY KEY(week_no,weekday,point_code),
+      FOREIGN KEY(point_code) REFERENCES guard_points(code) ON DELETE CASCADE,
+      FOREIGN KEY(person_id) REFERENCES guard_people(id) ON DELETE CASCADE
+    )`
+  ).run();
+
+  const count=await env.DB.prepare("SELECT COUNT(*) AS n FROM guard_people").first();
+  if(Number(count?.n||0)===0){
+    const people=[
+      ["inri","Inri","#ef3f4d",1],
+      ["cesar","César","#d9d9d9",2],
+      ["alex","Alex","#ff884d",3],
+      ["danilo","Danilo","#79df4b",4],
+      ["david","David","#ffd94f",5]
+    ];
+    const points=[
+      ["P1","Punto 1","Hall de entrada con visual a futsal y los baños de Symphony.",1],
+      ["P2","Punto 2","Jardineras de fútbol campo, con visual a la ermita de la Virgen, fútbol campo y atletismo, con movimiento hasta béisbol.",2],
+      ["P3","Punto 3","Jardinera de tenis, con visual al pasillo de Symphony, los baños y tenis, con movimiento hasta béisbol.",3],
+      ["P4","Punto 4","Salón de Astronomía, con movimiento a los salones de Robótica y Ajedrez.",4],
+      ["P0","Punto 0","Segundo piso, con visual a los baños de profesores, salones de robótica y música.",5]
+    ];
+    const weekRows={
+      1:{
+        1:{P1:"inri",P2:"cesar",P3:"alex",P4:"danilo",P0:"david"},
+        2:{P1:"cesar",P2:"alex",P3:"inri",P4:"danilo",P0:"david"},
+        3:{P1:"alex",P2:"cesar",P3:"inri",P4:"danilo",P0:"david"},
+        4:{P1:"alex",P2:"cesar",P3:"inri",P4:"danilo",P0:"david"},
+        5:{P1:"david",P2:"alex",P3:"cesar",P4:"danilo",P0:"inri"}
+      },
+      2:{
+        1:{P1:"inri",P2:"cesar",P3:"alex",P4:"danilo",P0:"david"},
+        2:{P1:"cesar",P2:"alex",P3:"inri",P4:"danilo",P0:"david"},
+        3:{P1:"cesar",P2:"alex",P3:"inri",P4:"danilo",P0:"david"},
+        4:{P1:"alex",P2:"inri",P3:"cesar",P4:"danilo",P0:"david"},
+        5:{P1:"david",P2:"inri",P3:"cesar",P4:"danilo",P0:"alex"}
+      },
+      3:{
+        1:{P1:"inri",P2:"cesar",P3:"alex",P4:"danilo",P0:"david"},
+        2:{P1:"cesar",P2:"alex",P3:"inri",P4:"danilo",P0:"david"},
+        3:{P1:"alex",P2:"inri",P3:"cesar",P4:"danilo",P0:"david"},
+        4:{P1:"alex",P2:"cesar",P3:"inri",P4:"danilo",P0:"david"},
+        5:{P1:"inri",P2:"alex",P3:"david",P4:"danilo",P0:"cesar"}
+      },
+      4:{
+        1:{P1:"inri",P2:"cesar",P3:"alex",P4:"danilo",P0:"david"},
+        2:{P1:"cesar",P2:"alex",P3:"inri",P4:"danilo",P0:"david"},
+        3:{P1:"inri",P2:"cesar",P3:"alex",P4:"danilo",P0:"david"},
+        4:{P1:"alex",P2:"cesar",P3:"inri",P4:"danilo",P0:"david"},
+        5:{P1:"alex",P2:"inri",P3:"cesar",P4:"danilo",P0:"david"}
+      }
+    };
+    const statements=[
+      ...people.map(p=>env.DB.prepare("INSERT INTO guard_people(id,name,color,sort_order,active) VALUES(?1,?2,?3,?4,1)").bind(...p)),
+      ...points.map(p=>env.DB.prepare("INSERT INTO guard_points(code,name,description,sort_order,active) VALUES(?1,?2,?3,?4,1)").bind(...p))
+    ];
+    for(const [week,days] of Object.entries(weekRows)){
+      for(const [weekday,map] of Object.entries(days)){
+        for(const [point,person] of Object.entries(map)){
+          statements.push(env.DB.prepare("INSERT INTO guard_assignments(week_no,weekday,point_code,person_id) VALUES(?1,?2,?3,?4)").bind(Number(week),Number(weekday),point,person));
+        }
+      }
+    }
+    await env.DB.batch(statements);
+  }
+  guardSchemaReady=true;
+}
+
+function guardWeekInfo(dateText){
+  const m=String(dateText||"").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const now=new Date();
+  const y=m?Number(m[1]):now.getUTCFullYear();
+  const mo=m?Number(m[2])-1:now.getUTCMonth();
+  const d=m?Number(m[3]):now.getUTCDate();
+  const date=new Date(Date.UTC(y,mo,d));
+  const first=new Date(Date.UTC(y,mo,1));
+  const offset=(8-first.getUTCDay())%7;
+  const firstMonday=1+offset;
+  let week;
+  if(d<firstMonday) week=4;
+  else week=Math.floor((d-firstMonday)/7)+1;
+  week=Math.max(1,Math.min(4,week));
+  return {date:`${y}-${String(mo+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`,week,weekday:date.getUTCDay(),firstMonday};
+}
+
+async function guardConfig(env){
+  await ensureGuardSchema(env);
+  const [people,points,assignments]=await Promise.all([
+    env.DB.prepare("SELECT id,name,color,sort_order,active FROM guard_people ORDER BY sort_order,name").all(),
+    env.DB.prepare("SELECT code,name,description,sort_order,active FROM guard_points ORDER BY sort_order,code").all(),
+    env.DB.prepare("SELECT week_no,weekday,point_code,person_id FROM guard_assignments ORDER BY week_no,weekday,point_code").all()
+  ]);
+  return {
+    people:people.results||[],
+    points:points.results||[],
+    assignments:assignments.results||[]
+  };
+}
+
+async function getGuards(request,env){
+  const url=new URL(request.url);
+  const info=guardWeekInfo(url.searchParams.get("date")||"");
+  const config=await guardConfig(env);
+  const peopleMap=new Map(config.people.map(p=>[p.id,p]));
+  const pointsMap=new Map(config.points.map(p=>[p.code,p]));
+  const assignments=config.assignments
+    .filter(a=>Number(a.week_no)===info.week && Number(a.weekday)===info.weekday)
+    .map(a=>({week_no:a.week_no,weekday:a.weekday,point:pointsMap.get(a.point_code),person:peopleMap.get(a.person_id)}))
+    .filter(a=>a.point&&a.person&&Number(a.point.active)!==0&&Number(a.person.active)!==0)
+    .sort((a,b)=>Number(a.point.sort_order||0)-Number(b.point.sort_order||0));
+  return json({ok:true,...info,assignments,config});
+}
+
+async function updateGuardConfig(request,env){
+  const adminAllowed=await requireAdminSession(request,env);
+  if(!adminAllowed) return json({ok:false,error:"ADMIN_LOCKED"},403);
+  await ensureGuardSchema(env);
+  let body; try{body=await request.json();}catch{return json({ok:false,error:"INVALID_JSON"},400);}
+  const people=Array.isArray(body?.people)?body.people:[];
+  const points=Array.isArray(body?.points)?body.points:[];
+  const assignments=Array.isArray(body?.assignments)?body.assignments:[];
+  if(!people.length||!points.length||people.length>30||points.length>30||assignments.length>2000) return json({ok:false,error:"INVALID_GUARD_CONFIG"},400);
+
+  const cleanPeople=people.map((p,i)=>({
+    id:String(p.id||"").trim().toLowerCase().replace(/[^a-z0-9_-]/g,"").slice(0,40),
+    name:String(p.name||"").trim().slice(0,80),
+    color:/^#[0-9a-f]{6}$/i.test(String(p.color||""))?String(p.color):"#d1d5db",
+    sort_order:Number.isFinite(Number(p.sort_order))?Number(p.sort_order):i+1,
+    active:p.active===false||Number(p.active)===0?0:1
+  }));
+  const cleanPoints=points.map((p,i)=>({
+    code:String(p.code||"").trim().toUpperCase().replace(/[^A-Z0-9_-]/g,"").slice(0,20),
+    name:String(p.name||"").trim().slice(0,80),
+    description:String(p.description||"").trim().slice(0,1000),
+    sort_order:Number.isFinite(Number(p.sort_order))?Number(p.sort_order):i+1,
+    active:p.active===false||Number(p.active)===0?0:1
+  }));
+  if(cleanPeople.some(p=>!p.id||!p.name)||cleanPoints.some(p=>!p.code||!p.name)) return json({ok:false,error:"INVALID_GUARD_CONFIG"},400);
+  if(new Set(cleanPeople.map(p=>p.id)).size!==cleanPeople.length||new Set(cleanPoints.map(p=>p.code)).size!==cleanPoints.length) return json({ok:false,error:"DUPLICATE_GUARD_ITEM"},409);
+
+  const peopleIds=new Set(cleanPeople.map(p=>p.id));
+  const pointCodes=new Set(cleanPoints.map(p=>p.code));
+  const cleanAssignments=[];
+  const seen=new Set();
+  for(const a of assignments){
+    const week=Number(a.week_no), weekday=Number(a.weekday);
+    const point=String(a.point_code||"").trim().toUpperCase();
+    const person=String(a.person_id||"").trim().toLowerCase();
+    const key=`${week}:${weekday}:${point}`;
+    if(![1,2,3,4].includes(week)||![1,2,3,4,5].includes(weekday)||!pointCodes.has(point)||!peopleIds.has(person)||seen.has(key)) continue;
+    seen.add(key);
+    cleanAssignments.push({week_no:week,weekday,point_code:point,person_id:person});
+  }
+
+  const statements=[
+    env.DB.prepare("DELETE FROM guard_assignments"),
+    env.DB.prepare("DELETE FROM guard_points"),
+    env.DB.prepare("DELETE FROM guard_people"),
+    ...cleanPeople.map(p=>env.DB.prepare("INSERT INTO guard_people(id,name,color,sort_order,active) VALUES(?1,?2,?3,?4,?5)").bind(p.id,p.name,p.color,p.sort_order,p.active)),
+    ...cleanPoints.map(p=>env.DB.prepare("INSERT INTO guard_points(code,name,description,sort_order,active) VALUES(?1,?2,?3,?4,?5)").bind(p.code,p.name,p.description,p.sort_order,p.active)),
+    ...cleanAssignments.map(a=>env.DB.prepare("INSERT INTO guard_assignments(week_no,weekday,point_code,person_id) VALUES(?1,?2,?3,?4)").bind(a.week_no,a.weekday,a.point_code,a.person_id))
+  ];
+  await env.DB.batch(statements);
+  await env.DB.prepare("INSERT INTO app_log(event_type,details_json) VALUES('guards_updated',?1)")
+    .bind(JSON.stringify({people:cleanPeople.length,points:cleanPoints.length,assignments:cleanAssignments.length,authorization:"admin-key"})).run();
+  return json({ok:true,config:await guardConfig(env)});
+}
+
 async function listAdminUsers(request, env) {
   const adminAllowed=await requireAdminSession(request,env);
   if(!adminAllowed) return json({ok:false,error:"ADMIN_LOCKED"},403);
@@ -1302,6 +1498,10 @@ export default {
         response = await unlockAdmin(request, env);
       } else if (url.pathname === "/api/admin/keys" && request.method === "PUT") {
         response = await changeAdminKey(request, env);
+      } else if (url.pathname === "/api/guards" && request.method === "GET") {
+        response = await getGuards(request, env);
+      } else if (url.pathname === "/api/admin/guards" && request.method === "PUT") {
+        response = await updateGuardConfig(request, env);
       } else if (url.pathname === "/api/records" && request.method === "GET") {
         response = await listRecords(request, env, ctx);
       } else if (url.pathname === "/api/records" && request.method === "POST") {
