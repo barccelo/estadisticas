@@ -1280,6 +1280,7 @@ let draftFormDirty = false;
 let registerSessionPassword = '';
 let registerSessionUser = null;
 let registerSessionToken = '';
+let lastSubmittedRecordSignature = '';
 const fmt = new Intl.NumberFormat('es-VE');
 function $(id){return document.getElementById(id)}
 function escapeHtml(v){return String(v ?? '').replace(/[<>&]/g, m=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[m]))}
@@ -1886,6 +1887,11 @@ function getRegisterSessionEmail(){
 function getRegisterPassword(){
   return registerSessionPassword || ($('regPassword') ? $('regPassword').value.trim() : '');
 }
+async function sha256ClientHex(value){
+  const data=new TextEncoder().encode(String(value||''));
+  const hash=await crypto.subtle.digest('SHA-256',data);
+  return [...new Uint8Array(hash)].map(b=>b.toString(16).padStart(2,'0')).join('');
+}
 async function cloudApi(path, options={}){
   const headers={'content-type':'application/json', ...(options.headers||{})};
   if(options.token) headers.authorization='Bearer '+options.token;
@@ -2156,13 +2162,21 @@ async function saveRecord(){
   const record=makeRecordFromPrefix('reg');
   const attendance={};
   DISCIPLINES.forEach(d=>attendance[d]=Math.max(0,Math.trunc(parseNumber(record[d]))));
+  const observations=String(record['Observaciones:']||'').trim();
+  const canonical=JSON.stringify([date,observations,DISCIPLINES.map(d=>[d,attendance[d]])]);
+  const clientKey=await sha256ClientHex(canonical);
+  if(lastSubmittedRecordSignature===clientKey){
+    setStatus('regStatus','Ese mismo registro ya estaba guardado; no se creó un duplicado.','ok');
+    return;
+  }
   const btn=$('saveRecordBtn'); btn.disabled=true; setStatus('regStatus','Guardando en Cloudflare...');
   try{
     const result=await cloudApi('/api/records',{
       method:'POST',
       token:registerSessionToken,
-      body:{date,observations:String(record['Observaciones:']||''),attendance}
+      body:{date,observations,attendance,client_key:clientKey}
     });
+    lastSubmittedRecordSignature=clientKey;
     setStatus('regStatus', result.duplicate ? 'Ese mismo registro ya estaba guardado; no se creó un duplicado.' : 'Registro guardado correctamente en Cloudflare.','ok');
     draftFormDirty=false;
     draftLastSavedSignature='';
