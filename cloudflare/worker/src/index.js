@@ -374,13 +374,16 @@ async function createRecord(request, env) {
     clean[discipline] = raw;
   }
 
+  const suppliedClientKey = String(body?.client_key || "").trim().toLowerCase();
   const canonical = JSON.stringify({
-    user: auth.user_id,
     date,
     observations,
     attendance: RECORD_DISCIPLINES.map((d) => [d, clean[d]]),
   });
-  const idempotencyKey = await sha256Hex(canonical);
+  const contentKey = /^[a-f0-9]{64}$/.test(suppliedClientKey)
+    ? suppliedClientKey
+    : await sha256Hex(canonical);
+  const idempotencyKey = await sha256Hex(auth.user_id + ":" + contentKey);
 
   const existing = await env.DB.prepare(
     "SELECT id, created_at FROM records WHERE idempotency_key = ?1 LIMIT 1"
