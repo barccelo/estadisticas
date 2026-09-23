@@ -26,7 +26,25 @@ body{background:#f6f7fb;}
 .brand-title{font-size:18px;font-weight:900;letter-spacing:-.03em}.brand-sub{font-size:12px;color:#d1d5db;line-height:1.35}
 .side-nav{display:grid;gap:8px}.side-link{width:100%;text-align:left;border:1px solid transparent;background:transparent;color:#e5e7eb;border-radius:14px;padding:12px 12px;font-weight:800;cursor:pointer}.side-link:hover{background:rgba(255,255,255,.08)}.side-link.active{background:white;color:#111827}
 .sidebar-note{margin-top:auto;font-size:12px;color:#d1d5db;line-height:1.4;padding:10px 6px;border-top:1px solid rgba(255,255,255,.16)}
-.content{min-width:0}.topbar{background:linear-gradient(135deg,#111827,#7f1d1d);color:white;padding:24px 26px 50px}.topbar h1{margin:0;font-size:clamp(24px,3vw,38px);letter-spacing:-.04em}.topbar p{margin:8px 0 0;color:#f3f4f6;max-width:900px}.content .wrap{max-width:1320px;margin:0 auto;padding:0 20px 24px}.view{display:none;margin-top:-32px}.view.active{display:block}.view-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(340px,.95fr);gap:16px;align-items:start}.home-total-card{padding:18px}.section-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}.section-head h2{margin:0;font-size:20px}.section-head p{margin:5px 0 0;color:var(--muted);font-size:13px}.filter-panel{display:none;margin:0 0 16px 0}.filter-panel.open{display:block}.home-total-card>.filter-panel{margin:8px 0 14px}.stats-actions+.filter-panel{margin-top:0}.filters{margin-top:0}.filters .actions{grid-column:1 / -1;justify-content:flex-end}.admin-box{margin-top:0}.admin-box .table-tools{display:none}.admin-grid{grid-template-columns:1fr}.admin-card{border:0;padding:18px}.admin-card h2{font-size:20px}.admin-badges{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}.admin-badge{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:999px;padding:5px 9px;font-size:12px;font-weight:800;background:#fff}.admin-badge.muted{color:var(--muted)}.admin-kpi-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:10px 0 4px}.admin-kpi{border:1px solid var(--line);border-radius:14px;background:#fff;padding:12px}.admin-kpi .k{font-size:12px;color:var(--muted);font-weight:800}.admin-kpi .v{font-size:22px;font-weight:900;margin-top:3px}.audit-detail{margin-top:7px;color:var(--muted);font-size:12px;line-height:1.45}.stats-actions{display:flex;gap:8px;justify-content:flex-end;margin-bottom:12px}.stat-kpis{margin-top:0}.standalone-card{padding:18px;margin-top:14px}.editing-wrap{margin-top:0}.editing-wrap .admin-card{padding:18px}.landing-mini{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:14px}.mini-stat{border:1px solid var(--line);border-radius:14px;padding:14px;background:#fff}.mini-stat .label{font-size:12px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.05em}.mini-stat .value{font-size:28px;font-weight:900;margin-top:6px;letter-spacing:-.04em}
+.content{min-width:0}.topbar{background:linear-gradient(135deg,#111827,#7f1d1d);color:white;padding:24px 26px 50px}.topbar h1{margin:0;font-size:clamp(24px,3vw,38px);letter-spacing:-.04em}.topbar p{margin:8px 0 0;color:#f3f4f6;max-width:900px}.content .wrap{max-width:1320px;margin:0 auto;padding:0 20px 24px}.view{display:none;margin-top:-32px}.view.active{display:block}.view-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(340px,.95fr);gap:16px;align-items:start}.home-total-card{padding:18px}.section-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}.section-head h2{margin:0;font-size:20px}.section-head p{margin:5px 0 0;color:var(--muted);font-size:13px}.filter-panel{display:none;margin:0 0 16px 0}.filter-panel.open{display:block}.home-total-card>.filter-panel{margin:8px 0 14px}.stats-actions+.filter-panel{margin-top:0}.filters{margin-top:0}.filters .actions{grid-column:1 / -1;justify-content:flex-end}.admin-box{margin-top:0}.admin-box .table-tools{display:none}.admin-grid{grid-template-columns:1fr}.admin-card{border:0;padding:18px}.admin-card h2{font-size:20px}
+.guard-today{grid-column:1/-1;padding:16px 18px}
+.guard-today-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.guard-today-title{font-size:15px;font-weight:900}.guard-today-meta{font-size:12px;color:var(--muted);font-weight:700}
+.guard-pills{display:flex;gap:8px;flex-wrap:wrap}
+.guard-pill{display:inline-flex;align-items:center;gap:7px;border:1px solid rgba(17,24,39,.12);border-radius:999px;padding:8px 11px;font-size:13px;font-weight:900;background:#fff}
+.guard-pill-code{font-weight:950}.guard-pill-name{font-weight:800}
+.guard-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:14px}
+.guard-day-card{border:1px solid var(--line);border-radius:16px;background:#fff;padding:14px}
+.guard-day-card h3{margin:0 0 10px;font-size:16px}
+.guard-point-row{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-top:1px solid var(--line)}
+.guard-point-row:first-of-type{border-top:0}
+.guard-dot{width:12px;height:12px;border-radius:50%;margin-top:3px;flex:0 0 auto;border:1px solid rgba(0,0,0,.12)}
+.guard-point-main{font-size:13px;font-weight:900}.guard-point-sub{font-size:12px;color:var(--muted);margin-top:2px;line-height:1.35}
+.guard-admin-list{display:grid;gap:10px;margin-top:10px}.guard-admin-item{border:1px solid var(--line);border-radius:14px;padding:12px;background:#fff}
+.guard-assignment-week{border:1px solid var(--line);border-radius:16px;padding:14px;margin-top:14px;background:#fff}
+.guard-assignment-week h3{margin:0 0 10px}.guard-assignment-day{margin-top:12px}.guard-assignment-day>strong{display:block;margin-bottom:7px}
+.guard-assignment-row{display:grid;grid-template-columns:80px 1fr;gap:8px;align-items:center;margin:6px 0}
+.admin-badges{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}.admin-badge{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:999px;padding:5px 9px;font-size:12px;font-weight:800;background:#fff}.admin-badge.muted{color:var(--muted)}.admin-kpi-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:10px 0 4px}.admin-kpi{border:1px solid var(--line);border-radius:14px;background:#fff;padding:12px}.admin-kpi .k{font-size:12px;color:var(--muted);font-weight:800}.admin-kpi .v{font-size:22px;font-weight:900;margin-top:3px}.audit-detail{margin-top:7px;color:var(--muted);font-size:12px;line-height:1.45}.stats-actions{display:flex;gap:8px;justify-content:flex-end;margin-bottom:12px}.stat-kpis{margin-top:0}.standalone-card{padding:18px;margin-top:14px}.editing-wrap{margin-top:0}.editing-wrap .admin-card{padding:18px}.landing-mini{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:14px}.mini-stat{border:1px solid var(--line);border-radius:14px;padding:14px;background:#fff}.mini-stat .label{font-size:12px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.05em}.mini-stat .value{font-size:28px;font-weight:900;margin-top:6px;letter-spacing:-.04em}
 
 .total-card-actions{display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
 .export-area{border:1px solid var(--line);border-radius:16px;padding:14px;background:#fff;margin-top:8px}
@@ -1127,6 +1145,7 @@ body{background:#f6f7fb;}
       <button class="side-link active" type="button" data-view="inicio">Inicio</button>
       <button class="side-link" type="button" data-view="estadisticas">Estadísticas</button>
       <button class="side-link" type="button" id="externalSchedulesBtn">Horarios</button>
+      <button class="side-link" type="button" data-view="guardias">Guardias</button>
       <button class="side-link" type="button" data-view="edicion">Editar datos</button>
     </nav>
     
@@ -1151,6 +1170,13 @@ body{background:#f6f7fb;}
       </section>
 
       <section id="view-inicio" class="view active">
+        <section class="panel guard-today" id="guardTodayCard">
+          <div class="guard-today-head">
+            <div><div class="guard-today-title">Guardias de hoy</div><div id="guardTodayMeta" class="guard-today-meta">Cargando…</div></div>
+            <button class="btn secondary compact" type="button" data-view-jump="guardias">Ver guardias</button>
+          </div>
+          <div id="guardTodayPills" class="guard-pills"></div>
+        </section>
         <div class="view-grid">
           <section class="panel admin-box landing-collapsible" id="registerCollapseCard">
             <button class="landing-toggle" type="button" data-collapse-target="registerCollapseContent">Registrar datos</button>
@@ -1220,6 +1246,23 @@ body{background:#f6f7fb;}
       </section>
 
 
+      <section id="view-guardias" class="view">
+        <section class="panel editing-wrap">
+          <div class="admin-card">
+            <div class="section-head"><div><h2>Guardias</h2><p>Consulta las asignaciones por semana del mes, día, persona o punto.</p></div></div>
+            <div class="mini-grid">
+              <div class="field"><label>Semana</label><select id="guardWeekFilter"><option value="">Todas</option><option value="1">Semana 1</option><option value="2">Semana 2</option><option value="3">Semana 3</option><option value="4">Semana 4</option></select></div>
+              <div class="field"><label>Día</label><select id="guardDayFilter"><option value="">Todos</option><option value="1">Lunes</option><option value="2">Martes</option><option value="3">Miércoles</option><option value="4">Jueves</option><option value="5">Viernes</option></select></div>
+              <div class="field"><label>Persona</label><select id="guardPersonFilter"><option value="">Todas</option></select></div>
+              <div class="field"><label>Punto</label><select id="guardPointFilter"><option value="">Todos</option></select></div>
+            </div>
+            <div class="admin-row"><button class="btn secondary" id="guardResetBtn" type="button">Reiniciar filtros</button></div>
+            <div id="guardFullStatus" class="status"></div>
+            <div id="guardFullGrid" class="guard-grid"></div>
+          </div>
+        </section>
+      </section>
+
       <section id="view-edicion" class="view">
         <section class="panel editing-wrap">
           <div class="admin-card">
@@ -1266,6 +1309,15 @@ body{background:#f6f7fb;}
               <div class="admin-row"><button class="btn" id="adminCreateUserBtn" type="button">Crear usuario</button></div>
               <div id="adminUsers" class="edit-results"></div>
 
+              <div class="section-head" style="margin-top:22px"><div><h2>Guardias</h2><p>Edita personas, puntos y asignaciones de las cuatro semanas del mes.</p></div></div>
+              <div class="admin-row"><button class="btn secondary" id="adminAddGuardPersonBtn" type="button">Agregar persona</button><button class="btn secondary" id="adminAddGuardPointBtn" type="button">Agregar punto</button><button class="btn" id="adminSaveGuardsBtn" type="button">Guardar guardias</button><span id="adminGuardsStatus" class="status"></span></div>
+              <div class="section-head" style="margin-top:14px"><div><h2 style="font-size:16px">Personas</h2></div></div>
+              <div id="adminGuardPeople" class="guard-admin-list"></div>
+              <div class="section-head" style="margin-top:14px"><div><h2 style="font-size:16px">Puntos</h2></div></div>
+              <div id="adminGuardPoints" class="guard-admin-list"></div>
+              <div class="section-head" style="margin-top:14px"><div><h2 style="font-size:16px">Asignaciones</h2></div></div>
+              <div id="adminGuardAssignments"></div>
+
               <div class="section-head" style="margin-top:22px"><div><h2>Respaldo en Google Sheets</h2><p>D1 es la fuente principal. Aquí se muestran operaciones de respaldo pendientes o completadas.</p></div></div>
               <div class="admin-row"><button class="btn secondary" id="adminRefreshBackupsBtn" type="button">Actualizar estado</button><span id="adminBackupFeedback" class="status"></span></div>
               <div id="adminBackupSummary" class="status"></div>
@@ -1309,6 +1361,7 @@ let editLoadedRecords = new Map();
 let editSessionToken = '';
 let editSessionPassword = '';
 let adminSessionToken = '';
+let GUARD_CONFIG={people:[],points:[],assignments:[]};
 const fmt = new Intl.NumberFormat('es-VE');
 function $(id){return document.getElementById(id)}
 function escapeHtml(v){return String(v ?? '').replace(/[<>&]/g, m=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[m]))}
@@ -2596,6 +2649,145 @@ async function ensureAdminUnlocked(){
     return false;
   }
 }
+const GUARD_DAY_NAMES={1:'Lunes',2:'Martes',3:'Miércoles',4:'Jueves',5:'Viernes'};
+function guardTextColor(hex){
+  const s=String(hex||'').replace('#',''); if(!/^[0-9a-f]{6}$/i.test(s)) return '#111827';
+  const r=parseInt(s.slice(0,2),16),g=parseInt(s.slice(2,4),16),b=parseInt(s.slice(4,6),16);
+  return (r*299+g*587+b*114)/1000>170?'#111827':'#fff';
+}
+async function loadGuards(date=''){
+  const result=await cloudApi('/api/guards'+(date?'?date='+encodeURIComponent(date):''));
+  GUARD_CONFIG=result.config||{people:[],points:[],assignments:[]};
+  return result;
+}
+function renderGuardToday(result){
+  const pills=$('guardTodayPills'), meta=$('guardTodayMeta');
+  if(!pills||!meta) return;
+  const day=GUARD_DAY_NAMES[result.weekday]||'Sin guardias';
+  meta.textContent=`${day} · Semana ${result.week}`;
+  pills.innerHTML='';
+  if(!(result.assignments||[]).length){
+    pills.innerHTML='<span class="guard-today-meta">No hay guardias configuradas para hoy.</span>';
+    return;
+  }
+  (result.assignments||[]).forEach(a=>{
+    const el=document.createElement('div'); el.className='guard-pill';
+    el.style.background=a.person.color||'#fff'; el.style.color=guardTextColor(a.person.color);
+    el.title=a.point.description||a.point.name||a.point.code;
+    el.innerHTML=`<span class="guard-pill-code">${escapeHtml(a.point.code)}</span><span>·</span><span class="guard-pill-name">${escapeHtml(a.person.name)}</span>`;
+    pills.appendChild(el);
+  });
+}
+function fillGuardFilters(){
+  const ps=$('guardPersonFilter'), pts=$('guardPointFilter');
+  if(ps) ps.innerHTML='<option value="">Todas</option>'+GUARD_CONFIG.people.filter(p=>Number(p.active)!==0).map(p=>`<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join('');
+  if(pts) pts.innerHTML='<option value="">Todos</option>'+GUARD_CONFIG.points.filter(p=>Number(p.active)!==0).map(p=>`<option value="${escapeHtml(p.code)}">${escapeHtml(p.code)} · ${escapeHtml(p.name)}</option>`).join('');
+}
+function renderGuardFull(){
+  const grid=$('guardFullGrid'); if(!grid) return;
+  const wf=Number($('guardWeekFilter')?.value||0), df=Number($('guardDayFilter')?.value||0);
+  const pf=$('guardPersonFilter')?.value||'', ptf=$('guardPointFilter')?.value||'';
+  const people=new Map(GUARD_CONFIG.people.map(p=>[p.id,p]));
+  const points=new Map(GUARD_CONFIG.points.map(p=>[p.code,p]));
+  grid.innerHTML='';
+  let shown=0;
+  for(let week=1;week<=4;week++){
+    if(wf&&wf!==week) continue;
+    for(let day=1;day<=5;day++){
+      if(df&&df!==day) continue;
+      const rows=GUARD_CONFIG.assignments.filter(a=>Number(a.week_no)===week&&Number(a.weekday)===day)
+        .map(a=>({a,person:people.get(a.person_id),point:points.get(a.point_code)}))
+        .filter(x=>x.person&&x.point&&Number(x.person.active)!==0&&Number(x.point.active)!==0)
+        .filter(x=>(!pf||x.person.id===pf)&&(!ptf||x.point.code===ptf))
+        .sort((a,b)=>Number(a.point.sort_order||0)-Number(b.point.sort_order||0));
+      if(!rows.length) continue;
+      shown++;
+      const card=document.createElement('article'); card.className='guard-day-card';
+      card.innerHTML=`<h3>Semana ${week} · ${GUARD_DAY_NAMES[day]}</h3>`+rows.map(x=>`<div class="guard-point-row"><span class="guard-dot" style="background:${escapeHtml(x.person.color||'#d1d5db')}"></span><div><div class="guard-point-main">${escapeHtml(x.point.code)} · ${escapeHtml(x.person.name)}</div><div class="guard-point-sub">${escapeHtml(x.point.description||x.point.name)}</div></div></div>`).join('');
+      grid.appendChild(card);
+    }
+  }
+  setStatus('guardFullStatus',shown?'':'No hay coincidencias con los filtros actuales.',shown?'':'');
+}
+async function initGuardModule(){
+  try{
+    const today=await loadGuards();
+    renderGuardToday(today);
+    fillGuardFilters();
+    renderGuardFull();
+  }catch(err){
+    if($('guardTodayMeta')) $('guardTodayMeta').textContent='No se pudieron cargar las guardias.';
+  }
+}
+function resetGuardFilters(){
+  ['guardWeekFilter','guardDayFilter','guardPersonFilter','guardPointFilter'].forEach(id=>{if($(id)) $(id).value='';});
+  renderGuardFull();
+}
+function newGuardId(prefix,name){
+  const base=normalizeKey(name||prefix)||prefix;
+  let id=base,n=2; const used=new Set(GUARD_CONFIG.people.map(p=>p.id));
+  while(used.has(id)) id=base+(n++);
+  return id;
+}
+function renderAdminGuards(){
+  const pb=$('adminGuardPeople'), ptb=$('adminGuardPoints'), ab=$('adminGuardAssignments');
+  if(!pb||!ptb||!ab) return;
+  pb.innerHTML='';
+  GUARD_CONFIG.people.forEach((p,i)=>{
+    const el=document.createElement('div'); el.className='guard-admin-item';
+    el.innerHTML=`<div class="mini-grid"><div class="field"><label>Nombre</label><input data-gp-name="${i}" value="${escapeHtml(p.name)}"></div><div class="field"><label>Color</label><input data-gp-color="${i}" type="color" value="${escapeHtml(p.color||'#d1d5db')}"></div><div class="field"><label>Estado</label><select data-gp-active="${i}"><option value="1" ${Number(p.active)!==0?'selected':''}>Activo</option><option value="0" ${Number(p.active)===0?'selected':''}>Inactivo</option></select></div></div>`;
+    pb.appendChild(el);
+  });
+  ptb.innerHTML='';
+  GUARD_CONFIG.points.forEach((p,i)=>{
+    const el=document.createElement('div'); el.className='guard-admin-item';
+    el.innerHTML=`<div class="mini-grid"><div class="field"><label>Código</label><input data-gpt-code="${i}" value="${escapeHtml(p.code)}"></div><div class="field"><label>Nombre</label><input data-gpt-name="${i}" value="${escapeHtml(p.name)}"></div><div class="field full"><label>Descripción</label><input data-gpt-desc="${i}" value="${escapeHtml(p.description||'')}"></div><div class="field"><label>Estado</label><select data-gpt-active="${i}"><option value="1" ${Number(p.active)!==0?'selected':''}>Activo</option><option value="0" ${Number(p.active)===0?'selected':''}>Inactivo</option></select></div></div>`;
+    ptb.appendChild(el);
+  });
+  const amap=new Map(GUARD_CONFIG.assignments.map(a=>[`${a.week_no}:${a.weekday}:${a.point_code}`,a.person_id]));
+  ab.innerHTML='';
+  for(let week=1;week<=4;week++){
+    const w=document.createElement('section'); w.className='guard-assignment-week'; w.innerHTML=`<h3>Semana ${week}</h3>`;
+    for(let day=1;day<=5;day++){
+      const d=document.createElement('div'); d.className='guard-assignment-day'; d.innerHTML=`<strong>${GUARD_DAY_NAMES[day]}</strong>`;
+      GUARD_CONFIG.points.filter(p=>Number(p.active)!==0).forEach(point=>{
+        const row=document.createElement('div'); row.className='guard-assignment-row';
+        const current=amap.get(`${week}:${day}:${point.code}`)||'';
+        row.innerHTML=`<span>${escapeHtml(point.code)}</span><select data-ga-week="${week}" data-ga-day="${day}" data-ga-point="${escapeHtml(point.code)}"><option value="">Sin asignar</option>${GUARD_CONFIG.people.filter(p=>Number(p.active)!==0).map(p=>`<option value="${escapeHtml(p.id)}" ${p.id===current?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}</select>`;
+        d.appendChild(row);
+      });
+      w.appendChild(d);
+    }
+    ab.appendChild(w);
+  }
+}
+function collectAdminGuards(){
+  GUARD_CONFIG.people.forEach((p,i)=>{p.name=document.querySelector(`[data-gp-name="${i}"]`)?.value.trim()||p.name;p.color=document.querySelector(`[data-gp-color="${i}"]`)?.value||p.color;p.active=Number(document.querySelector(`[data-gp-active="${i}"]`)?.value||1);p.sort_order=i+1;});
+  GUARD_CONFIG.points.forEach((p,i)=>{p.code=(document.querySelector(`[data-gpt-code="${i}"]`)?.value.trim()||p.code).toUpperCase();p.name=document.querySelector(`[data-gpt-name="${i}"]`)?.value.trim()||p.name;p.description=document.querySelector(`[data-gpt-desc="${i}"]`)?.value.trim()||'';p.active=Number(document.querySelector(`[data-gpt-active="${i}"]`)?.value||1);p.sort_order=i+1;});
+  GUARD_CONFIG.assignments=[...document.querySelectorAll('[data-ga-week]')].filter(s=>s.value).map(s=>({week_no:Number(s.dataset.gaWeek),weekday:Number(s.dataset.gaDay),point_code:s.dataset.gaPoint,person_id:s.value}));
+}
+async function saveAdminGuards(){
+  collectAdminGuards();
+  const btn=$('adminSaveGuardsBtn'); if(btn) btn.disabled=true;
+  setStatus('adminGuardsStatus','Guardando…');
+  try{
+    const result=await cloudApi('/api/admin/guards',{method:'PUT',headers:{'x-admin-token':adminSessionToken},body:GUARD_CONFIG});
+    GUARD_CONFIG=result.config||GUARD_CONFIG;
+    renderAdminGuards(); fillGuardFilters(); renderGuardFull();
+    const today=await loadGuards(); renderGuardToday(today);
+    setStatus('adminGuardsStatus','Guardias actualizadas.','ok');
+  }catch(err){setStatus('adminGuardsStatus',err.message,'err');}
+  finally{if(btn) btn.disabled=false;}
+}
+function addAdminGuardPerson(){
+  const name='Nueva persona'; GUARD_CONFIG.people.push({id:newGuardId('persona',name),name,color:'#d1d5db',sort_order:GUARD_CONFIG.people.length+1,active:1}); renderAdminGuards();
+}
+function addAdminGuardPoint(){
+  let n=GUARD_CONFIG.points.length+1,code='P'+n; const used=new Set(GUARD_CONFIG.points.map(p=>p.code));
+  while(used.has(code)) code='P'+(++n);
+  GUARD_CONFIG.points.push({code,name:'Nuevo punto',description:'',sort_order:GUARD_CONFIG.points.length+1,active:1}); renderAdminGuards();
+}
+
 async function loadAdminUsers(){
   const result=await cloudApi('/api/admin/users',{headers:{'x-admin-token':adminSessionToken}});
   const box=$('adminUsers'); box.innerHTML='';
@@ -2842,7 +3034,8 @@ async function openAdminPanel(){
   if(!await ensureAdminUnlocked()) return;
   $('adminContent').hidden=false;
   setStatus('adminStatus','Administración habilitada.','ok');
-  await Promise.all([loadAdminUsers(),loadAdminAudit(),loadAdminBackups()]);
+  await Promise.all([loadAdminUsers(),loadAdminAudit(),loadAdminBackups(),loadGuards()]);
+  renderAdminGuards();
 }
 function initAdminModule(){
   buildRegisterInputs();
@@ -2855,6 +3048,9 @@ function initAdminModule(){
   $('findRecordsBtn').onclick=findEditableRecords;
   if($('adminUnlockBtn')) $('adminUnlockBtn').onclick=openAdminPanel;
   if($('adminCreateUserBtn')) $('adminCreateUserBtn').onclick=createAdminUser;
+  if($('adminAddGuardPersonBtn')) $('adminAddGuardPersonBtn').onclick=addAdminGuardPerson;
+  if($('adminAddGuardPointBtn')) $('adminAddGuardPointBtn').onclick=addAdminGuardPoint;
+  if($('adminSaveGuardsBtn')) $('adminSaveGuardsBtn').onclick=saveAdminGuards;
   if($('adminRefreshAuditBtn')) $('adminRefreshAuditBtn').onclick=loadAdminAudit;
   if($('adminRefreshBackupsBtn')) $('adminRefreshBackupsBtn').onclick=loadAdminBackups;
   if($('adminRetryBackupsBtn')) $('adminRetryBackupsBtn').onclick=retryAdminBackups;
@@ -2863,6 +3059,9 @@ function initAdminModule(){
   const checkBtn=$('checkDraftBtn'); if(checkBtn) checkBtn.onclick=()=>{if(!getRegisterPassword()){openRegisterLoginModal(); return;} checkSharedDraft();};
   ['regFecha'].forEach(id=>{const el=$(id); if(!el) return; el.addEventListener('change',refreshRegisterDayPanels);});
   ['regEmail','regObs'].forEach(id=>{const el=$(id); if(!el) return; el.addEventListener('input',()=>markDraftDirty(5000)); el.addEventListener('change',()=>markDraftDirty(1000));});
+  ['guardWeekFilter','guardDayFilter','guardPersonFilter','guardPointFilter'].forEach(id=>{if($(id)) $(id).onchange=renderGuardFull;});
+  if($('guardResetBtn')) $('guardResetBtn').onclick=resetGuardFilters;
+  document.querySelectorAll('[data-view-jump]').forEach(btn=>btn.onclick=()=>showView(btn.dataset.viewJump));
   setTimeout(refreshRegisterDayPanels, 600);
 }
 
@@ -2931,6 +3130,7 @@ setupRegisterLoginModal();
 
 window.addEventListener('resize',()=>{arrangeMobileExportButtons(); if(DATA.length) renderLine(filtered())});
 initAdminModule();
+initGuardModule();
 window.addEventListener('beforeunload',()=>{try{saveSharedDraft();}catch(e){}});
 loadData();
 </script>
