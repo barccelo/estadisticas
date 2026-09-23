@@ -2286,7 +2286,6 @@ async function processRegisterBackupQueue(targetJobId='', onlyTarget=false){
       const payload=job.payload||{};
       const backup=await apiCall('addRecord',{password,record:legacyRecordFromBackupPayload(payload)});
       if(!backup?.ok) throw new Error(backup?.message||'BACKUP_CREATE_FAILED');
-      await ensureLegacyTimestamp(password,payload);
       await reportBackupJobResult(job,true,'','register');
       done++;
       if(targetJobId && String(job.id)===String(targetJobId)) targetDone=true;
