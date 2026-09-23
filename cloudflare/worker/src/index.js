@@ -1082,7 +1082,7 @@ async function updateRecord(request, env, recordId) {
   const date = String(body?.date || "").trim();
   const observations = String(body?.observations || "").trim();
   const attendance = body?.attendance;
-  const responsibleEmail = String(body?.responsible_email || auth.email || "").trim().toLowerCase();
+  const responsibleEmail = String(body?.responsible_email || auth?.email || "").trim().toLowerCase();
 
   if (!recordId || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !attendance || typeof attendance !== "object" || Array.isArray(attendance)) {
     return json({ ok: false, error: "INVALID_RECORD" }, 400);
