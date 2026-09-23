@@ -1126,6 +1126,7 @@ body{background:#f6f7fb;}
       <button class="side-link" type="button" data-view="estadisticas">Estadísticas</button>
       <button class="side-link" type="button" data-view="horarios">Horarios</button>
       <button class="side-link" type="button" data-view="edicion">Editar datos</button>
+      <button class="side-link" type="button" data-view="admin">Administración</button>
     </nav>
     
   </aside>
@@ -1256,6 +1257,36 @@ body{background:#f6f7fb;}
             <div class="admin-row"><button class="btn" id="findRecordsBtn" type="button">Buscar registros</button></div>
             <div id="editStatus" class="status"></div>
             <div id="editResults" class="edit-results"></div>
+          </div>
+        </section>
+      </section>
+
+      <section id="view-admin" class="view">
+        <section class="panel editing-wrap">
+          <div class="admin-card">
+            <h2>Administración</h2>
+            <p>Gestiona usuarios, roles, acceso y auditoría. Requiere la misma clave adicional de edición.</p>
+            <div class="mini-grid">
+              <div class="field"><label>Clave de edición</label><input id="adminEditPassword" type="password" inputmode="numeric" placeholder="Clave de edición" autocomplete="off"></div>
+              <div class="field"><label>&nbsp;</label><button class="btn" id="adminUnlockBtn" type="button">Abrir administración</button></div>
+            </div>
+            <div id="adminStatus" class="status"></div>
+
+            <div id="adminContent" hidden>
+              <div class="section-head" style="margin-top:18px"><div><h2>Usuarios</h2><p>Crear usuarios, cambiar rol, activar/desactivar y restablecer PIN.</p></div></div>
+              <div class="mini-grid">
+                <div class="field"><label>Nombre</label><input id="adminNewName" type="text" placeholder="Nombre"></div>
+                <div class="field"><label>Correo</label><input id="adminNewEmail" type="email" placeholder="correo@dominio.com"></div>
+                <div class="field"><label>PIN inicial</label><input id="adminNewPin" type="password" inputmode="numeric" placeholder="PIN"></div>
+                <div class="field"><label>Rol</label><select id="adminNewRole"><option value="registrador">Registrador</option><option value="editor">Editor</option><option value="admin">Administrador</option></select></div>
+              </div>
+              <div class="admin-row"><button class="btn" id="adminCreateUserBtn" type="button">Crear usuario</button></div>
+              <div id="adminUsers" class="edit-results"></div>
+
+              <div class="section-head" style="margin-top:22px"><div><h2>Auditoría reciente</h2><p>Últimos accesos, registros, ediciones y eliminaciones.</p></div></div>
+              <div class="admin-row"><button class="btn secondary" id="adminRefreshAuditBtn" type="button">Actualizar auditoría</button></div>
+              <div id="adminAudit" class="edit-results"></div>
+            </div>
           </div>
         </section>
       </section>
@@ -2294,10 +2325,11 @@ function renderEditResults(records){
     html+=`<div class="num-grid">`;
     DISCIPLINES.forEach(d=>{html+=`<div class="field"><label>${escapeHtml(d)}</label><input id="${unique}_${normalizeKey(d)}" type="number" min="0" step="1" value="${escapeHtml(valueFromRecord(rec,d))}"></div>`;});
     html+=`</div><div class="field" style="margin-top:10px"><label>Observaciones</label><textarea id="${unique}_obs">${escapeHtml(valueFromRecord(rec,'Observaciones:','Observaciones'))}</textarea></div>`;
-    html+=`<div class="admin-row"><button class="btn" type="button" data-save-edit="${unique}" data-record-id="${escapeHtml(recordId)}">Guardar cambios</button><span id="${unique}_status" class="status"></span></div>`;
+    html+=`<div class="admin-row"><button class="btn" type="button" data-save-edit="${unique}" data-record-id="${escapeHtml(recordId)}">Guardar cambios</button><button class="btn secondary" type="button" data-delete-edit="${unique}" data-record-id="${escapeHtml(recordId)}">Eliminar registro</button><span id="${unique}_status" class="status"></span></div>`;
     card.innerHTML=html; box.appendChild(card);
   });
   box.querySelectorAll('[data-save-edit]').forEach(btn=>btn.onclick=()=>saveEditedRecord(btn.dataset.saveEdit, btn.dataset.recordId));
+  box.querySelectorAll('[data-delete-edit]').forEach(btn=>btn.onclick=()=>deleteEditedRecord(btn.dataset.deleteEdit, btn.dataset.recordId));
 }
 function legacyRecordMatchesCloud(legacy, cloud){
   if(!legacy || !cloud) return false;
@@ -2364,6 +2396,126 @@ async function saveEditedRecord(unique, recordId){
     setStatus(unique+'_status',msg,'err');
   }finally{btn.disabled=false;}
 }
+async function deleteEditedRecord(unique, recordId){
+  if(!editSessionToken){
+    setStatus(unique+'_status','Vuelve a introducir la clave de edición.','err');
+    return;
+  }
+  if(!confirm('¿Eliminar este registro? Esta acción lo quitará de las estadísticas.')) return;
+  const btn=document.querySelector(`[data-delete-edit="${unique}"]`);
+  if(btn) btn.disabled=true;
+  setStatus(unique+'_status','Eliminando de Cloudflare...');
+  try{
+    await cloudApi('/api/records/'+encodeURIComponent(recordId),{
+      method:'DELETE',
+      headers:{'x-edit-token':editSessionToken}
+    });
+    editLoadedRecords.delete(String(recordId));
+    const card=btn?.closest('.edit-card');
+    if(card) card.remove();
+    setStatus('editStatus','Registro eliminado correctamente de Cloudflare D1.','ok');
+    loadData({keepFilters:true}).catch(()=>{});
+  }catch(err){
+    if(err.message==='EDIT_LOCKED') editSessionToken='';
+    setStatus(unique+'_status',err.message==='EDIT_LOCKED'?'La autorización de edición venció. Vuelve a introducir la clave.':err.message,'err');
+  }finally{if(btn) btn.disabled=false;}
+}
+
+async function ensureAdminUnlocked(){
+  const password=$('adminEditPassword')?.value.trim();
+  if(editSessionToken) return true;
+  if(!password){setStatus('adminStatus','Escribe la clave de edición.','err'); return false;}
+  setStatus('adminStatus','Verificando clave...');
+  try{
+    const unlocked=await cloudApi('/api/edit/unlock',{method:'POST',body:{password}});
+    editSessionToken=String(unlocked.edit_token||'');
+    if(!editSessionToken) throw new Error('No se pudo abrir la administración.');
+    return true;
+  }catch(err){
+    setStatus('adminStatus',err.message==='INVALID_EDIT_KEY'?'Clave de edición incorrecta.':err.message,'err');
+    return false;
+  }
+}
+async function loadAdminUsers(){
+  const result=await cloudApi('/api/admin/users',{headers:{'x-edit-token':editSessionToken}});
+  const box=$('adminUsers'); box.innerHTML='';
+  (result.users||[]).forEach(user=>{
+    const id=String(user.id);
+    const card=document.createElement('div'); card.className='edit-card';
+    const active=Number(user.active)===1;
+    card.innerHTML=`<div class="edit-card-title"><span>${escapeHtml(user.display_name)}</span><span>${escapeHtml(user.email)}</span></div>
+      <div class="mini-grid">
+        <div class="field"><label>Nombre</label><input data-admin-name="${escapeHtml(id)}" value="${escapeHtml(user.display_name)}"></div>
+        <div class="field"><label>Correo</label><input data-admin-email="${escapeHtml(id)}" value="${escapeHtml(user.email)}"></div>
+        <div class="field"><label>Rol</label><select data-admin-role="${escapeHtml(id)}"><option value="registrador" ${user.role==='registrador'?'selected':''}>Registrador</option><option value="editor" ${user.role==='editor'?'selected':''}>Editor</option><option value="admin" ${user.role==='admin'?'selected':''}>Administrador</option></select></div>
+        <div class="field"><label>Nuevo PIN</label><input data-admin-pin="${escapeHtml(id)}" type="password" inputmode="numeric" placeholder="Dejar vacío para conservar"></div>
+      </div>
+      <div class="admin-row"><button class="btn" data-admin-save="${escapeHtml(id)}" type="button">Guardar usuario</button><button class="btn secondary" data-admin-active="${escapeHtml(id)}" data-current="${active?'1':'0'}" type="button">${active?'Desactivar':'Activar'}</button><span class="status" data-admin-status="${escapeHtml(id)}"></span></div>`;
+    box.appendChild(card);
+  });
+  box.querySelectorAll('[data-admin-save]').forEach(btn=>btn.onclick=()=>saveAdminUser(btn.dataset.adminSave));
+  box.querySelectorAll('[data-admin-active]').forEach(btn=>btn.onclick=()=>toggleAdminUser(btn.dataset.adminActive,btn.dataset.current==='1'));
+}
+async function saveAdminUser(id){
+  const status=document.querySelector(`[data-admin-status="${CSS.escape(id)}"]`);
+  if(status){status.textContent='Guardando...';status.className='status';}
+  try{
+    const result=await cloudApi('/api/admin/users/'+encodeURIComponent(id),{
+      method:'PUT',
+      headers:{'x-edit-token':editSessionToken},
+      body:{
+        name:document.querySelector(`[data-admin-name="${CSS.escape(id)}"]`).value,
+        email:document.querySelector(`[data-admin-email="${CSS.escape(id)}"]`).value,
+        role:document.querySelector(`[data-admin-role="${CSS.escape(id)}"]`).value,
+        pin:document.querySelector(`[data-admin-pin="${CSS.escape(id)}"]`).value
+      }
+    });
+    if(status){status.textContent='Usuario actualizado.';status.className='status ok';}
+    document.querySelector(`[data-admin-pin="${CSS.escape(id)}"]`).value='';
+  }catch(err){
+    if(status){status.textContent=err.message;status.className='status err';}
+  }
+}
+async function toggleAdminUser(id,current){
+  try{
+    await cloudApi('/api/admin/users/'+encodeURIComponent(id),{
+      method:'PUT',
+      headers:{'x-edit-token':editSessionToken},
+      body:{active:!current}
+    });
+    await loadAdminUsers();
+  }catch(err){setStatus('adminStatus',err.message,'err');}
+}
+async function createAdminUser(){
+  const name=$('adminNewName').value.trim(), email=$('adminNewEmail').value.trim(), pin=$('adminNewPin').value.trim(), role=$('adminNewRole').value;
+  if(!name||!email||!pin){setStatus('adminStatus','Completa nombre, correo y PIN.','err');return;}
+  try{
+    await cloudApi('/api/admin/users',{
+      method:'POST',
+      headers:{'x-edit-token':editSessionToken},
+      body:{name,email,pin,role}
+    });
+    $('adminNewName').value=''; $('adminNewEmail').value=''; $('adminNewPin').value='';
+    setStatus('adminStatus','Usuario creado correctamente.','ok');
+    await loadAdminUsers();
+  }catch(err){setStatus('adminStatus',err.message,'err');}
+}
+async function loadAdminAudit(){
+  const result=await cloudApi('/api/admin/audit',{headers:{'x-edit-token':editSessionToken}});
+  const box=$('adminAudit'); box.innerHTML='';
+  (result.events||[]).forEach(ev=>{
+    const card=document.createElement('div'); card.className='edit-card';
+    let details=''; try{details=JSON.stringify(JSON.parse(ev.details_json||'{}'));}catch{details=String(ev.details_json||'');}
+    card.innerHTML=`<div class="edit-card-title"><span>${escapeHtml(ev.event_type)}</span><span>${escapeHtml(ev.created_at||'')}</span></div><div class="small">${escapeHtml(ev.display_name||ev.email||'Sistema')}</div><div class="small" style="margin-top:6px;word-break:break-word">${escapeHtml(details)}</div>`;
+    box.appendChild(card);
+  });
+}
+async function openAdminPanel(){
+  if(!await ensureAdminUnlocked()) return;
+  $('adminContent').hidden=false;
+  setStatus('adminStatus','Administración habilitada.','ok');
+  await Promise.all([loadAdminUsers(),loadAdminAudit()]);
+}
 function initAdminModule(){
   buildRegisterInputs();
   fillResponsibleSelect('regEmail', false, getRegisterSessionEmail() || ($('regEmail') ? $('regEmail').value : ''));
@@ -2373,6 +2525,9 @@ function initAdminModule(){
   $('saveRecordBtn').onclick=saveRecord;
   $('clearRecordFormBtn').onclick=clearRecordForm;
   $('findRecordsBtn').onclick=findEditableRecords;
+  if($('adminUnlockBtn')) $('adminUnlockBtn').onclick=openAdminPanel;
+  if($('adminCreateUserBtn')) $('adminCreateUserBtn').onclick=createAdminUser;
+  if($('adminRefreshAuditBtn')) $('adminRefreshAuditBtn').onclick=loadAdminAudit;
   const checkBtn=$('checkDraftBtn'); if(checkBtn) checkBtn.onclick=()=>{if(!getRegisterPassword()){openRegisterLoginModal(); return;} checkSharedDraft();};
   ['regFecha'].forEach(id=>{const el=$(id); if(!el) return; el.addEventListener('change',refreshRegisterDayPanels);});
   ['regEmail','regObs'].forEach(id=>{const el=$(id); if(!el) return; el.addEventListener('input',()=>markDraftDirty(5000)); el.addEventListener('change',()=>markDraftDirty(1000));});
