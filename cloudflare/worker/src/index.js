@@ -466,7 +466,8 @@ async function maybeStartLegacyImport(env, ctx) {
   return { ...state, status: "running" };
 }
 
-async function listRecords(request, env) {
+async function listRecords(request, env, ctx) {
+  await maybeStartLegacyImport(env, ctx);
   if (!env.DB) return json({ ok: false, error: "D1_NOT_BOUND" }, 503);
   const url = new URL(request.url);
   const from = String(url.searchParams.get("from") || "").trim();
@@ -663,7 +664,7 @@ export default {
       } else if (url.pathname === "/api/drafts" && request.method === "DELETE") {
         response = await deleteDraft(request, env);
       } else if (url.pathname === "/api/records" && request.method === "GET") {
-        response = await listRecords(request, env);
+        response = await listRecords(request, env, ctx);
       } else if (url.pathname === "/api/records" && request.method === "POST") {
         response = await createRecord(request, env);
       } else if (url.pathname === "/api/logout" && request.method === "POST") {
