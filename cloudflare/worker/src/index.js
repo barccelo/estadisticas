@@ -716,6 +716,113 @@ async function changeAdminKey(request, env) {
   return json({ok:true,kind,message:kind==="admin"?"Clave de administración actualizada.":"Clave de edición actualizada."});
 }
 
+async function ensureBackupSchema(env) {
+  await env.DB.prepare(
+    `CREATE TABLE IF NOT EXISTS backup_jobs (
+      id TEXT PRIMARY KEY,
+      record_id TEXT,
+      operation TEXT NOT NULL CHECK(operation IN ('create','update','delete')),
+      responsible_email TEXT NOT NULL,
+      payload_json TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','done')),
+      attempts INTEGER NOT NULL DEFAULT 0,
+      last_error TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      completed_at TEXT
+    )`
+  ).run();
+  await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_backup_jobs_pending ON backup_jobs(status,operation,created_at)").run();
+  await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_backup_jobs_email ON backup_jobs(responsible_email,status)").run();
+}
+
+async function enqueueBackupJob(env, operation, recordId, responsibleEmail, payload) {
+  try {
+    await ensureBackupSchema(env);
+    const id=crypto.randomUUID();
+    await env.DB.prepare(
+      `INSERT INTO backup_jobs (id,record_id,operation,responsible_email,payload_json)
+       VALUES (?1,?2,?3,?4,?5)`
+    ).bind(id,recordId||null,operation,String(responsibleEmail||"").trim().toLowerCase(),JSON.stringify(payload||{})).run();
+    return id;
+  } catch (error) {
+    console.error("backup enqueue failed",error);
+    return null;
+  }
+}
+
+async function listBackupJobs(request, env) {
+  await ensureBackupSchema(env);
+  const editAllowed=await requireEditSession(request,env);
+  const auth=await requireSession(request,env);
+
+  if(editAllowed){
+    const rows=await env.DB.prepare(
+      `SELECT id,record_id,operation,responsible_email,payload_json,attempts,last_error,created_at,updated_at
+       FROM backup_jobs
+       WHERE status='pending' AND operation IN ('update','delete')
+       ORDER BY created_at ASC LIMIT 50`
+    ).all();
+    return json({ok:true,jobs:(rows.results||[]).map(row=>({...row,payload:JSON.parse(row.payload_json||"{}"),payload_json:undefined}))});
+  }
+
+  if(auth){
+    const rows=await env.DB.prepare(
+      `SELECT id,record_id,operation,responsible_email,payload_json,attempts,last_error,created_at,updated_at
+       FROM backup_jobs
+       WHERE status='pending' AND operation='create' AND lower(responsible_email)=lower(?1)
+       ORDER BY created_at ASC LIMIT 50`
+    ).bind(auth.email).all();
+    return json({ok:true,jobs:(rows.results||[]).map(row=>({...row,payload:JSON.parse(row.payload_json||"{}"),payload_json:undefined}))});
+  }
+
+  return json({ok:false,error:"UNAUTHORIZED"},401);
+}
+
+async function reportBackupJob(request, env, jobId) {
+  await ensureBackupSchema(env);
+  let body; try{body=await request.json();}catch{return json({ok:false,error:"INVALID_JSON"},400);}
+  const success=Boolean(body?.success);
+  const error=String(body?.error||"").slice(0,500);
+  const job=await env.DB.prepare(
+    "SELECT id,operation,responsible_email,status FROM backup_jobs WHERE id=?1 LIMIT 1"
+  ).bind(jobId).first();
+  if(!job) return json({ok:false,error:"BACKUP_JOB_NOT_FOUND"},404);
+
+  const editAllowed=await requireEditSession(request,env);
+  const auth=await requireSession(request,env);
+  const allowed = editAllowed || (auth && job.operation==="create" && String(auth.email||"").toLowerCase()===String(job.responsible_email||"").toLowerCase());
+  if(!allowed) return json({ok:false,error:"UNAUTHORIZED"},401);
+
+  if(success){
+    await env.DB.prepare(
+      `UPDATE backup_jobs SET status='done',attempts=attempts+1,last_error='',
+       completed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),
+       updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?1`
+    ).bind(jobId).run();
+  }else{
+    await env.DB.prepare(
+      `UPDATE backup_jobs SET attempts=attempts+1,last_error=?2,
+       updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?1`
+    ).bind(jobId,error||"BACKUP_FAILED").run();
+  }
+  return json({ok:true,status:success?"done":"pending"});
+}
+
+async function adminBackupStatus(request, env) {
+  const adminAllowed=await requireAdminSession(request,env);
+  if(!adminAllowed) return json({ok:false,error:"ADMIN_LOCKED"},403);
+  await ensureBackupSchema(env);
+  const counts=await env.DB.prepare(
+    `SELECT status,operation,COUNT(*) AS count FROM backup_jobs GROUP BY status,operation`
+  ).all();
+  const pending=await env.DB.prepare(
+    `SELECT id,record_id,operation,responsible_email,attempts,last_error,created_at,updated_at
+     FROM backup_jobs WHERE status='pending' ORDER BY created_at ASC LIMIT 100`
+  ).all();
+  return json({ok:true,counts:counts.results||[],pending:pending.results||[]});
+}
+
 async function createRecord(request, env) {
   if (!env.DB) return json({ ok: false, error: "D1_NOT_BOUND" }, 503);
   const auth = await requireSession(request, env);
@@ -807,9 +914,17 @@ async function createRecord(request, env) {
     "INSERT INTO app_log (event_type, user_id, record_id, details_json) VALUES ('record_created', ?1, ?2, ?3)"
   ).bind(auth.user_id, recordId, JSON.stringify({ date, idempotency_key: idempotencyKey })).run();
 
+  const backupJobId=await enqueueBackupJob(env,"create",recordId,auth.email,{
+    date,
+    email:auth.email,
+    observations,
+    attendance:clean
+  });
+
   return json({
     ok: true,
     duplicate: false,
+    backup: { queued: Boolean(backupJobId), jobId: backupJobId },
     record: { id: recordId, createdAt: saved?.created_at || new Date().toISOString() },
     message: "Registro guardado correctamente.",
   }, 201);
@@ -842,9 +957,27 @@ async function deleteRecord(request, env, recordId) {
     attendance: entries.results || []
   })).run();
 
+  const deletedAttendance={};
+  for(const d of RECORD_DISCIPLINES) deletedAttendance[d]=0;
+  for(const row of entries.results||[]){
+    if(row.discipline && Object.prototype.hasOwnProperty.call(deletedAttendance,row.discipline)){
+      deletedAttendance[row.discipline]=Number(row.attendance||0);
+    }
+  }
+  const backupJobId=await enqueueBackupJob(env,"delete",recordId,current.email,{
+    record:{
+      id:recordId,
+      fecha:current.record_date,
+      email:current.email,
+      responsable:current.display_name,
+      observaciones:current.observations||"",
+      valores:deletedAttendance
+    }
+  });
+
   await env.DB.prepare("UPDATE app_log SET record_id=NULL WHERE record_id=?1").bind(recordId).run();
   await env.DB.prepare("DELETE FROM records WHERE id=?1").bind(recordId).run();
-  return json({ok:true,message:"Registro eliminado correctamente."});
+  return json({ok:true,backup:{queued:Boolean(backupJobId),jobId:backupJobId},message:"Registro eliminado correctamente."});
 }
 
 async function listAdminUsers(request, env) {
@@ -1033,8 +1166,11 @@ async function updateRecord(request, env, recordId) {
     "INSERT INTO app_log (event_type, user_id, record_id, details_json) VALUES ('record_updated', ?1, ?2, ?3)"
   ).bind(auth?.user_id || null, recordId, JSON.stringify({ before, after, authorization: "edit-key" })).run();
 
+  const backupJobId=await enqueueBackupJob(env,"update",recordId,responsible.email,{before,after});
+
   return json({
     ok: true,
+    backup: { queued: Boolean(backupJobId), jobId: backupJobId },
     record: {
       id: recordId,
       fecha: date,
@@ -1111,6 +1247,12 @@ export default {
         response = await updateAdminUser(request, env, decodeURIComponent(url.pathname.slice("/api/admin/users/".length)));
       } else if (url.pathname === "/api/admin/audit" && request.method === "GET") {
         response = await listAuditLog(request, env);
+      } else if (url.pathname === "/api/admin/backups" && request.method === "GET") {
+        response = await adminBackupStatus(request, env);
+      } else if (url.pathname === "/api/backup/jobs" && request.method === "GET") {
+        response = await listBackupJobs(request, env);
+      } else if (url.pathname.startsWith("/api/backup/jobs/") && request.method === "POST") {
+        response = await reportBackupJob(request, env, decodeURIComponent(url.pathname.slice("/api/backup/jobs/".length)));
       } else if (url.pathname === "/api/logout" && request.method === "POST") {
         response = await logout(request, env);
       } else {
