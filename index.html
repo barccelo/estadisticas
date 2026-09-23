@@ -1126,7 +1126,6 @@ body{background:#f6f7fb;}
       <button class="side-link" type="button" data-view="estadisticas">Estadísticas</button>
       <button class="side-link" type="button" data-view="horarios">Horarios</button>
       <button class="side-link" type="button" data-view="edicion">Editar datos</button>
-      <button class="side-link" type="button" data-view="admin">Administración</button>
     </nav>
     
   </aside>
@@ -1265,15 +1264,23 @@ body{background:#f6f7fb;}
         <section class="panel editing-wrap">
           <div class="admin-card">
             <h2>Administración</h2>
-            <p>Gestiona usuarios, roles, acceso y auditoría. Requiere la misma clave adicional de edición.</p>
+            <p>Gestiona usuarios, claves de acceso, roles y auditoría.</p>
             <div class="mini-grid">
-              <div class="field"><label>Clave de edición</label><input id="adminEditPassword" type="password" inputmode="numeric" placeholder="Clave de edición" autocomplete="off"></div>
+              <div class="field"><label>Clave de administración</label><input id="adminEditPassword" type="password" inputmode="numeric" placeholder="Clave de administración" autocomplete="off"></div>
               <div class="field"><label>&nbsp;</label><button class="btn" id="adminUnlockBtn" type="button">Abrir administración</button></div>
             </div>
             <div id="adminStatus" class="status"></div>
 
             <div id="adminContent" hidden>
-              <div class="section-head" style="margin-top:18px"><div><h2>Usuarios</h2><p>Crear usuarios, cambiar rol, activar/desactivar y restablecer PIN.</p></div></div>
+              <div class="section-head" style="margin-top:18px"><div><h2>Seguridad de acceso</h2><p>Las claves de administración y de edición son independientes.</p></div></div>
+              <div class="mini-grid">
+                <div class="field"><label>Nueva clave de administración</label><input id="adminNewAdminKey" type="password" inputmode="numeric" placeholder="Nueva clave"></div>
+                <div class="field"><label>&nbsp;</label><button class="btn secondary" id="adminChangeAdminKeyBtn" type="button">Cambiar clave de administración</button></div>
+                <div class="field"><label>Nueva clave de edición</label><input id="adminNewEditKey" type="password" inputmode="numeric" placeholder="Nueva clave"></div>
+                <div class="field"><label>&nbsp;</label><button class="btn secondary" id="adminChangeEditKeyBtn" type="button">Cambiar clave de edición</button></div>
+              </div>
+
+              <div class="section-head" style="margin-top:22px"><div><h2>Usuarios</h2><p>Crear usuarios, cambiar rol, activar/desactivar y restablecer PIN.</p></div></div>
               <div class="mini-grid">
                 <div class="field"><label>Nombre</label><input id="adminNewName" type="text" placeholder="Nombre"></div>
                 <div class="field"><label>Correo</label><input id="adminNewEmail" type="email" placeholder="correo@dominio.com"></div>
@@ -1315,6 +1322,7 @@ let registerSessionToken = '';
 let lastSubmittedRecordSignature = '';
 let editLoadedRecords = new Map();
 let editSessionToken = '';
+let adminSessionToken = '';
 const fmt = new Intl.NumberFormat('es-VE');
 function $(id){return document.getElementById(id)}
 function escapeHtml(v){return String(v ?? '').replace(/[<>&]/g, m=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[m]))}
@@ -2423,21 +2431,21 @@ async function deleteEditedRecord(unique, recordId){
 
 async function ensureAdminUnlocked(){
   const password=$('adminEditPassword')?.value.trim();
-  if(editSessionToken) return true;
-  if(!password){setStatus('adminStatus','Escribe la clave de edición.','err'); return false;}
+  if(adminSessionToken) return true;
+  if(!password){setStatus('adminStatus','Escribe la clave de administración.','err'); return false;}
   setStatus('adminStatus','Verificando clave...');
   try{
-    const unlocked=await cloudApi('/api/edit/unlock',{method:'POST',body:{password}});
-    editSessionToken=String(unlocked.edit_token||'');
-    if(!editSessionToken) throw new Error('No se pudo abrir la administración.');
+    const unlocked=await cloudApi('/api/admin/unlock',{method:'POST',body:{password}});
+    adminSessionToken=String(unlocked.admin_token||'');
+    if(!adminSessionToken) throw new Error('No se pudo abrir la administración.');
     return true;
   }catch(err){
-    setStatus('adminStatus',err.message==='INVALID_EDIT_KEY'?'Clave de edición incorrecta.':err.message,'err');
+    setStatus('adminStatus',err.message==='INVALID_ADMIN_KEY'?'Clave de administración incorrecta.':err.message,'err');
     return false;
   }
 }
 async function loadAdminUsers(){
-  const result=await cloudApi('/api/admin/users',{headers:{'x-edit-token':editSessionToken}});
+  const result=await cloudApi('/api/admin/users',{headers:{'x-admin-token':adminSessionToken}});
   const box=$('adminUsers'); box.innerHTML='';
   (result.users||[]).forEach(user=>{
     const id=String(user.id);
@@ -2462,7 +2470,7 @@ async function saveAdminUser(id){
   try{
     const result=await cloudApi('/api/admin/users/'+encodeURIComponent(id),{
       method:'PUT',
-      headers:{'x-edit-token':editSessionToken},
+      headers:{'x-admin-token':adminSessionToken},
       body:{
         name:document.querySelector(`[data-admin-name="${CSS.escape(id)}"]`).value,
         email:document.querySelector(`[data-admin-email="${CSS.escape(id)}"]`).value,
@@ -2480,7 +2488,7 @@ async function toggleAdminUser(id,current){
   try{
     await cloudApi('/api/admin/users/'+encodeURIComponent(id),{
       method:'PUT',
-      headers:{'x-edit-token':editSessionToken},
+      headers:{'x-admin-token':adminSessionToken},
       body:{active:!current}
     });
     await loadAdminUsers();
@@ -2492,7 +2500,7 @@ async function createAdminUser(){
   try{
     await cloudApi('/api/admin/users',{
       method:'POST',
-      headers:{'x-edit-token':editSessionToken},
+      headers:{'x-admin-token':adminSessionToken},
       body:{name,email,pin,role}
     });
     $('adminNewName').value=''; $('adminNewEmail').value=''; $('adminNewPin').value='';
@@ -2501,7 +2509,7 @@ async function createAdminUser(){
   }catch(err){setStatus('adminStatus',err.message,'err');}
 }
 async function loadAdminAudit(){
-  const result=await cloudApi('/api/admin/audit',{headers:{'x-edit-token':editSessionToken}});
+  const result=await cloudApi('/api/admin/audit',{headers:{'x-admin-token':adminSessionToken}});
   const box=$('adminAudit'); box.innerHTML='';
   (result.events||[]).forEach(ev=>{
     const card=document.createElement('div'); card.className='edit-card';
@@ -2509,6 +2517,37 @@ async function loadAdminAudit(){
     card.innerHTML=`<div class="edit-card-title"><span>${escapeHtml(ev.event_type)}</span><span>${escapeHtml(ev.created_at||'')}</span></div><div class="small">${escapeHtml(ev.display_name||ev.email||'Sistema')}</div><div class="small" style="margin-top:6px;word-break:break-word">${escapeHtml(details)}</div>`;
     box.appendChild(card);
   });
+}
+async function changeAccessKey(kind){
+  if(!adminSessionToken){setStatus('adminStatus','Abre primero la administración.','err');return;}
+  const input=kind==='admin' ? $('adminNewAdminKey') : $('adminNewEditKey');
+  const password=String(input?.value||'').trim();
+  if(!/^\d{4,20}$/.test(password)){
+    setStatus('adminStatus','La nueva clave debe tener entre 4 y 20 dígitos.','err');
+    return;
+  }
+  const label=kind==='admin'?'administración':'edición';
+  if(!confirm('¿Cambiar la clave de '+label+'?')) return;
+  try{
+    const result=await cloudApi('/api/admin/keys',{
+      method:'PUT',
+      headers:{'x-admin-token':adminSessionToken},
+      body:{kind,password}
+    });
+    if(input) input.value='';
+    if(kind==='admin'){
+      adminSessionToken='';
+      if($('adminContent')) $('adminContent').hidden=true;
+      if($('adminEditPassword')) $('adminEditPassword').value='';
+      setStatus('adminStatus','Clave de administración actualizada. Vuelve a introducir la nueva clave para continuar.','ok');
+    }else{
+      editSessionToken='';
+      setStatus('adminStatus',result.message || 'Clave de edición actualizada.','ok');
+    }
+  }catch(err){
+    if(err.message==='ADMIN_LOCKED') adminSessionToken='';
+    setStatus('adminStatus',err.message==='ADMIN_LOCKED'?'La autorización administrativa venció. Vuelve a introducir la clave.':err.message,'err');
+  }
 }
 async function openAdminPanel(){
   if(!await ensureAdminUnlocked()) return;
@@ -2528,6 +2567,8 @@ function initAdminModule(){
   if($('adminUnlockBtn')) $('adminUnlockBtn').onclick=openAdminPanel;
   if($('adminCreateUserBtn')) $('adminCreateUserBtn').onclick=createAdminUser;
   if($('adminRefreshAuditBtn')) $('adminRefreshAuditBtn').onclick=loadAdminAudit;
+  if($('adminChangeAdminKeyBtn')) $('adminChangeAdminKeyBtn').onclick=()=>changeAccessKey('admin');
+  if($('adminChangeEditKeyBtn')) $('adminChangeEditKeyBtn').onclick=()=>changeAccessKey('edit');
   const checkBtn=$('checkDraftBtn'); if(checkBtn) checkBtn.onclick=()=>{if(!getRegisterPassword()){openRegisterLoginModal(); return;} checkSharedDraft();};
   ['regFecha'].forEach(id=>{const el=$(id); if(!el) return; el.addEventListener('change',refreshRegisterDayPanels);});
   ['regEmail','regObs'].forEach(id=>{const el=$(id); if(!el) return; el.addEventListener('input',()=>markDraftDirty(5000)); el.addEventListener('change',()=>markDraftDirty(1000));});
@@ -2809,6 +2850,8 @@ function initLayoutNavigation(){
   document.querySelectorAll('[data-toggle-filters]').forEach(btn=>btn.onclick=()=>toggleFilterPanel(btn));
 }
 initLayoutNavigation();
+const isHiddenAdminPath=/\/032843\/?$/.test(window.location.pathname);
+if(isHiddenAdminPath) showView('admin');
 setupLandingCollapses();
 setupRegisterLoginModal();
 
