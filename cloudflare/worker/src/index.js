@@ -48,7 +48,7 @@ async function sha256Hex(value) {
 
 const RECORD_DISCIPLINES = ["Ajedrez","Astronomía","Atletismo","Baloncesto","Béisbol","Fútbol campo","Fútbol sala","Música","Tenis de campo","Robótica"];
 const LEGACY_SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQi7LJ9GkWvS8xSGabaKdLwMRzhaMXppm8Vt8Z5chsQr92cWEOYF2SKeNPI15SYc1oryFw3eJP1SQkg/pub?gid=590274017&single=true&output=csv";
-const LEGACY_APPS_SCRIPT_URL = "https://script.google.com/a/macros/losroblesenlinea.com.ve/s/AKfycbzHHgoVMHLbCWYYPnPgtWsG3Ipq3Q_5dkMRKBFbJYW5uG3mkhlHWkLwi1DyOuKCDAGh/exec";
+const LEGACY_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzHHgoVMHLbCWYYPnPgtWsG3Ipq3Q_5dkMRKBFbJYW5uG3mkhlHWkLwi1DyOuKCDAGh/exec";
 
 const PIN_ITERATIONS = 100000;
 
@@ -536,15 +536,13 @@ async function ensureEditSchema(env) {
     )`
   ).run();
   await env.DB.prepare(
-    `CREATE TABLE IF NOT EXISTS edit_sessions (
+    `CREATE TABLE IF NOT EXISTS edit_sessions_global (
       token_hash TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL,
       expires_at INTEGER NOT NULL,
-      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
     )`
   ).run();
-  await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_edit_sessions_expiry ON edit_sessions(expires_at)").run();
+  await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_edit_sessions_global_expiry ON edit_sessions_global(expires_at)").run();
 }
 
 async function validateLegacyEditPassword(password) {
@@ -568,8 +566,6 @@ async function validateLegacyEditPassword(password) {
 }
 
 async function unlockEditing(request, env) {
-  const auth=await requireSession(request,env);
-  if(!auth) return json({ok:false,error:"UNAUTHORIZED"},401);
   await ensureEditSchema(env);
 
   let body;
@@ -601,17 +597,17 @@ async function unlockEditing(request, env) {
   const expiresIn=60*30;
   const expiresAt=Math.floor(Date.now()/1000)+expiresIn;
   await env.DB.prepare(
-    "INSERT INTO edit_sessions (token_hash,user_id,expires_at) VALUES (?1,?2,?3)"
-  ).bind(tokenHash,auth.user_id,expiresAt).run();
+    "INSERT INTO edit_sessions_global (token_hash,expires_at) VALUES (?1,?2)"
+  ).bind(tokenHash,expiresAt).run();
 
   await env.DB.prepare(
-    "INSERT INTO app_log (event_type,user_id,details_json) VALUES ('edit_unlocked',?1,?2)"
-  ).bind(auth.user_id,JSON.stringify({expires_in:expiresIn})).run();
+    "INSERT INTO app_log (event_type,details_json) VALUES ('edit_unlocked',?1)"
+  ).bind(JSON.stringify({expires_in:expiresIn,authorization:"edit-key"})).run();
 
   return json({ok:true,edit_token:token,expires_in:expiresIn});
 }
 
-async function requireEditSession(request, env, userId) {
+async function requireEditSession(request, env) {
   await ensureEditSchema(env);
   const token=String(request.headers.get("x-edit-token")||"").trim();
   if(!token) return false;
@@ -620,8 +616,8 @@ async function requireEditSession(request, env, userId) {
   catch { return false; }
   const now=Math.floor(Date.now()/1000);
   const row=await env.DB.prepare(
-    "SELECT token_hash FROM edit_sessions WHERE token_hash=?1 AND user_id=?2 AND expires_at>?3 LIMIT 1"
-  ).bind(tokenHash,userId,now).first();
+    "SELECT token_hash FROM edit_sessions_global WHERE token_hash=?1 AND expires_at>?2 LIMIT 1"
+  ).bind(tokenHash,now).first();
   return Boolean(row);
 }
 
@@ -726,11 +722,9 @@ async function createRecord(request, env) {
 
 async function updateRecord(request, env, recordId) {
   if (!env.DB) return json({ ok: false, error: "D1_NOT_BOUND" }, 503);
-  const auth = await requireSession(request, env);
-  if (!auth) return json({ ok: false, error: "UNAUTHORIZED" }, 401);
-
-  const editAllowed = await requireEditSession(request, env, auth.user_id);
+  const editAllowed = await requireEditSession(request, env);
   if (!editAllowed) return json({ ok: false, error: "EDIT_LOCKED" }, 403);
+  const auth = await requireSession(request, env);
 
   let body;
   try { body = await request.json(); }
@@ -821,7 +815,7 @@ async function updateRecord(request, env, recordId) {
 
   await env.DB.prepare(
     "INSERT INTO app_log (event_type, user_id, record_id, details_json) VALUES ('record_updated', ?1, ?2, ?3)"
-  ).bind(auth.user_id, recordId, JSON.stringify({ before, after })).run();
+  ).bind(auth?.user_id || null, recordId, JSON.stringify({ before, after, authorization: "edit-key" })).run();
 
   return json({
     ok: true,
