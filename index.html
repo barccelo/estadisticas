@@ -1248,9 +1248,10 @@ body{background:#f6f7fb;}
         <section class="panel editing-wrap">
           <div class="admin-card">
             <h2>Editar datos guardados</h2>
-            <p>Busca y modifica los registros guardados en Cloudflare D1.</p>
+            <p>Busca y modifica los registros guardados en Cloudflare D1. La edición requiere una clave adicional, independiente de la sesión de usuario.</p>
             <div class="mini-grid">
-              <div class="field full"><label>Fecha</label><input id="editFecha" type="date"></div>
+              <div class="field"><label>Clave de edición</label><input id="editPassword" type="password" inputmode="numeric" placeholder="Clave de edición" autocomplete="off"></div>
+              <div class="field"><label>Fecha</label><input id="editFecha" type="date"></div>
             </div>
             <div class="admin-row"><button class="btn" id="findRecordsBtn" type="button">Buscar registros</button></div>
             <div id="editStatus" class="status"></div>
@@ -1282,6 +1283,7 @@ let registerSessionUser = null;
 let registerSessionToken = '';
 let lastSubmittedRecordSignature = '';
 let editLoadedRecords = new Map();
+let editSessionToken = '';
 const fmt = new Intl.NumberFormat('es-VE');
 function $(id){return document.getElementById(id)}
 function escapeHtml(v){return String(v ?? '').replace(/[<>&]/g, m=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[m]))}
@@ -1952,6 +1954,7 @@ async function clearRegisterSession(){
   registerSessionPassword='';
   registerSessionUser=null;
   registerSessionToken='';
+  editSessionToken='';
   if($('regPassword')) $('regPassword').value='';
   if($('regEmail')){
     $('regEmail').disabled=false;
@@ -2241,20 +2244,41 @@ async function saveRecord(){
 }
 async function findEditableRecords(){
   const date=$('editFecha').value;
+  const password=$('editPassword').value.trim();
   if(!registerSessionToken){
     openRegisterLoginModal();
     setStatus('editStatus','Inicia sesión para editar registros.','err');
     return;
   }
+  if(!password){setStatus('editStatus','Escribe la clave de edición.','err'); return;}
   if(!date){setStatus('editStatus','Selecciona una fecha para buscar.','err'); return;}
-  const btn=$('findRecordsBtn'); btn.disabled=true; $('editResults').innerHTML=''; setStatus('editStatus','Buscando registros...');
+  const btn=$('findRecordsBtn'); btn.disabled=true; $('editResults').innerHTML=''; setStatus('editStatus',editSessionToken?'Buscando registros...':'Verificando clave de edición...');
   try{
+    if(!editSessionToken){
+      const unlocked=await cloudApi('/api/edit/unlock',{
+        method:'POST',
+        token:registerSessionToken,
+        body:{password}
+      });
+      editSessionToken=String(unlocked.edit_token||'');
+      if(!editSessionToken) throw new Error('No se pudo habilitar la edición.');
+    }
     const records=DATA.filter(rec=>String(rec.fecha||'')===date && rec.id);
     editLoadedRecords=new Map(records.map(rec=>[String(rec.id),rec]));
     renderEditResults(records);
     setStatus('editStatus', records.length ? `${records.length} registro(s) encontrado(s) en Cloudflare D1.` : 'No se encontraron registros para esa fecha.', records.length ? 'ok' : '');
   }catch(err){
-    setStatus('editStatus','No se pudieron mostrar los registros cargados.','err');
+    if(err.message==='INVALID_EDIT_KEY'){
+      editSessionToken='';
+      setStatus('editStatus','Clave de edición incorrecta.','err');
+    }else if(err.message==='UNAUTHORIZED'){
+      editSessionToken='';
+      await clearRegisterSession();
+      openRegisterLoginModal();
+      setStatus('editStatus','La sesión venció. Inicia sesión nuevamente.','err');
+    }else{
+      setStatus('editStatus',err.message || 'No se pudieron mostrar los registros.','err');
+    }
   }finally{btn.disabled=false;}
 }
 function valueFromRecord(rec, ...names){
@@ -2325,6 +2349,7 @@ async function saveEditedRecord(unique, recordId){
     const result=await cloudApi('/api/records/'+encodeURIComponent(recordId),{
       method:'PUT',
       token:registerSessionToken,
+      headers:{'x-edit-token':editSessionToken},
       body:{date,responsible_email:email,observations,attendance}
     });
     editLoadedRecords.set(String(recordId),result.record);
@@ -2347,11 +2372,14 @@ async function saveEditedRecord(unique, recordId){
     loadData({keepFilters:true}).catch(()=>{});
   }catch(err){
     if(err.message==='UNAUTHORIZED'){await clearRegisterSession(); openRegisterLoginModal();}
+    if(err.message==='EDIT_LOCKED') editSessionToken='';
     const msg=err.message==='DUPLICATE_RECORD'
       ? 'Ese cambio produciría un registro duplicado y no se guardó.'
-      : err.message==='UNAUTHORIZED'
-        ? 'La sesión venció. Inicia sesión nuevamente.'
-        : err.message;
+      : err.message==='EDIT_LOCKED'
+        ? 'La autorización de edición venció. Vuelve a introducir la clave de edición.'
+        : err.message==='UNAUTHORIZED'
+          ? 'La sesión venció. Inicia sesión nuevamente.'
+          : err.message;
     setStatus(unique+'_status',msg,'err');
   }finally{btn.disabled=false;}
 }
