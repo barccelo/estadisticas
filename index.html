@@ -2177,7 +2177,24 @@ async function saveRecord(){
       body:{date,observations,attendance,client_key:clientKey}
     });
     lastSubmittedRecordSignature=clientKey;
-    setStatus('regStatus', result.duplicate ? 'Ese mismo registro ya estaba guardado; no se creó un duplicado.' : 'Registro guardado correctamente en Cloudflare.','ok');
+    let backupMessage='';
+    if(!result.duplicate){
+      try{
+        const backup=await apiCall('addRecord',{password:getRegisterPassword(),record});
+        backupMessage = backup && backup.ok
+          ? ' Respaldo en Google Sheets actualizado.'
+          : ' El registro quedó en Cloudflare, pero el respaldo en Google Sheets quedó pendiente.';
+      }catch(_e){
+        backupMessage=' El registro quedó en Cloudflare, pero el respaldo en Google Sheets quedó pendiente.';
+      }
+    }
+    setStatus(
+      'regStatus',
+      result.duplicate
+        ? 'Ese mismo registro ya estaba guardado; no se creó un duplicado.'
+        : 'Registro guardado correctamente en Cloudflare.'+backupMessage,
+      'ok'
+    );
     draftFormDirty=false;
     draftLastSavedSignature='';
     draftLoadedId='';
