@@ -2236,6 +2236,37 @@ async function reportBackupJobResult(job, success, error='', mode='register'){
   if(Object.keys(headers).length) options.headers=headers;
   try{await cloudApi('/api/backup/jobs/'+encodeURIComponent(job.id),options);}catch(_e){}
 }
+async function ensureLegacyTimestamp(password, payload){
+  const timestamp=String(payload?.timestamp||payload?.createdAt||'').trim();
+  if(!timestamp) return true;
+
+  const cloudRecord={
+    fecha:payload.date||payload.fecha||'',
+    email:payload.email||'',
+    observaciones:payload.observations||payload.observaciones||'',
+    valores:{...(payload.attendance||payload.valores||{})}
+  };
+
+  const found=await apiCall('getRecordsByDate',{password,date:cloudRecord.fecha});
+  if(!found?.ok) throw new Error(found?.message||'BACKUP_TIMESTAMP_LOOKUP_FAILED');
+
+  const legacy=(found.records||[]).find(rec=>legacyRecordMatchesCloud(rec,cloudRecord));
+  if(!legacy || !legacy.__rowNumber) throw new Error('BACKUP_TIMESTAMP_ROW_NOT_FOUND');
+
+  const existingTs=String(valueFromRecord(legacy,'Timestamp','Marca temporal')||'').trim();
+  if(existingTs) return true;
+
+  const patched={...legacy,'Timestamp':timestamp};
+  delete patched.__rowNumber;
+  const saved=await apiCall('updateRecord',{
+    password,
+    rowNumber:legacy.__rowNumber,
+    record:patched
+  });
+  if(!saved?.ok) throw new Error(saved?.message||'BACKUP_TIMESTAMP_UPDATE_FAILED');
+  return true;
+}
+
 async function processRegisterBackupQueue(){
   const password=getRegisterPassword();
   if(!registerSessionToken || !password) return {done:0,pending:0};
@@ -2245,8 +2276,10 @@ async function processRegisterBackupQueue(){
   let done=0,pending=0;
   for(const job of result.jobs||[]){
     try{
-      const backup=await apiCall('addRecord',{password,record:legacyRecordFromBackupPayload(job.payload||{})});
+      const payload=job.payload||{};
+      const backup=await apiCall('addRecord',{password,record:legacyRecordFromBackupPayload(payload)});
       if(!backup?.ok) throw new Error(backup?.message||'BACKUP_CREATE_FAILED');
+      await ensureLegacyTimestamp(password,payload);
       await reportBackupJobResult(job,true,'','register');
       done++;
     }catch(err){
