@@ -842,6 +842,7 @@ async function deleteRecord(request, env, recordId) {
     attendance: entries.results || []
   })).run();
 
+  await env.DB.prepare("UPDATE app_log SET record_id=NULL WHERE record_id=?1").bind(recordId).run();
   await env.DB.prepare("DELETE FROM records WHERE id=?1").bind(recordId).run();
   return json({ok:true,message:"Registro eliminado correctamente."});
 }
