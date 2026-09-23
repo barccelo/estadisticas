@@ -46,6 +46,8 @@ async function sha256Hex(value) {
   return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+const RECORD_DISCIPLINES = ["Ajedrez","Astronomía","Atletismo","Baloncesto","Béisbol","Fútbol campo","Fútbol sala","Música","Tenis de campo","Robótica"];
+
 const PIN_ITERATIONS = 100000;
 
 async function hashPin(pin, saltBytes = null) {
@@ -289,6 +291,158 @@ async function deleteDraft(request, env) {
   return json({ ok: true });
 }
 
+async function listRecords(request, env) {
+  if (!env.DB) return json({ ok: false, error: "D1_NOT_BOUND" }, 503);
+  const url = new URL(request.url);
+  const from = String(url.searchParams.get("from") || "").trim();
+  const to = String(url.searchParams.get("to") || "").trim();
+
+  if ((from && !/^\d{4}-\d{2}-\d{2}$/.test(from)) || (to && !/^\d{4}-\d{2}-\d{2}$/.test(to))) {
+    return json({ ok: false, error: "INVALID_DATE_RANGE" }, 400);
+  }
+
+  let sql = `SELECT r.id, r.record_date, r.observations, r.created_at,
+                    u.email, u.display_name,
+                    a.discipline, a.attendance
+             FROM records r
+             JOIN users u ON u.id = r.responsible_user_id
+             LEFT JOIN attendance_entries a ON a.record_id = r.id
+             WHERE 1=1`;
+  const binds = [];
+  if (from) { binds.push(from); sql += ` AND r.record_date >= ?${binds.length}`; }
+  if (to) { binds.push(to); sql += ` AND r.record_date <= ?${binds.length}`; }
+  sql += " ORDER BY r.record_date ASC, r.created_at ASC, a.discipline ASC";
+
+  const stmt = env.DB.prepare(sql);
+  const result = binds.length ? await stmt.bind(...binds).all() : await stmt.all();
+  const grouped = new Map();
+
+  for (const row of result.results || []) {
+    if (!grouped.has(row.id)) {
+      const values = {};
+      for (const d of RECORD_DISCIPLINES) values[d] = 0;
+      grouped.set(row.id, {
+        id: row.id,
+        timestamp: row.created_at,
+        fecha: row.record_date,
+        email: row.email,
+        responsable: row.display_name,
+        observaciones: row.observations || "",
+        valores: values,
+        total: 0,
+        source: "cloudflare",
+      });
+    }
+    const record = grouped.get(row.id);
+    if (row.discipline && Object.prototype.hasOwnProperty.call(record.valores, row.discipline)) {
+      const n = Number(row.attendance || 0);
+      record.valores[row.discipline] = n;
+    }
+  }
+
+  for (const record of grouped.values()) {
+    record.total = RECORD_DISCIPLINES.reduce((sum, d) => sum + Number(record.valores[d] || 0), 0);
+  }
+
+  return json({ ok: true, records: [...grouped.values()] });
+}
+
+async function createRecord(request, env) {
+  if (!env.DB) return json({ ok: false, error: "D1_NOT_BOUND" }, 503);
+  const auth = await requireSession(request, env);
+  if (!auth) return json({ ok: false, error: "UNAUTHORIZED" }, 401);
+
+  let body;
+  try { body = await request.json(); }
+  catch { return json({ ok: false, error: "INVALID_JSON" }, 400); }
+
+  const date = String(body?.date || "").trim();
+  const observations = String(body?.observations || "").trim();
+  const attendance = body?.attendance;
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !attendance || typeof attendance !== "object" || Array.isArray(attendance)) {
+    return json({ ok: false, error: "INVALID_RECORD" }, 400);
+  }
+  if (observations.length > 5000) return json({ ok: false, error: "OBSERVATIONS_TOO_LONG" }, 400);
+
+  const clean = {};
+  for (const discipline of RECORD_DISCIPLINES) {
+    const raw = Number(attendance[discipline] ?? 0);
+    if (!Number.isFinite(raw) || raw < 0 || !Number.isInteger(raw) || raw > 100000) {
+      return json({ ok: false, error: "INVALID_ATTENDANCE", discipline }, 400);
+    }
+    clean[discipline] = raw;
+  }
+
+  const canonical = JSON.stringify({
+    user: auth.user_id,
+    date,
+    observations,
+    attendance: RECORD_DISCIPLINES.map((d) => [d, clean[d]]),
+  });
+  const idempotencyKey = await sha256Hex(canonical);
+
+  const existing = await env.DB.prepare(
+    "SELECT id, created_at FROM records WHERE idempotency_key = ?1 LIMIT 1"
+  ).bind(idempotencyKey).first();
+
+  if (existing) {
+    return json({
+      ok: true,
+      duplicate: true,
+      record: { id: existing.id, createdAt: existing.created_at },
+      message: "Este mismo registro ya estaba guardado.",
+    });
+  }
+
+  const recordId = crypto.randomUUID();
+  const statements = [
+    env.DB.prepare(
+      `INSERT INTO records
+       (id, record_date, responsible_user_id, observations, source, idempotency_key)
+       VALUES (?1, ?2, ?3, ?4, 'web', ?5)`
+    ).bind(recordId, date, auth.user_id, observations, idempotencyKey),
+    ...RECORD_DISCIPLINES.map((discipline) =>
+      env.DB.prepare(
+        "INSERT INTO attendance_entries (record_id, discipline, attendance) VALUES (?1, ?2, ?3)"
+      ).bind(recordId, discipline, clean[discipline])
+    ),
+    env.DB.prepare("DELETE FROM drafts WHERE record_date = ?1").bind(date),
+  ];
+
+  try {
+    await env.DB.batch(statements);
+  } catch (error) {
+    const raced = await env.DB.prepare(
+      "SELECT id, created_at FROM records WHERE idempotency_key = ?1 LIMIT 1"
+    ).bind(idempotencyKey).first();
+    if (raced) {
+      return json({
+        ok: true,
+        duplicate: true,
+        record: { id: raced.id, createdAt: raced.created_at },
+        message: "Este mismo registro ya estaba guardado.",
+      });
+    }
+    throw error;
+  }
+
+  const saved = await env.DB.prepare(
+    "SELECT id, created_at FROM records WHERE id = ?1 LIMIT 1"
+  ).bind(recordId).first();
+
+  await env.DB.prepare(
+    "INSERT INTO app_log (event_type, user_id, record_id, details_json) VALUES ('record_created', ?1, ?2, ?3)"
+  ).bind(auth.user_id, recordId, JSON.stringify({ date, idempotency_key: idempotencyKey })).run();
+
+  return json({
+    ok: true,
+    duplicate: false,
+    record: { id: recordId, createdAt: saved?.created_at || new Date().toISOString() },
+    message: "Registro guardado correctamente.",
+  }, 201);
+}
+
 async function logout(request, env) {
   const token = bearer(request);
   if (!token || !env.DB) return json({ ok: true });
@@ -329,6 +483,10 @@ export default {
         response = await saveDraft(request, env);
       } else if (url.pathname === "/api/drafts" && request.method === "DELETE") {
         response = await deleteDraft(request, env);
+      } else if (url.pathname === "/api/records" && request.method === "GET") {
+        response = await listRecords(request, env);
+      } else if (url.pathname === "/api/records" && request.method === "POST") {
+        response = await createRecord(request, env);
       } else if (url.pathname === "/api/logout" && request.method === "POST") {
         response = await logout(request, env);
       } else {
