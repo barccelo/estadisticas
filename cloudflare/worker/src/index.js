@@ -769,9 +769,12 @@ async function listBackupJobs(request, env) {
   if(auth){
     const rows=await env.DB.prepare(
       `SELECT id,record_id,operation,responsible_email,payload_json,attempts,last_error,created_at,updated_at
-       FROM backup_jobs
-       WHERE status='pending' AND operation='create' AND lower(responsible_email)=lower(?1)
-       ORDER BY created_at ASC LIMIT 50`
+       FROM backup_jobs b
+       WHERE b.status='pending'
+         AND b.operation='create'
+         AND lower(b.responsible_email)=lower(?1)
+         AND EXISTS (SELECT 1 FROM records r WHERE r.id=b.record_id)
+       ORDER BY b.created_at ASC LIMIT 50`
     ).bind(auth.email).all();
     return json({ok:true,jobs:(rows.results||[]).map(row=>({...row,payload:JSON.parse(row.payload_json||"{}"),payload_json:undefined}))});
   }
@@ -965,6 +968,16 @@ async function deleteRecord(request, env, recordId) {
       deletedAttendance[row.discipline]=Number(row.attendance||0);
     }
   }
+  await ensureBackupSchema(env);
+  await env.DB.prepare(
+    `UPDATE backup_jobs
+     SET status='done',
+         last_error='SUPERSEDED_BY_DELETE',
+         completed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),
+         updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
+     WHERE record_id=?1 AND status='pending' AND operation IN ('create','update')`
+  ).bind(recordId).run();
+
   const backupJobId=await enqueueBackupJob(env,"delete",recordId,current.email,{
     record:{
       id:recordId,
