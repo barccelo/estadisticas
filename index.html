@@ -2177,29 +2177,39 @@ async function saveRecord(){
       body:{date,observations,attendance,client_key:clientKey}
     });
     lastSubmittedRecordSignature=clientKey;
-    let backupMessage='';
-    if(!result.duplicate){
-      try{
-        const backup=await apiCall('addRecord',{password:getRegisterPassword(),record});
-        backupMessage = backup && backup.ok
-          ? ' Respaldo en Google Sheets actualizado.'
-          : ' El registro quedó en Cloudflare, pero el respaldo en Google Sheets quedó pendiente.';
-      }catch(_e){
-        backupMessage=' El registro quedó en Cloudflare, pero el respaldo en Google Sheets quedó pendiente.';
-      }
-    }
     setStatus(
       'regStatus',
       result.duplicate
         ? 'Ese mismo registro ya estaba guardado; no se creó un duplicado.'
-        : 'Registro guardado correctamente en Cloudflare.'+backupMessage,
+        : 'Registro guardado correctamente en Cloudflare. Sincronizando respaldo…',
       'ok'
     );
+
+    if(!result.duplicate){
+      apiCall('addRecord',{password:getRegisterPassword(),record})
+        .then(backup=>{
+          setStatus(
+            'regStatus',
+            backup && backup.ok
+              ? 'Registro guardado correctamente en Cloudflare. Respaldo en Google Sheets actualizado.'
+              : 'Registro guardado correctamente en Cloudflare. El respaldo en Google Sheets quedó pendiente.',
+            'ok'
+          );
+        })
+        .catch(()=>{
+          setStatus(
+            'regStatus',
+            'Registro guardado correctamente en Cloudflare. El respaldo en Google Sheets quedó pendiente.',
+            'ok'
+          );
+        });
+    }
+
     draftFormDirty=false;
     draftLastSavedSignature='';
     draftLoadedId='';
-    try{await apiCall('discardDraft',{password:getRegisterPassword(),date});}catch(_e){}
-    await loadData({keepFilters:true});
+    apiCall('discardDraft',{password:getRegisterPassword(),date}).catch(()=>{});
+    loadData({keepFilters:true}).catch(()=>{});
     refreshRegisterDayPanels();
   }catch(err){
     if(err.message==='UNAUTHORIZED'){await clearRegisterSession(); openRegisterLoginModal();}
