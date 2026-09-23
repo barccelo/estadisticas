@@ -263,3 +263,272 @@ body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display"
   #totalCollapseCard #totalExportArea{margin:0 14px!important}
   #totalCollapseCard .landing-mini{margin:10px 14px 14px!important}
 }
+
+/* Apple-like refinement — global + home */
+:root{
+  --ios-bg:#f5f5f7;
+  --ios-surface:#ffffff;
+  --ios-fill:#f2f2f7;
+  --ios-fill-2:#e9e9ee;
+  --ios-label:#1c1c1e;
+  --ios-secondary:#6e6e73;
+  --ios-tertiary:#8e8e93;
+  --ios-separator:rgba(60,60,67,.18);
+  --ios-blue:#0a84ff;
+  --ios-red:#ff3b30;
+}
+html,body{background:var(--ios-bg)!important;color:var(--ios-label)!important}
+body{-webkit-font-smoothing:antialiased!important;text-rendering:optimizeLegibility!important}
+.panel{
+  background:var(--ios-surface)!important;
+  border:1px solid var(--ios-separator)!important;
+  box-shadow:none!important;
+}
+.btn{
+  border-radius:12px!important;
+  font-weight:600!important;
+  letter-spacing:-.01em!important;
+  box-shadow:none!important;
+}
+.btn.secondary{
+  background:var(--ios-fill)!important;
+  color:var(--ios-label)!important;
+  border:1px solid var(--ios-separator)!important;
+}
+.btn:hover{filter:none!important}
+.btn:active{opacity:.72!important;transform:scale(.985)!important}
+
+/* Header feels like a native large-title surface */
+.topbar{padding:22px 16px 18px!important;background:var(--ios-surface)!important}
+.topbar-inner{gap:12px!important}
+.topbar-logo{width:46px!important}
+.topbar h1{
+  font-size:22px!important;
+  line-height:1.04!important;
+  font-weight:750!important;
+  letter-spacing:-.04em!important;
+}
+.topbar p{
+  margin-top:5px!important;
+  font-size:12.5px!important;
+  color:var(--ios-secondary)!important;
+}
+
+/* iOS-style tab strip: less webby, flatter */
+.sidebar{
+  background:rgba(17,24,39,.98)!important;
+  border-top:0!important;
+}
+.side-link{
+  border-radius:12px!important;
+  font-weight:600!important;
+  color:rgba(255,255,255,.74)!important;
+}
+.side-link.active{
+  background:rgba(255,255,255,.96)!important;
+  color:#111827!important;
+  box-shadow:none!important;
+}
+.side-link .nav-icon{font-size:16px!important;opacity:.9!important}
+.side-link .nav-label{font-weight:600!important}
+
+/* Home hierarchy */
+#view-inicio{max-width:760px!important}
+#view-inicio>.guard-today{
+  background:var(--ios-surface)!important;
+  border:1px solid var(--ios-separator)!important;
+  border-radius:18px!important;
+  box-shadow:none!important;
+}
+.guard-today-title{
+  font-size:16px!important;
+  font-weight:700!important;
+  letter-spacing:-.025em!important;
+}
+.guard-today-meta{
+  font-size:12px!important;
+  font-weight:500!important;
+  color:var(--ios-secondary)!important;
+}
+.guard-today-head .btn{
+  background:var(--ios-fill)!important;
+  border:0!important;
+  color:var(--ios-blue)!important;
+  font-weight:600!important;
+}
+.guard-pill{
+  border:0!important;
+  box-shadow:none!important;
+  font-weight:700!important;
+  padding:7px 11px!important;
+}
+.guard-pill-code{font-weight:700!important}
+.guard-pill-name{font-weight:600!important}
+
+/* Home cards should read as grouped list rows, not dashboard tiles */
+#view-inicio>.view-grid{gap:10px!important}
+#registerCollapseCard,#totalCollapseCard{
+  border-radius:18px!important;
+  background:var(--ios-surface)!important;
+  border:1px solid var(--ios-separator)!important;
+  box-shadow:none!important;
+}
+.landing-toggle{
+  min-height:64px!important;
+  padding:0 14px!important;
+  background:transparent!important;
+}
+.landing-toggle-copy{gap:2px!important}
+.landing-toggle-copy strong{
+  font-size:16px!important;
+  font-weight:650!important;
+  color:var(--ios-label)!important;
+  letter-spacing:-.02em!important;
+}
+.landing-toggle-copy small{
+  font-size:11.5px!important;
+  font-weight:500!important;
+  color:var(--ios-secondary)!important;
+}
+#registerCollapseCard .landing-toggle::after,#totalCollapseCard .landing-toggle::after{
+  width:26px!important;height:26px!important;min-width:26px!important;flex-basis:26px!important;
+  background:transparent!important;border:0!important;color:var(--ios-tertiary)!important;
+  font-size:22px!important;
+}
+
+/* Register form as an inset-grouped iOS form */
+.register-card-body{padding:12px 14px 14px!important}
+.register-session-pill{
+  background:var(--ios-fill)!important;
+  color:var(--ios-secondary)!important;
+  border-radius:10px!important;
+  font-weight:600!important;
+}
+.register-session-pill .session-email{color:var(--ios-label)!important;font-weight:650!important}
+.register-session-pill .session-role{color:var(--ios-tertiary)!important}
+.register-primary-fields{gap:8px!important}
+.register-card-body .field label{
+  font-size:11px!important;
+  font-weight:600!important;
+  color:var(--ios-secondary)!important;
+}
+.register-card-body input,.register-card-body select,.register-card-body textarea{
+  background:var(--ios-fill)!important;
+  border:1px solid transparent!important;
+  border-radius:12px!important;
+  color:var(--ios-label)!important;
+}
+.register-card-body input:focus,.register-card-body select:focus,.register-card-body textarea:focus{
+  border-color:rgba(10,132,255,.45)!important;
+  outline:none!important;
+  box-shadow:0 0 0 3px rgba(10,132,255,.10)!important;
+}
+.register-day-state{
+  background:var(--ios-fill)!important;
+  color:var(--ios-secondary)!important;
+  border-radius:12px!important;
+}
+.register-actions{gap:8px!important}
+.register-actions .btn:first-child{
+  background:var(--ios-blue)!important;
+  color:#fff!important;
+}
+.register-actions .btn.secondary{
+  background:var(--ios-fill)!important;
+  color:var(--ios-blue)!important;
+  border:0!important;
+}
+.register-secondary{border-top:1px solid var(--ios-separator)!important}
+.register-secondary summary{
+  color:var(--ios-secondary)!important;
+  font-weight:600!important;
+}
+
+/* Total card */
+#totalCollapseCard .landing-collapse-content>.section-head h2{
+  font-size:16px!important;
+  font-weight:650!important;
+}
+#totalCollapseCard .landing-collapse-content>.section-head p{
+  color:var(--ios-secondary)!important;
+  font-weight:500!important;
+}
+#totalCollapseCard #totalExportArea{
+  border:1px solid var(--ios-separator)!important;
+  background:var(--ios-fill)!important;
+  box-shadow:none!important;
+}
+#totalCollapseCard .mini-stat{
+  background:var(--ios-fill)!important;
+  border:0!important;
+  box-shadow:none!important;
+}
+#totalCollapseCard .mini-stat .label{
+  color:var(--ios-secondary)!important;
+  font-weight:600!important;
+}
+#totalCollapseCard .mini-stat .value{
+  color:var(--ios-label)!important;
+  font-weight:700!important;
+}
+
+/* Apple-like app pages */
+.app-page-card{
+  border-radius:18px!important;
+  box-shadow:none!important;
+}
+.app-page-head h2{
+  font-size:22px!important;
+  font-weight:700!important;
+  letter-spacing:-.035em!important;
+}
+.icon-action{
+  background:var(--ios-fill)!important;
+  border:0!important;
+  color:var(--ios-blue)!important;
+  border-radius:12px!important;
+}
+.segmented-control{
+  background:var(--ios-fill-2)!important;
+  border:0!important;
+  border-radius:12px!important;
+}
+.segmented-control button{
+  color:var(--ios-secondary)!important;
+  font-weight:600!important;
+}
+.segmented-control button.active{
+  background:var(--ios-surface)!important;
+  color:var(--ios-label)!important;
+  box-shadow:0 1px 4px rgba(0,0,0,.10)!important;
+}
+.guard-day-tabs button{
+  background:var(--ios-surface)!important;
+  border:1px solid var(--ios-separator)!important;
+  color:var(--ios-secondary)!important;
+  font-weight:600!important;
+}
+.guard-day-tabs button.active{
+  background:var(--ios-label)!important;
+  border-color:var(--ios-label)!important;
+  color:#fff!important;
+}
+.guard-more-filters summary{color:var(--ios-secondary)!important}
+.guard-point-main{font-weight:700!important}
+.guard-point-sub{color:var(--ios-secondary)!important}
+
+/* Mobile: more iPhone-like proportions */
+@media(max-width:430px){
+  .topbar{padding:18px 14px 15px!important}
+  .topbar-logo{width:40px!important}
+  .topbar h1{font-size:20px!important}
+  .topbar p{font-size:11.5px!important}
+  .content>main.wrap{padding:10px 10px 22px!important}
+  #view-inicio>.guard-today{padding:12px!important}
+  #view-inicio>.view-grid{gap:9px!important}
+  #registerCollapseCard,#totalCollapseCard{border-radius:16px!important}
+  .landing-toggle{min-height:60px!important;padding:0 13px!important}
+  .landing-toggle-copy strong{font-size:15.5px!important}
+  .landing-toggle-copy small{font-size:11px!important}
+  .register-card-body{padding:11px 13px 13px!important}
+}
