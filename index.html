@@ -1144,7 +1144,7 @@ body{background:#f6f7fb;}
     <nav class="side-nav" aria-label="Menú principal">
       <button class="side-link active" type="button" data-view="inicio">Inicio</button>
       <button class="side-link" type="button" data-view="estadisticas">Estadísticas</button>
-      <button class="side-link" type="button" id="externalSchedulesBtn">Horarios</button>
+      <button class="side-link" type="button" data-view="horarios">Horarios</button>
       <button class="side-link" type="button" data-view="guardias">Guardias</button>
       <button class="side-link" type="button" data-view="edicion">Editar datos</button>
     </nav>
@@ -1246,20 +1246,61 @@ body{background:#f6f7fb;}
       </section>
 
 
+      <section id="view-horarios" class="view">
+        <section class="panel app-page-card schedules-shell">
+          <div class="app-page-head">
+            <div>
+              <h2>Horarios</h2>
+              <p>Consulta el horario oficial sin salir de la aplicación.</p>
+            </div>
+            <a class="icon-action" href="https://llr-edu.github.io/horarios-clubdeportivo/" target="_blank" rel="noopener" aria-label="Abrir horario en una pestaña nueva" title="Abrir en otra pestaña">↗</a>
+          </div>
+          <div class="schedule-frame-wrap">
+            <iframe class="schedule-frame" src="https://llr-edu.github.io/horarios-clubdeportivo/" title="Horarios del Club Deportivo" loading="lazy"></iframe>
+          </div>
+        </section>
+      </section>
+
       <section id="view-guardias" class="view">
-        <section class="panel editing-wrap">
-          <div class="admin-card">
-            <div class="section-head"><div><h2>Guardias</h2><p>Consulta las asignaciones por semana del mes, día, persona o punto.</p></div></div>
-            <div class="mini-grid">
-              <div class="field"><label>Semana</label><select id="guardWeekFilter"><option value="">Todas</option><option value="1">Semana 1</option><option value="2">Semana 2</option><option value="3">Semana 3</option><option value="4">Semana 4</option></select></div>
-              <div class="field"><label>Día</label><select id="guardDayFilter"><option value="">Todos</option><option value="1">Lunes</option><option value="2">Martes</option><option value="3">Miércoles</option><option value="4">Jueves</option><option value="5">Viernes</option></select></div>
+        <section class="panel app-page-card guards-shell">
+          <div class="app-page-head">
+            <div>
+              <h2>Guardias</h2>
+              <p id="guardViewMeta">Consulta rápida por semana y día.</p>
+            </div>
+            <button class="icon-action" id="guardTodayBtn" type="button" aria-label="Ir a hoy" title="Ir a hoy">◎</button>
+          </div>
+
+          <div class="guard-switcher">
+            <div class="guard-switch-label">Semana del mes</div>
+            <div class="segmented-control" id="guardWeekSegments">
+              <button type="button" data-guard-week="1">1</button>
+              <button type="button" data-guard-week="2">2</button>
+              <button type="button" data-guard-week="3">3</button>
+              <button type="button" data-guard-week="4">4</button>
+            </div>
+          </div>
+
+          <div class="guard-day-tabs" id="guardDayTabs">
+            <button type="button" data-guard-day="1">Lun</button>
+            <button type="button" data-guard-day="2">Mar</button>
+            <button type="button" data-guard-day="3">Mié</button>
+            <button type="button" data-guard-day="4">Jue</button>
+            <button type="button" data-guard-day="5">Vie</button>
+          </div>
+
+          <details class="guard-more-filters">
+            <summary>Más filtros</summary>
+            <div class="guard-filter-grid">
               <div class="field"><label>Persona</label><select id="guardPersonFilter"><option value="">Todas</option></select></div>
               <div class="field"><label>Punto</label><select id="guardPointFilter"><option value="">Todos</option></select></div>
             </div>
-            <div class="admin-row"><button class="btn secondary" id="guardResetBtn" type="button">Reiniciar filtros</button></div>
-            <div id="guardFullStatus" class="status"></div>
-            <div id="guardFullGrid" class="guard-grid"></div>
-          </div>
+          </details>
+
+          <input type="hidden" id="guardWeekFilter" value="">
+          <input type="hidden" id="guardDayFilter" value="">
+          <div id="guardFullStatus" class="status"></div>
+          <div id="guardFullGrid" class="guard-grid"></div>
         </section>
       </section>
 
@@ -1818,6 +1859,140 @@ function downloadTotalPDF(){
     width:100%;
     flex:1 1 100%;
   }
+}
+
+
+/* ===== 2026 mobile-first visual system ===== */
+:root{
+  --app-bg:#f2f2f7;
+  --app-surface:rgba(255,255,255,.94);
+  --app-border:rgba(60,60,67,.16);
+  --app-text:#1d1d1f;
+  --app-secondary:#6e6e73;
+  --app-red:#c8202f;
+  --app-navy:#111827;
+  --app-radius:22px;
+  --app-shadow:0 10px 30px rgba(15,23,42,.07);
+}
+html,body{background:var(--app-bg);color:var(--app-text);overflow-x:hidden}
+button,input,select,textarea{font:inherit}
+button{-webkit-tap-highlight-color:transparent}
+.panel{border-color:var(--app-border);border-radius:var(--app-radius);box-shadow:var(--app-shadow)}
+.btn{min-height:44px;border-radius:14px;font-weight:800;transition:transform .12s ease,filter .12s ease}
+.btn:active,.side-link:active,.icon-action:active,.guard-pill:active{transform:scale(.97)}
+.content{min-width:0;overflow:hidden}
+.content .wrap{width:100%;max-width:1240px;margin:0 auto;padding:0 24px 32px}
+.view{width:100%;min-width:0}
+.view.active{display:block}
+#view-inicio.active{display:block}
+.view-grid{min-width:0}
+.view-grid>*{min-width:0}
+.app-page-card{padding:20px}
+.app-page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:16px}
+.app-page-head h2{margin:0;font-size:24px;letter-spacing:-.035em}
+.app-page-head p{margin:5px 0 0;color:var(--app-secondary);font-size:13px;line-height:1.4}
+.icon-action{width:42px;height:42px;display:grid;place-items:center;flex:0 0 auto;border:1px solid var(--app-border);border-radius:14px;background:#f7f7fa;color:var(--app-text);text-decoration:none;font-size:19px;font-weight:800;cursor:pointer}
+.guard-today{width:100%;max-width:100%;margin:0 0 16px;padding:14px 16px;overflow:hidden}
+.guard-today-head{margin-bottom:11px}
+.guard-today-head .btn{min-height:38px;padding:8px 12px;border-radius:12px;font-size:12px}
+.guard-today-title{font-size:17px;letter-spacing:-.02em}
+.guard-pills{display:flex;flex-wrap:nowrap;gap:8px;overflow-x:auto;padding:1px 1px 5px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.guard-pills::-webkit-scrollbar{display:none}
+.guard-pill{flex:0 0 auto;min-height:38px;padding:8px 12px;border-radius:999px;box-shadow:none}
+.guard-switcher{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 0}
+.guard-switch-label{font-size:13px;color:var(--app-secondary);font-weight:700}
+.segmented-control{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;padding:3px;border:1px solid var(--app-border);border-radius:13px;background:#ededf2;min-width:190px}
+.segmented-control button{height:34px;border:0;border-radius:10px;background:transparent;color:var(--app-secondary);font-weight:800;cursor:pointer}
+.segmented-control button.active{background:#fff;color:var(--app-text);box-shadow:0 1px 4px rgba(0,0,0,.12)}
+.guard-day-tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:8px 0 14px}
+.guard-day-tabs button{min-height:42px;border:1px solid var(--app-border);border-radius:13px;background:#fff;color:var(--app-secondary);font-weight:800;cursor:pointer}
+.guard-day-tabs button.active{background:var(--app-navy);border-color:var(--app-navy);color:#fff}
+.guard-more-filters{border-top:1px solid var(--app-border);border-bottom:1px solid var(--app-border);padding:2px 0;margin:2px 0 14px}
+.guard-more-filters summary{list-style:none;cursor:pointer;padding:12px 2px;font-size:13px;font-weight:800;color:var(--app-secondary)}
+.guard-more-filters summary::-webkit-details-marker{display:none}
+.guard-more-filters summary::after{content:'›';float:right;font-size:19px;transform:rotate(90deg);transition:transform .2s}
+.guard-more-filters[open] summary::after{transform:rotate(-90deg)}
+.guard-filter-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 0 12px}
+.guard-grid{display:block;margin-top:0}
+.guard-day-card{border:0;border-radius:0;padding:0;background:transparent}
+.guard-day-card-primary{overflow:hidden}
+.guard-point-row{min-height:68px;padding:12px 2px;gap:12px;border-top:1px solid var(--app-border)}
+.guard-point-row:first-child{border-top:0}
+.guard-dot{width:11px;height:11px;margin-top:5px}
+.guard-point-main{font-size:15px;letter-spacing:-.015em}
+.guard-point-main span{color:var(--app-secondary);font-weight:600}
+.guard-point-sub{font-size:12px;line-height:1.35;margin-top:3px}
+.schedule-frame-wrap{height:calc(100dvh - 210px);min-height:560px;border:1px solid var(--app-border);border-radius:18px;overflow:hidden;background:#fff}
+.schedule-frame{display:block;width:100%;height:100%;border:0;background:#fff}
+.landing-collapsible{min-width:0}
+.landing-toggle{min-width:0}
+.admin-card,.editing-wrap,.home-total-card,.admin-box{min-width:0}
+.field input,.field select,.admin-card input,.admin-card textarea{max-width:100%}
+
+@media (min-width:1051px){
+  .app-shell{grid-template-columns:220px minmax(0,1fr)}
+  .sidebar{padding:24px 14px;background:#111827}
+  .side-nav{gap:6px}
+  .side-link{min-height:44px;border-radius:12px;padding:10px 12px;font-size:14px}
+  .content .wrap{padding:0 30px 36px}
+  .topbar{padding:26px 30px 58px}
+  .topbar-inner{max-width:1180px;margin:0 auto}
+  .view-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}
+  .guard-today{margin-bottom:18px}
+  .schedules-shell,.guards-shell{max-width:1180px;margin:0 auto}
+  .guards-shell{max-width:760px}
+}
+
+@media (max-width:1050px){
+  .app-shell{display:block;min-height:100dvh}
+  .sidebar{position:relative;top:auto;height:auto;width:100%;padding:10px 12px 12px;background:#111827;display:block}
+  .sidebar .brand{display:none}
+  .side-nav{display:flex!important;grid-template-columns:none!important;gap:6px!important;overflow-x:auto;width:100%;padding:0 2px;scrollbar-width:none}
+  .side-nav::-webkit-scrollbar{display:none}
+  .side-link{flex:0 0 auto;width:auto!important;min-height:42px!important;padding:0 15px!important;border-radius:14px!important;font-size:14px!important;white-space:nowrap}
+  .topbar{padding:18px 16px 30px!important;border-bottom:0!important;background:#fff!important;color:var(--app-text)!important}
+  .topbar-inner{padding:0!important;gap:12px!important}
+  .topbar-logo{width:46px!important}
+  .topbar h1{font-size:23px!important;line-height:1.06!important;color:var(--app-text)!important}
+  .topbar p{font-size:13px!important;line-height:1.3!important;color:var(--app-secondary)!important;margin-top:5px!important}
+  .content .wrap{padding:0 12px 24px!important}
+  .view{margin-top:0!important}
+  .view-grid{display:grid!important;grid-template-columns:1fr!important;gap:12px!important;width:100%!important}
+  #view-inicio{padding-top:12px}
+  .guard-today{margin:0 0 12px!important;border-radius:20px!important}
+  #registerCollapseCard,#totalCollapseCard{width:100%!important;max-width:100%!important;margin:0!important;border-radius:20px!important;box-shadow:var(--app-shadow)!important}
+  #registerCollapseCard .landing-toggle,#totalCollapseCard .landing-toggle{min-height:76px!important;padding:0 16px!important;font-size:19px!important;line-height:1.15!important;white-space:normal!important}
+  .landing-toggle::after{width:28px;height:28px}
+  .app-page-card{border-radius:20px;padding:16px}
+}
+
+@media (max-width:650px){
+  .content .wrap{padding:0 10px 20px!important}
+  .sidebar{padding:8px 8px 10px!important}
+  .side-nav{gap:5px!important}
+  .side-link{min-height:40px!important;padding:0 13px!important;font-size:13px!important;border-radius:13px!important}
+  .topbar{padding:16px 14px 24px!important}
+  .topbar-logo{width:42px!important}
+  .topbar h1{font-size:21px!important}
+  .topbar p{font-size:12.5px!important}
+  #view-inicio{padding-top:10px}
+  .guard-today{padding:13px 14px!important}
+  .guard-today-head{align-items:center}
+  .guard-today-head .btn{width:auto!important}
+  .guard-pills{margin-right:-14px;padding-right:14px}
+  .guard-pill{font-size:12.5px}
+  .app-page-card{padding:14px!important;border-radius:18px!important}
+  .app-page-head h2{font-size:22px}
+  .guard-switcher{display:block}
+  .guard-switch-label{margin-bottom:7px}
+  .segmented-control{width:100%;min-width:0}
+  .guard-day-tabs{gap:5px}
+  .guard-day-tabs button{min-height:40px;padding:0;font-size:12.5px}
+  .guard-filter-grid{grid-template-columns:1fr}
+  .guard-point-row{padding:11px 0}
+  .schedule-frame-wrap{height:calc(100dvh - 170px);min-height:500px;border-radius:14px}
+  .admin-kpi-row{grid-template-columns:1fr 1fr}
+  .admin-row .btn{width:100%}
 }
 
 </style></head><body><h1>Total por disciplina</h1><div class="meta">Rango: ${escapeHtml(summary.dateLabel)}<br>Registros: ${fmt.format(summary.registros)} · Asistencia total: ${fmt.format(summary.total)}</div><div class="bar-list">${barsHtml}</div><div class="footer">Fuente: Google Sheets · Club Deportivo</div><script>window.onload=function(){window.print();};<\/script></body></html>`;
@@ -2683,45 +2858,71 @@ function fillGuardFilters(){
   if(ps) ps.innerHTML='<option value="">Todas</option>'+GUARD_CONFIG.people.filter(p=>Number(p.active)!==0).map(p=>`<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join('');
   if(pts) pts.innerHTML='<option value="">Todos</option>'+GUARD_CONFIG.points.filter(p=>Number(p.active)!==0).map(p=>`<option value="${escapeHtml(p.code)}">${escapeHtml(p.code)} · ${escapeHtml(p.name)}</option>`).join('');
 }
+function setGuardSelection(week,day){
+  if($('guardWeekFilter')) $('guardWeekFilter').value=String(week||'');
+  if($('guardDayFilter')) $('guardDayFilter').value=String(day||'');
+  document.querySelectorAll('[data-guard-week]').forEach(b=>b.classList.toggle('active',Number(b.dataset.guardWeek)===Number(week)));
+  document.querySelectorAll('[data-guard-day]').forEach(b=>b.classList.toggle('active',Number(b.dataset.guardDay)===Number(day)));
+}
 function renderGuardFull(){
   const grid=$('guardFullGrid'); if(!grid) return;
   const wf=Number($('guardWeekFilter')?.value||0), df=Number($('guardDayFilter')?.value||0);
   const pf=$('guardPersonFilter')?.value||'', ptf=$('guardPointFilter')?.value||'';
   const people=new Map(GUARD_CONFIG.people.map(p=>[p.id,p]));
   const points=new Map(GUARD_CONFIG.points.map(p=>[p.code,p]));
+  const rows=GUARD_CONFIG.assignments
+    .filter(a=>(!wf||Number(a.week_no)===wf)&&(!df||Number(a.weekday)===df))
+    .map(a=>({a,person:people.get(a.person_id),point:points.get(a.point_code)}))
+    .filter(x=>x.person&&x.point&&Number(x.person.active)!==0&&Number(x.point.active)!==0)
+    .filter(x=>(!pf||x.person.id===pf)&&(!ptf||x.point.code===ptf))
+    .sort((a,b)=>Number(a.point.sort_order||0)-Number(b.point.sort_order||0));
+
   grid.innerHTML='';
-  let shown=0;
-  for(let week=1;week<=4;week++){
-    if(wf&&wf!==week) continue;
-    for(let day=1;day<=5;day++){
-      if(df&&df!==day) continue;
-      const rows=GUARD_CONFIG.assignments.filter(a=>Number(a.week_no)===week&&Number(a.weekday)===day)
-        .map(a=>({a,person:people.get(a.person_id),point:points.get(a.point_code)}))
-        .filter(x=>x.person&&x.point&&Number(x.person.active)!==0&&Number(x.point.active)!==0)
-        .filter(x=>(!pf||x.person.id===pf)&&(!ptf||x.point.code===ptf))
-        .sort((a,b)=>Number(a.point.sort_order||0)-Number(b.point.sort_order||0));
-      if(!rows.length) continue;
-      shown++;
-      const card=document.createElement('article'); card.className='guard-day-card';
-      card.innerHTML=`<h3>Semana ${week} · ${GUARD_DAY_NAMES[day]}</h3>`+rows.map(x=>`<div class="guard-point-row"><span class="guard-dot" style="background:${escapeHtml(x.person.color||'#d1d5db')}"></span><div><div class="guard-point-main">${escapeHtml(x.point.code)} · ${escapeHtml(x.person.name)}</div><div class="guard-point-sub">${escapeHtml(x.point.description||x.point.name)}</div></div></div>`).join('');
-      grid.appendChild(card);
-    }
+  if(!rows.length){
+    setStatus('guardFullStatus','No hay coincidencias con los filtros actuales.','');
+    return;
   }
-  setStatus('guardFullStatus',shown?'':'No hay coincidencias con los filtros actuales.',shown?'':'');
+  setStatus('guardFullStatus','','');
+  const meta=$('guardViewMeta');
+  if(meta) meta.textContent=`Semana ${wf||'—'} · ${GUARD_DAY_NAMES[df]||'Todos los días'}`;
+
+  const card=document.createElement('article');
+  card.className='guard-day-card guard-day-card-primary';
+  card.innerHTML=rows.map(x=>`
+    <div class="guard-point-row">
+      <span class="guard-dot" style="background:${escapeHtml(x.person.color||'#d1d5db')}"></span>
+      <div class="guard-point-copy">
+        <div class="guard-point-main">${escapeHtml(x.point.code)} <span>·</span> ${escapeHtml(x.person.name)}</div>
+        <div class="guard-point-sub">${escapeHtml(x.point.description||x.point.name)}</div>
+      </div>
+    </div>`).join('');
+  grid.appendChild(card);
+}
+async function goToGuardToday(){
+  try{
+    const result=await loadGuards();
+    const day=[1,2,3,4,5].includes(Number(result.weekday))?Number(result.weekday):1;
+    setGuardSelection(Number(result.week||1),day);
+    renderGuardToday(result);
+    renderGuardFull();
+  }catch(_e){}
 }
 async function initGuardModule(){
   try{
     const today=await loadGuards();
     renderGuardToday(today);
     fillGuardFilters();
+    const day=[1,2,3,4,5].includes(Number(today.weekday))?Number(today.weekday):1;
+    setGuardSelection(Number(today.week||1),day);
     renderGuardFull();
   }catch(err){
     if($('guardTodayMeta')) $('guardTodayMeta').textContent='No se pudieron cargar las guardias.';
   }
 }
 function resetGuardFilters(){
-  ['guardWeekFilter','guardDayFilter','guardPersonFilter','guardPointFilter'].forEach(id=>{if($(id)) $(id).value='';});
-  renderGuardFull();
+  if($('guardPersonFilter')) $('guardPersonFilter').value='';
+  if($('guardPointFilter')) $('guardPointFilter').value='';
+  goToGuardToday();
 }
 function newGuardId(prefix,name){
   const base=normalizeKey(name||prefix)||prefix;
@@ -3059,8 +3260,10 @@ function initAdminModule(){
   const checkBtn=$('checkDraftBtn'); if(checkBtn) checkBtn.onclick=()=>{if(!getRegisterPassword()){openRegisterLoginModal(); return;} checkSharedDraft();};
   ['regFecha'].forEach(id=>{const el=$(id); if(!el) return; el.addEventListener('change',refreshRegisterDayPanels);});
   ['regEmail','regObs'].forEach(id=>{const el=$(id); if(!el) return; el.addEventListener('input',()=>markDraftDirty(5000)); el.addEventListener('change',()=>markDraftDirty(1000));});
-  ['guardWeekFilter','guardDayFilter','guardPersonFilter','guardPointFilter'].forEach(id=>{if($(id)) $(id).onchange=renderGuardFull;});
-  if($('guardResetBtn')) $('guardResetBtn').onclick=resetGuardFilters;
+  ['guardPersonFilter','guardPointFilter'].forEach(id=>{if($(id)) $(id).onchange=renderGuardFull;});
+  document.querySelectorAll('[data-guard-week]').forEach(btn=>btn.onclick=()=>{setGuardSelection(Number(btn.dataset.guardWeek),Number($('guardDayFilter')?.value||1));renderGuardFull();});
+  document.querySelectorAll('[data-guard-day]').forEach(btn=>btn.onclick=()=>{setGuardSelection(Number($('guardWeekFilter')?.value||1),Number(btn.dataset.guardDay));renderGuardFull();});
+  if($('guardTodayBtn')) $('guardTodayBtn').onclick=goToGuardToday;
   document.querySelectorAll('[data-view-jump]').forEach(btn=>btn.onclick=()=>showView(btn.dataset.viewJump));
   setTimeout(refreshRegisterDayPanels, 600);
 }
@@ -3118,8 +3321,6 @@ function toggleFilterPanel(trigger){
 }
 function initLayoutNavigation(){
   document.querySelectorAll('.side-link[data-view]').forEach(btn=>btn.onclick=()=>showView(btn.dataset.view));
-  const schedulesBtn=document.getElementById('externalSchedulesBtn');
-  if(schedulesBtn) schedulesBtn.onclick=()=>{window.location.href='https://llr-edu.github.io/horarios-clubdeportivo/';};
   document.querySelectorAll('[data-toggle-filters]').forEach(btn=>btn.onclick=()=>toggleFilterPanel(btn));
 }
 initLayoutNavigation();
