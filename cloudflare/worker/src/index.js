@@ -742,6 +742,43 @@ async function ensureBackupSchema(env) {
   await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_backup_jobs_email ON backup_jobs(responsible_email,status)").run();
 }
 
+async function reconcileBackupJobs(env) {
+  await ensureBackupSchema(env);
+
+  // Cualquier create/update anterior a un delete pendiente del mismo registro
+  // quedó obsoleto y nunca debe reintentarse.
+  await env.DB.prepare(
+    `UPDATE backup_jobs
+     SET status='done',
+         last_error='SUPERSEDED_BY_DELETE',
+         completed_at=COALESCE(completed_at,strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+         updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
+     WHERE status='pending'
+       AND operation IN ('create','update')
+       AND record_id IS NOT NULL
+       AND EXISTS (
+         SELECT 1 FROM backup_jobs d
+         WHERE d.record_id=backup_jobs.record_id
+           AND d.operation='delete'
+           AND d.status='pending'
+       )`
+  ).run();
+
+  // Un create pendiente cuyo registro ya no existe en D1 tampoco debe recrearlo
+  // posteriormente en Google Sheets.
+  await env.DB.prepare(
+    `UPDATE backup_jobs
+     SET status='done',
+         last_error='SUPERSEDED_MISSING_RECORD',
+         completed_at=COALESCE(completed_at,strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+         updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
+     WHERE status='pending'
+       AND operation='create'
+       AND record_id IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM records r WHERE r.id=backup_jobs.record_id)`
+  ).run();
+}
+
 async function enqueueBackupJob(env, operation, recordId, responsibleEmail, payload) {
   try {
     await ensureBackupSchema(env);
@@ -759,6 +796,7 @@ async function enqueueBackupJob(env, operation, recordId, responsibleEmail, payl
 
 async function listBackupJobs(request, env) {
   await ensureBackupSchema(env);
+  await reconcileBackupJobs(env);
   const editAllowed=await requireEditSession(request,env);
   const auth=await requireSession(request,env);
 
@@ -822,6 +860,7 @@ async function adminBackupStatus(request, env) {
   const adminAllowed=await requireAdminSession(request,env);
   if(!adminAllowed) return json({ok:false,error:"ADMIN_LOCKED"},403);
   await ensureBackupSchema(env);
+  await reconcileBackupJobs(env);
   const counts=await env.DB.prepare(
     `SELECT status,operation,COUNT(*) AS count FROM backup_jobs GROUP BY status,operation`
   ).all();
