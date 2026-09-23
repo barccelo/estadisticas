@@ -189,6 +189,106 @@ async function session(request, env) {
   });
 }
 
+async function getDraft(request, env) {
+  if (!env.DB) return json({ ok: false, error: "D1_NOT_BOUND" }, 503);
+  const auth = await requireSession(request, env);
+  if (!auth) return json({ ok: false, error: "UNAUTHORIZED" }, 401);
+
+  const url = new URL(request.url);
+  const date = String(url.searchParams.get("date") || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return json({ ok: false, error: "INVALID_DATE" }, 400);
+  }
+
+  const row = await env.DB.prepare(
+    `SELECT d.record_date, d.payload_json, d.version, d.updated_at,
+            u.email AS updated_by_email, u.display_name AS updated_by_name
+     FROM drafts d
+     LEFT JOIN users u ON u.id = d.updated_by_user_id
+     WHERE d.record_date = ?1
+     LIMIT 1`
+  ).bind(date).first();
+
+  if (!row) return json({ ok: true, draft: null });
+
+  let record = {};
+  try { record = JSON.parse(row.payload_json || "{}"); } catch (_) {}
+
+  return json({
+    ok: true,
+    draft: {
+      date: row.record_date,
+      record,
+      version: Number(row.version || 1),
+      updatedAt: row.updated_at,
+      updatedBy: row.updated_by_email || "",
+      updatedByName: row.updated_by_name || "",
+    },
+  });
+}
+
+async function saveDraft(request, env) {
+  if (!env.DB) return json({ ok: false, error: "D1_NOT_BOUND" }, 503);
+  const auth = await requireSession(request, env);
+  if (!auth) return json({ ok: false, error: "UNAUTHORIZED" }, 401);
+
+  let body;
+  try { body = await request.json(); }
+  catch { return json({ ok: false, error: "INVALID_JSON" }, 400); }
+
+  const date = String(body?.date || "").trim();
+  const record = body?.record;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !record || typeof record !== "object" || Array.isArray(record)) {
+    return json({ ok: false, error: "INVALID_DRAFT" }, 400);
+  }
+
+  const payload = JSON.stringify(record);
+  if (payload.length > 100000) return json({ ok: false, error: "DRAFT_TOO_LARGE" }, 413);
+
+  await env.DB.prepare(
+    `INSERT INTO drafts (record_date, payload_json, updated_by_user_id, version, updated_at)
+     VALUES (?1, ?2, ?3, 1, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+     ON CONFLICT(record_date) DO UPDATE SET
+       payload_json = excluded.payload_json,
+       updated_by_user_id = excluded.updated_by_user_id,
+       version = drafts.version + 1,
+       updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')`
+  ).bind(date, payload, auth.user_id).run();
+
+  const saved = await env.DB.prepare(
+    "SELECT version, updated_at FROM drafts WHERE record_date = ?1 LIMIT 1"
+  ).bind(date).first();
+
+  await env.DB.prepare(
+    "INSERT INTO app_log (event_type, user_id, details_json) VALUES ('draft_saved', ?1, ?2)"
+  ).bind(auth.user_id, JSON.stringify({ date, version: Number(saved?.version || 1) })).run();
+
+  return json({
+    ok: true,
+    version: Number(saved?.version || 1),
+    updatedAt: saved?.updated_at || new Date().toISOString(),
+  });
+}
+
+async function deleteDraft(request, env) {
+  if (!env.DB) return json({ ok: false, error: "D1_NOT_BOUND" }, 503);
+  const auth = await requireSession(request, env);
+  if (!auth) return json({ ok: false, error: "UNAUTHORIZED" }, 401);
+
+  const url = new URL(request.url);
+  const date = String(url.searchParams.get("date") || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return json({ ok: false, error: "INVALID_DATE" }, 400);
+  }
+
+  await env.DB.prepare("DELETE FROM drafts WHERE record_date = ?1").bind(date).run();
+  await env.DB.prepare(
+    "INSERT INTO app_log (event_type, user_id, details_json) VALUES ('draft_deleted', ?1, ?2)"
+  ).bind(auth.user_id, JSON.stringify({ date })).run();
+
+  return json({ ok: true });
+}
+
 async function logout(request, env) {
   const token = bearer(request);
   if (!token || !env.DB) return json({ ok: true });
@@ -223,6 +323,12 @@ export default {
         response = await login(request, env);
       } else if (url.pathname === "/api/session" && request.method === "GET") {
         response = await session(request, env);
+      } else if (url.pathname === "/api/drafts" && request.method === "GET") {
+        response = await getDraft(request, env);
+      } else if (url.pathname === "/api/drafts" && request.method === "PUT") {
+        response = await saveDraft(request, env);
+      } else if (url.pathname === "/api/drafts" && request.method === "DELETE") {
+        response = await deleteDraft(request, env);
       } else if (url.pathname === "/api/logout" && request.method === "POST") {
         response = await logout(request, env);
       } else {
