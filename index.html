@@ -1126,7 +1126,7 @@ body{background:#f6f7fb;}
     <nav class="side-nav" aria-label="Menú principal">
       <button class="side-link active" type="button" data-view="inicio">Inicio</button>
       <button class="side-link" type="button" data-view="estadisticas">Estadísticas</button>
-      <button class="side-link" type="button" data-view="horarios">Horarios</button>
+      <button class="side-link" type="button" id="externalSchedulesBtn">Horarios</button>
       <button class="side-link" type="button" data-view="edicion">Editar datos</button>
     </nav>
     
@@ -1219,32 +1219,6 @@ body{background:#f6f7fb;}
         <section class="panel table-card"><div class="table-tools"><h2>Tabla de registros</h2><span id="tableCount" class="small"></span></div><div class="table-scroll"><table id="dataTable"></table></div></section>
       </section>
 
-
-      <section id="view-horarios" class="view">
-        <section class="panel schedule-card">
-          <div class="schedule-head">
-            <div>
-              <h2>Horarios · Clubes</h2>
-              <p>Busca por disciplina, grado/año o día de la semana.</p>
-            </div>
-            <button class="btn secondary schedule-reset" id="scheduleResetBtn" type="button">Reiniciar filtros</button>
-          </div>
-          <section class="panel schedule-filter-panel">
-            <div class="field">
-              <label for="scheduleSearch">Búsqueda rápida</label>
-              <input id="scheduleSearch" type="search" placeholder="Escribe: fútbol, robótica, violín, 3er…">
-            </div>
-            <div class="schedule-quick-groups">
-              <div class="schedule-chip-row" id="scheduleDiscChips"></div>
-              <div class="schedule-chip-row" id="scheduleGradeChips"></div>
-              <div class="schedule-chip-row" id="scheduleDayChips"></div>
-            </div>
-          </section>
-          <section id="scheduleResults" class="schedule-results" aria-live="polite"></section>
-          <div id="scheduleEmpty" class="schedule-empty" hidden>Sin coincidencias con los filtros actuales.</div>
-          <div class="schedule-hint">Sugerencia: haz clic en una disciplina, un grado o un día para filtrar al instante.</div>
-        </section>
-      </section>
 
       <section id="view-edicion" class="view">
         <section class="panel editing-wrap">
@@ -2944,7 +2918,9 @@ function toggleFilterPanel(trigger){
   panel.classList.add('open');
 }
 function initLayoutNavigation(){
-  document.querySelectorAll('.side-link').forEach(btn=>btn.onclick=()=>showView(btn.dataset.view));
+  document.querySelectorAll('.side-link[data-view]').forEach(btn=>btn.onclick=()=>showView(btn.dataset.view));
+  const schedulesBtn=document.getElementById('externalSchedulesBtn');
+  if(schedulesBtn) schedulesBtn.onclick=()=>{window.location.href='https://llr-edu.github.io/horarios-clubdeportivo/';};
   document.querySelectorAll('[data-toggle-filters]').forEach(btn=>btn.onclick=()=>toggleFilterPanel(btn));
 }
 initLayoutNavigation();
@@ -2958,6 +2934,5 @@ initAdminModule();
 window.addEventListener('beforeunload',()=>{try{saveSharedDraft();}catch(e){}});
 loadData();
 </script>
-<script src="./schedules.js"></script>
 </body>
 </html>
