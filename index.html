@@ -1399,17 +1399,46 @@ function transformRows(rows){
   }).filter(r=>r.fecha);
 }
 function setLoading(message){if($('tableCount')) $('tableCount').textContent = message; if($('barList')) $('barList').innerHTML = `<div class="notice">${escapeHtml(message)}</div>`; if($('statsBarList')) $('statsBarList').innerHTML = `<div class="notice">${escapeHtml(message)}</div>`; if($('totalSummaryDate')) $('totalSummaryDate').textContent='Rango: —';}
-async function loadData({keepFilters=false}={}){
-  setLoading('Cargando datos desde Google Sheets...');
+async function loadCloudRecords(){
   try{
-    const url = SHEET_URL + (SHEET_URL.includes('?') ? '&' : '?') + 'cacheBust=' + Date.now();
-    const response = await fetch(url, {cache:'no-store'});
-    if(!response.ok) throw new Error('No se pudo leer la hoja publicada.');
-    const csvText = await response.text();
-    DATA = transformRows(parseCSV(csvText));
-    if(!DATA.length) throw new Error('La hoja no devolvió registros válidos.');
+    const response=await fetch(CLOUD_API_URL+'/api/records',{cache:'no-store'});
+    if(!response.ok) throw new Error('No se pudieron leer los registros de Cloudflare.');
+    const data=await response.json();
+    return Array.isArray(data.records) ? data.records : [];
+  }catch(error){
+    console.error(error);
+    return [];
+  }
+}
+function recordMergeSignature(r){
+  const values=DISCIPLINES.map(d=>Number(r?.valores?.[d]||0));
+  return JSON.stringify([r.fecha||'',r.email||'',r.observaciones||'',values]);
+}
+async function loadData({keepFilters=false}={}){
+  setLoading('Cargando datos...');
+  try{
+    const [cloudRows, sheetRows] = await Promise.all([
+      loadCloudRecords(),
+      (async()=>{
+        const url=SHEET_URL+(SHEET_URL.includes('?')?'&':'?')+'cacheBust='+Date.now();
+        const response=await fetch(url,{cache:'no-store'});
+        if(!response.ok) throw new Error('No se pudo leer la hoja publicada.');
+        return transformRows(parseCSV(await response.text()));
+      })()
+    ]);
+    const cloudSignatures=new Set(cloudRows.map(recordMergeSignature));
+    const legacyRows=sheetRows.filter(r=>!cloudSignatures.has(recordMergeSignature(r)));
+    DATA=[...legacyRows,...cloudRows].sort((a,b)=>String(a.fecha||'').localeCompare(String(b.fecha||'')));
+    if(!DATA.length) throw new Error('No se encontraron registros válidos.');
     init(keepFilters);
-  }catch(error){console.error(error); setLoading('No se pudieron cargar los datos. Revisa que la hoja siga publicada como CSV y que el enlace sea público.');}
+  }catch(error){
+    console.error(error);
+    try{
+      const cloudRows=await loadCloudRecords();
+      if(cloudRows.length){DATA=cloudRows;init(keepFilters);return;}
+    }catch(_e){}
+    setLoading('No se pudieron cargar los datos.');
+  }
 }
 function filtered(){
  const from=$('fromDate').value, to=$('toDate').value, year=$('yearFilter').value, month=$('monthFilter').value, week=$('weekFilter').value, email=$('emailFilter').value, wd=$('weekdayFilter').value, q=$('searchBox').value.trim().toLowerCase();
@@ -2116,26 +2145,35 @@ function clearRecordForm(){
   setStatus('regStatus','');
 }
 async function saveRecord(){
-  const password=getRegisterPassword();
-  if(!password){openRegisterLoginModal(); setStatus('regStatus','Inicia la sesión de registro para guardar.','err'); return;}
-  if(!getRegisterSessionEmail()){openRegisterLoginModal(); setStatus('regStatus','La clave no está asociada a un responsable.','err'); return;}
+  if(!registerSessionToken || !getRegisterSessionEmail()){
+    openRegisterLoginModal();
+    setStatus('regStatus','Inicia la sesión de registro para guardar.','err');
+    return;
+  }
   if($('regEmail')) $('regEmail').value=getRegisterSessionEmail();
-  if(!$('regFecha').value){setStatus('regStatus','Selecciona una fecha.','err'); return;}
-  const btn=$('saveRecordBtn'); btn.disabled=true; setStatus('regStatus','Guardando registro...');
+  const date=$('regFecha').value;
+  if(!date){setStatus('regStatus','Selecciona una fecha.','err'); return;}
+  const record=makeRecordFromPrefix('reg');
+  const attendance={};
+  DISCIPLINES.forEach(d=>attendance[d]=Math.max(0,Math.trunc(parseNumber(record[d]))));
+  const btn=$('saveRecordBtn'); btn.disabled=true; setStatus('regStatus','Guardando en Cloudflare...');
   try{
-    const result=await apiCall('addRecord', {password, record: makeRecordFromPrefix('reg')});
-    if(!result.ok) throw new Error(result.message || 'No se pudo guardar.');
-    setStatus('regStatus', result.message || 'Registro guardado correctamente.','ok');
-    try{
-      if(registerSessionToken) await cloudApi('/api/drafts?date='+encodeURIComponent($('regFecha').value),{method:'DELETE',token:registerSessionToken});
-    }catch(_e){}
-    try{await apiCall('discardDraft', {password, date:$('regFecha').value});}catch(_e){}
+    const result=await cloudApi('/api/records',{
+      method:'POST',
+      token:registerSessionToken,
+      body:{date,observations:String(record['Observaciones:']||''),attendance}
+    });
+    setStatus('regStatus', result.duplicate ? 'Ese mismo registro ya estaba guardado; no se creó un duplicado.' : 'Registro guardado correctamente en Cloudflare.','ok');
     draftFormDirty=false;
     draftLastSavedSignature='';
+    draftLoadedId='';
+    try{await apiCall('discardDraft',{password:getRegisterPassword(),date});}catch(_e){}
     await loadData({keepFilters:true});
     refreshRegisterDayPanels();
-  }catch(err){setStatus('regStatus', err.message, 'err');}
-  finally{btn.disabled=false;}
+  }catch(err){
+    if(err.message==='UNAUTHORIZED'){await clearRegisterSession(); openRegisterLoginModal();}
+    setStatus('regStatus', err.message==='UNAUTHORIZED'?'La sesión venció. Inicia sesión nuevamente.':err.message, 'err');
+  }finally{btn.disabled=false;}
 }
 async function findEditableRecords(){
   const password=$('editPassword').value.trim(), date=$('editFecha').value;
