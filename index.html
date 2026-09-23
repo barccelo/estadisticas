@@ -1255,7 +1255,7 @@ button{-webkit-tap-highlight-color:transparent}
 }
 
 </style>
-<link rel="stylesheet" href="./ui-v2.css?v=4">
+<link rel="stylesheet" href="./ui-v2.css?v=5">
 </head>
 <body>
 <div id="registerLoginModal" class="session-modal-backdrop" hidden>
@@ -1372,19 +1372,63 @@ button{-webkit-tap-highlight-color:transparent}
       </section>
 
       <section id="view-estadisticas" class="view">
-        <section class="panel discipline-box"><div class="table-tools"><strong>Disciplinas visibles</strong><div class="discipline-actions"><span class="small">Selecciona una o varias para comparar.</span><button class="btn secondary" id="clearDiscBtn" type="button">Limpiar disciplinas</button><button class="btn secondary" id="allDiscBtn" type="button">Seleccionar todas</button></div></div><div id="disciplineChips" class="chips"></div></section>
-        <section class="grid kpis stat-kpis">
-          <div class="panel kpi"><div class="label">Promedio diario</div><div id="kpiAvg" class="value">—</div><div class="sub">asistentes por reporte</div></div>
-          <div class="panel kpi"><div class="label">Disciplina líder</div><div id="kpiLeader" class="value">—</div><div id="kpiLeaderSub" class="sub">—</div></div>
-          <div class="panel kpi"><div class="label">Mayor día</div><div id="kpiBestDay" class="value">—</div><div id="kpiBestDaySub" class="sub">—</div></div>
-        </section>
-        <section class="grid charts">
-          <div class="panel chart-card"><h2>Tendencia diaria</h2><div class="canvas-wrap"><canvas id="lineChart"></canvas></div><div class="small">Cada línea representa una disciplina visible.</div></div>
-          <div class="panel standalone-card stats-total-card"><div class="section-head"><div><h2>Total por disciplina</h2><p class="small">Resumen según los filtros activos.</p></div><div class="stats-total-actions"><button class="btn secondary quick-today-btn" id="todayStatsBtn" type="button">Hoy</button><button class="btn secondary advanced-filter-btn" type="button" data-toggle-filters>Filtros avanzados</button><button class="btn secondary export-mini-btn" id="exportStatsImageBtn" type="button" title="Exportar imagen">↓ Imagen</button><button class="btn secondary export-mini-btn" id="exportStatsPdfBtn" type="button" title="Exportar PDF">▣ PDF</button></div></div><div id="statsBarList" class="bar-list"></div></div>
-        </section>
-        <section class="panel table-card"><div class="table-tools"><h2>Tabla de registros</h2><span id="tableCount" class="small"></span></div><div class="table-scroll"><table id="dataTable"></table></div></section>
-      </section>
+        <div class="stats-shell">
+          <div class="stats-page-head">
+            <div>
+              <h2>Estadísticas</h2>
+              <p>Resumen de asistencia del Club Deportivo.</p>
+            </div>
+          </div>
 
+          <section class="panel discipline-box stats-disciplines">
+            <div class="stats-section-head">
+              <div>
+                <strong>Disciplinas</strong>
+                <span class="small">Selecciona una o varias para comparar.</span>
+              </div>
+              <div class="stats-text-actions">
+                <button class="stats-text-btn" id="allDiscBtn" type="button">Todas</button>
+                <button class="stats-text-btn muted" id="clearDiscBtn" type="button">Limpiar</button>
+              </div>
+            </div>
+            <div id="disciplineChips" class="chips stats-chips"></div>
+          </section>
+
+          <section class="grid kpis stat-kpis">
+            <div class="panel kpi"><div class="label">Promedio diario</div><div id="kpiAvg" class="value">—</div><div class="sub">por reporte</div></div>
+            <div class="panel kpi"><div class="label">Disciplina líder</div><div id="kpiLeader" class="value">—</div><div id="kpiLeaderSub" class="sub">—</div></div>
+            <div class="panel kpi"><div class="label">Mayor día</div><div id="kpiBestDay" class="value">—</div><div id="kpiBestDaySub" class="sub">—</div></div>
+          </section>
+
+          <section class="stats-primary-grid">
+            <div class="panel chart-card stats-chart-card">
+              <div class="stats-card-head"><h2>Tendencia</h2><span class="small">Evolución diaria</span></div>
+              <div class="canvas-wrap"><canvas id="lineChart"></canvas></div>
+            </div>
+
+            <div class="panel standalone-card stats-total-card">
+              <div class="stats-card-head stats-total-head">
+                <div><h2>Total por disciplina</h2><span class="small">Según los filtros activos</span></div>
+                <div class="stats-total-actions">
+                  <button class="stats-icon-btn quick-today-btn" id="todayStatsBtn" type="button" aria-label="Mostrar hoy" title="Hoy">Hoy</button>
+                  <button class="stats-icon-btn advanced-filter-btn" type="button" data-toggle-filters aria-label="Abrir filtros" title="Filtros">⌘</button>
+                  <button class="stats-icon-btn export-mini-btn" id="exportStatsImageBtn" type="button" title="Exportar imagen" aria-label="Exportar imagen">↓</button>
+                  <button class="stats-icon-btn export-mini-btn" id="exportStatsPdfBtn" type="button" title="Exportar PDF" aria-label="Exportar PDF">PDF</button>
+                </div>
+              </div>
+              <div id="statsBarList" class="bar-list"></div>
+            </div>
+          </section>
+
+          <details class="panel stats-records-card">
+            <summary>
+              <span>Registros</span>
+              <span id="tableCount" class="small"></span>
+            </summary>
+            <div class="table-scroll"><table id="dataTable"></table></div>
+          </details>
+        </div>
+      </section>
 
       <section id="view-horarios" class="view">
         <section class="panel app-page-card schedules-shell">
