@@ -1265,10 +1265,10 @@ body{background:#f6f7fb;}
 <script>
 const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQi7LJ9GkWvS8xSGabaKdLwMRzhaMXppm8Vt8Z5chsQr92cWEOYF2SKeNPI15SYc1oryFw3eJP1SQkg/pub?gid=590274017&single=true&output=csv";
 const APPS_SCRIPT_URL = "https://script.google.com/a/macros/losroblesenlinea.com.ve/s/AKfycbzHHgoVMHLbCWYYPnPgtWsG3Ipq3Q_5dkMRKBFbJYW5uG3mkhlHWkLwi1DyOuKCDAGh/exec";
+const CLOUD_API_URL = "https://club-deportivo-api.github-016.workers.dev";
 let DATA = [];
 const DISCIPLINES = ["Ajedrez", "Astronomía", "Atletismo", "Baloncesto", "Béisbol", "Fútbol campo", "Fútbol sala", "Música", "Tenis de campo", "Robótica"];
 const RESPONSIBLES = ["cesarperozo@losroblesenlinea.com.ve", "alexandropolanco@losroblesenlinea.com.ve", "inrifereira@losroblesenlinea.com.ve", "davidbarcelo@losroblesenlinea.com.ve"];
-const REGISTER_USERS = {"18202929":"inrifereira@losroblesenlinea.com.ve","26388985":"davidbarcelo@losroblesenlinea.com.ve","26907406":"cesarperozo@losroblesenlinea.com.ve","27717268":"alexandropolanco@losroblesenlinea.com.ve"};
 let selected = new Set(DISCIPLINES);
 let defaultDates = {from:'', to:''};
 let draftAutosaveTimer = null;
@@ -1277,6 +1277,8 @@ let draftLoadedId = '';
 let draftSuppressAutosave = false;
 let draftFormDirty = false;
 let registerSessionPassword = '';
+let registerSessionUser = null;
+let registerSessionToken = '';
 const fmt = new Intl.NumberFormat('es-VE');
 function $(id){return document.getElementById(id)}
 function escapeHtml(v){return String(v ?? '').replace(/[<>&]/g, m=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[m]))}
@@ -1848,18 +1850,31 @@ function arrangeMobileExportButtons(){
   }
 }
 
-function registerEmailForPassword(password){
-  return REGISTER_USERS[String(password || '').trim()] || '';
-}
 function getRegisterSessionEmail(){
-  return registerEmailForPassword(getRegisterPassword());
+  return registerSessionUser?.email || '';
 }
 function getRegisterPassword(){
   return registerSessionPassword || ($('regPassword') ? $('regPassword').value.trim() : '');
 }
-function setRegisterPasswordSession(password){
+async function cloudApi(path, options={}){
+  const headers={'content-type':'application/json', ...(options.headers||{})};
+  if(options.token) headers.authorization='Bearer '+options.token;
+  const response=await fetch(CLOUD_API_URL+path,{
+    method:options.method||'GET',
+    headers,
+    body:options.body===undefined ? undefined : JSON.stringify(options.body),
+    cache:'no-store'
+  });
+  let data={};
+  try{data=await response.json();}catch(_e){}
+  if(!response.ok) throw new Error(data.error || 'No se pudo conectar con Cloudflare.');
+  return data;
+}
+function setRegisterPasswordSession(password, user, token=''){
   registerSessionPassword = String(password || '').trim();
-  const sessionEmail = registerEmailForPassword(registerSessionPassword);
+  registerSessionUser = user || null;
+  registerSessionToken = String(token || '');
+  const sessionEmail=getRegisterSessionEmail();
   if($('regPassword')) $('regPassword').value = registerSessionPassword;
   const emailSelect=$('regEmail');
   if(emailSelect && sessionEmail){
@@ -1870,9 +1885,22 @@ function setRegisterPasswordSession(password){
   }
   const pill=$('registerSessionPill');
   if(pill){
-    pill.hidden = !registerSessionPassword;
-    pill.innerHTML = sessionEmail ? `Sesión activa · <span class="session-email">${escapeHtml(responsibleShort(sessionEmail))}</span>` : 'Sesión de registro activa';
+    pill.hidden = !registerSessionUser;
+    pill.innerHTML = sessionEmail ? `Sesión activa · <span class="session-email">${escapeHtml(registerSessionUser?.name || responsibleShort(sessionEmail))}</span>` : 'Sesión de registro activa';
   }
+}
+async function clearRegisterSession(){
+  const token=registerSessionToken;
+  registerSessionPassword='';
+  registerSessionUser=null;
+  registerSessionToken='';
+  if($('regPassword')) $('regPassword').value='';
+  if($('regEmail')){
+    $('regEmail').disabled=false;
+    $('regEmail').classList.remove('session-locked');
+  }
+  const pill=$('registerSessionPill'); if(pill) pill.hidden=true;
+  if(token){try{await cloudApi('/api/logout',{method:'POST',token});}catch(_e){}}
 }
 function openRegisterLoginModal(){
   const modal=$('registerLoginModal'); if(!modal) return;
@@ -1889,22 +1917,18 @@ async function confirmRegisterLogin(){
   const btn=$('confirmRegisterLoginBtn');
   const password=(input ? input.value.trim() : '');
   if(!password){if(status){status.textContent='Ingresa la clave de registro.'; status.className='session-modal-status err';} return;}
-  const sessionEmail = registerEmailForPassword(password);
-  if(!sessionEmail){if(status){status.textContent='Clave no registrada para ningún responsable.'; status.className='session-modal-status err';} return;}
-  const date=($('regFecha') && $('regFecha').value) ? $('regFecha').value : todayISO();
-  if($('regFecha') && !$('regFecha').value) $('regFecha').value=date;
   if(btn) btn.disabled=true;
   if(status){status.textContent='Verificando clave…'; status.className='session-modal-status';}
   try{
-    const result=await apiCall('getDayLog', {password, date});
-    if(!result.ok) throw new Error(result.message || 'Clave no válida.');
-    setRegisterPasswordSession(password);
-    if(status){status.textContent='Sesión activa: '+responsibleShort(sessionEmail); status.className='session-modal-status ok';}
+    const result=await cloudApi('/api/login',{method:'POST',body:{pin:password}});
+    if(!result.ok || !result.user || !result.token) throw new Error('Clave no válida.');
+    setRegisterPasswordSession(password, result.user, result.token);
+    if(status){status.textContent='Sesión activa: '+(result.user.name || responsibleShort(result.user.email)); status.className='session-modal-status ok';}
     closeRegisterLoginModal();
     refreshRegisterDayPanels();
     checkSharedDraft();
   }catch(err){
-    if(status){status.textContent=err.message || 'No se pudo iniciar sesión.'; status.className='session-modal-status err';}
+    if(status){status.textContent=(err.message==='INVALID_CREDENTIALS'?'Clave no válida.':err.message) || 'No se pudo iniciar sesión.'; status.className='session-modal-status err';}
   }finally{if(btn) btn.disabled=false;}
 }
 function setupLandingCollapses(){
