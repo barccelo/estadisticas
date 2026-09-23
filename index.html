@@ -2850,7 +2850,7 @@ function initLayoutNavigation(){
   document.querySelectorAll('[data-toggle-filters]').forEach(btn=>btn.onclick=()=>toggleFilterPanel(btn));
 }
 initLayoutNavigation();
-const isHiddenAdminPath=/\/032843\/?$/.test(window.location.pathname);
+const isHiddenAdminPath=/\/00\/?$/.test(window.location.pathname);
 if(isHiddenAdminPath) showView('admin');
 setupLandingCollapses();
 setupRegisterLoginModal();
