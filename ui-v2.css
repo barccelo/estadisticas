@@ -1534,3 +1534,296 @@ html,body,.app-shell,.content,main.wrap,.view,.panel,.admin-shell-v2,.edit-shell
   min-width:0!important;
 }
 img,svg,canvas,iframe{max-width:100%!important}
+
+/* Desktop v2 — neutraliza los overrides móviles históricos */
+@media(min-width:1051px){
+  html,body{
+    width:100%!important;
+    min-width:0!important;
+    overflow-x:hidden!important;
+  }
+
+  .app-shell{
+    display:grid!important;
+    grid-template-columns:240px minmax(0,1fr)!important;
+    grid-template-areas:"sidebar content"!important;
+    width:100%!important;
+    max-width:none!important;
+    min-height:100dvh!important;
+    align-items:stretch!important;
+    background:var(--ios-bg)!important;
+  }
+
+  .sidebar{
+    grid-area:sidebar!important;
+    order:0!important;
+    display:flex!important;
+    flex-direction:column!important;
+    position:sticky!important;
+    top:0!important;
+    left:auto!important;
+    width:240px!important;
+    max-width:240px!important;
+    min-width:240px!important;
+    height:100dvh!important;
+    padding:22px 14px!important;
+    background:#151922!important;
+    z-index:20!important;
+    overflow:hidden!important;
+  }
+
+  .side-nav{
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    grid-auto-flow:row!important;
+    width:100%!important;
+    max-width:none!important;
+    gap:5px!important;
+    margin:0!important;
+    overflow:visible!important;
+  }
+
+  .side-link{
+    width:100%!important;
+    min-width:0!important;
+    min-height:46px!important;
+    padding:10px 12px!important;
+    border-radius:12px!important;
+    display:grid!important;
+    grid-template-columns:24px minmax(0,1fr)!important;
+    align-items:center!important;
+    justify-content:initial!important;
+    gap:9px!important;
+    text-align:left!important;
+    white-space:normal!important;
+  }
+
+  .side-link .nav-label{
+    font-size:13px!important;
+    line-height:1.2!important;
+    overflow:visible!important;
+    text-overflow:clip!important;
+  }
+
+  .content{
+    grid-area:content!important;
+    order:0!important;
+    display:block!important;
+    width:100%!important;
+    max-width:none!important;
+    min-width:0!important;
+    overflow:visible!important;
+    background:var(--ios-bg)!important;
+  }
+
+  .topbar{
+    order:0!important;
+    display:block!important;
+    width:100%!important;
+    padding:18px 34px!important;
+    border:0!important;
+    border-bottom:1px solid var(--ios-separator)!important;
+    background:rgba(255,255,255,.92)!important;
+    box-shadow:none!important;
+  }
+
+  .topbar-inner{
+    width:100%!important;
+    max-width:1320px!important;
+    margin:0 auto!important;
+    padding:0!important;
+    gap:12px!important;
+  }
+
+  .topbar-logo{
+    width:44px!important;
+    max-width:44px!important;
+  }
+
+  .topbar h1{
+    font-size:24px!important;
+    line-height:1.05!important;
+  }
+
+  .topbar p{
+    font-size:12.5px!important;
+    margin-top:4px!important;
+  }
+
+  .content>main.wrap{
+    order:0!important;
+    display:block!important;
+    width:100%!important;
+    max-width:1380px!important;
+    min-width:0!important;
+    margin:0 auto!important;
+    padding:28px 34px 48px!important;
+    background:transparent!important;
+  }
+
+  .view{
+    width:100%!important;
+    max-width:none!important;
+    min-width:0!important;
+    margin:0!important;
+  }
+
+  .view.active{
+    display:block!important;
+  }
+
+  /* Inicio aprovecha escritorio sin convertirse en una app móvil agrandada */
+  #view-inicio{
+    width:100%!important;
+    max-width:1120px!important;
+    margin:0 auto!important;
+  }
+
+  #view-inicio>.guard-today{
+    width:100%!important;
+    margin-bottom:14px!important;
+  }
+
+  #view-inicio>.view-grid{
+    width:100%!important;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+    gap:14px!important;
+  }
+
+  /* Estadísticas: composición real de escritorio */
+  #view-estadisticas{
+    width:100%!important;
+    max-width:1240px!important;
+    margin:0 auto!important;
+  }
+
+  .stats-shell{
+    width:100%!important;
+    grid-template-columns:minmax(0,1fr)!important;
+    gap:14px!important;
+  }
+
+  .stats-page-head{
+    display:block!important;
+    padding:2px 2px 6px!important;
+  }
+
+  .stats-page-head h2{
+    font-size:30px!important;
+  }
+
+  .stats-disciplines{
+    width:100%!important;
+    padding:16px 18px!important;
+  }
+
+  .stats-section-head{
+    grid-template-columns:1fr auto 1fr!important;
+  }
+
+  .stats-chips{
+    width:100%!important;
+    justify-content:center!important;
+    flex-wrap:wrap!important;
+    overflow:visible!important;
+    gap:8px!important;
+  }
+
+  .stat-kpis{
+    width:100%!important;
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    gap:12px!important;
+  }
+
+  .stat-kpis .kpi{
+    min-height:116px!important;
+    padding:16px 18px!important;
+  }
+
+  .stat-kpis .kpi .value{
+    font-size:27px!important;
+  }
+
+  .stats-primary-grid{
+    width:100%!important;
+    grid-template-columns:minmax(0,1.35fr) minmax(360px,.65fr)!important;
+    gap:14px!important;
+    align-items:stretch!important;
+  }
+
+  .stats-chart-card,
+  .stats-total-card{
+    height:100%!important;
+    padding:18px!important;
+  }
+
+  .stats-chart-card .canvas-wrap{
+    height:360px!important;
+  }
+
+  .stats-total-card .bar-list{
+    gap:11px!important;
+  }
+
+  .stats-records-card{
+    width:100%!important;
+  }
+
+  /* Editar */
+  #view-edicion{
+    width:100%!important;
+    max-width:980px!important;
+    margin:0 auto!important;
+  }
+
+  .edit-search-grid{
+    grid-template-columns:minmax(220px,.8fr) minmax(260px,1fr) auto!important;
+  }
+
+  .edit-attendance-grid{
+    grid-template-columns:repeat(5,minmax(0,1fr))!important;
+  }
+
+  /* Guardias */
+  .guards-shell{
+    width:100%!important;
+    max-width:980px!important;
+    margin:0 auto!important;
+  }
+
+  /* Horarios */
+  .schedules-shell{
+    width:100%!important;
+    max-width:1280px!important;
+    margin:0 auto!important;
+  }
+
+  .schedule-frame-wrap{
+    height:calc(100dvh - 170px)!important;
+    min-height:680px!important;
+  }
+
+  /* Administración */
+  #view-admin{
+    width:100%!important;
+    max-width:1080px!important;
+    margin:0 auto!important;
+  }
+
+  .admin-user-create-grid,
+  .admin-user-edit-grid{
+    grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  }
+
+  .admin-form-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+
+  .guard-person-grid{
+    grid-template-columns:minmax(0,1fr) 92px 140px!important;
+  }
+
+  .guard-point-grid{
+    grid-template-columns:100px minmax(0,1fr) 140px!important;
+  }
+}
