@@ -1255,7 +1255,7 @@ button{-webkit-tap-highlight-color:transparent}
 }
 
 </style>
-<link rel="stylesheet" href="./ui-v2.css?v=5">
+<link rel="stylesheet" href="./ui-v2.css?v=6">
 </head>
 <body>
 <div id="registerLoginModal" class="session-modal-backdrop" hidden>
@@ -1411,9 +1411,15 @@ button{-webkit-tap-highlight-color:transparent}
                 <div><h2>Total por disciplina</h2><span class="small">Según los filtros activos</span></div>
                 <div class="stats-total-actions">
                   <button class="stats-icon-btn quick-today-btn" id="todayStatsBtn" type="button" aria-label="Mostrar hoy" title="Hoy">Hoy</button>
-                  <button class="stats-icon-btn advanced-filter-btn" type="button" data-toggle-filters aria-label="Abrir filtros" title="Filtros">⌘</button>
-                  <button class="stats-icon-btn export-mini-btn" id="exportStatsImageBtn" type="button" title="Exportar imagen" aria-label="Exportar imagen">↓</button>
-                  <button class="stats-icon-btn export-mini-btn" id="exportStatsPdfBtn" type="button" title="Exportar PDF" aria-label="Exportar PDF">PDF</button>
+                  <button class="stats-icon-btn advanced-filter-btn" type="button" data-toggle-filters aria-label="Abrir filtros" title="Filtros">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h7M15 6h5M4 12h3M11 12h9M4 18h9M17 18h3"/><circle cx="13" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="15" cy="18" r="2"/></svg>
+</button>
+                  <button class="stats-icon-btn export-mini-btn" id="exportStatsImageBtn" type="button" title="Exportar imagen" aria-label="Exportar imagen">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11M8.5 10.5 12 14l3.5-3.5M5 18.5h14"/></svg>
+</button>
+                  <button class="stats-icon-btn export-mini-btn pdf-btn" id="exportStatsPdfBtn" type="button" title="Exportar PDF" aria-label="Exportar PDF">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3.5h7l3 3V20.5H7z"/><path d="M14 3.5v4h4"/></svg><span>PDF</span>
+</button>
                 </div>
               </div>
               <div id="statsBarList" class="bar-list"></div>
@@ -1642,9 +1648,14 @@ function schoolYearForDate(s){
   if(m<7 || (m===7 && d<=15)) return `${y-1}-${y}`;
   return `${y}-${y+1}`;
 }
+const APP_TIME_ZONE='America/Caracas';
+function venezuelaDateParts(date=new Date()){
+  const parts=new Intl.DateTimeFormat('en-CA',{timeZone:APP_TIME_ZONE,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(date);
+  const get=type=>parts.find(p=>p.type===type)?.value||'';
+  return {year:Number(get('year')),month:Number(get('month')),day:Number(get('day'))};
+}
 function currentSchoolYear(){
-  const now=new Date();
-  const y=now.getFullYear(), m=now.getMonth()+1, d=now.getDate();
+  const {year:y,month:m,day:d}=venezuelaDateParts();
   if(m>=9) return `${y}-${y+1}`;
   if(m<7 || (m===7 && d<=15)) return `${y-1}-${y}`;
   return `${y}-${y+1}`;
@@ -1765,9 +1776,20 @@ async function loadData({keepFilters=false}={}){
     setLoading('No se pudieron cargar los datos.');
   }
 }
+function canonicalFilterDate(value){
+  const raw=String(value||'').trim();
+  if(!raw) return '';
+  const iso=raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(iso) return `${iso[1]}-${String(Number(iso[2])).padStart(2,'0')}-${String(Number(iso[3])).padStart(2,'0')}`;
+  return normalizeDate(raw,'DMY');
+}
 function filtered(){
- const from=$('fromDate').value, to=$('toDate').value, year=$('yearFilter').value, month=$('monthFilter').value, week=$('weekFilter').value, email=$('emailFilter').value, wd=$('weekdayFilter').value, q=$('searchBox').value.trim().toLowerCase();
- return DATA.filter(r => (!from || r.fecha>=from) && (!to || r.fecha<=to) && (!year || schoolYearForDate(r.fecha)===year) && (!month || r.fecha.slice(5,7)===month) && (!week || isoWeekInfo(r.fecha).key===week) && (!email || r.email===email) && (!wd || weekday(r.fecha)===wd) && (!q || (r.observaciones||'').toLowerCase().includes(q)));
+ const from=canonicalFilterDate($('fromDate').value), to=canonicalFilterDate($('toDate').value), year=$('yearFilter').value, month=$('monthFilter').value, week=$('weekFilter').value, email=$('emailFilter').value, wd=$('weekdayFilter').value, q=$('searchBox').value.trim().toLowerCase();
+ return DATA.filter(r => {
+   const date=canonicalFilterDate(r.fecha);
+   if(!date) return false;
+   return (!from || date>=from) && (!to || date<=to) && (!year || schoolYearForDate(date)===year) && (!month || date.slice(5,7)===month) && (!week || isoWeekInfo(date).key===week) && (!email || r.email===email) && (!wd || weekday(date)===wd) && (!q || (r.observaciones||'').toLowerCase().includes(q));
+ });
 }
 function sumByDisc(rows){const o={}; DISCIPLINES.forEach(d=>o[d]=0); rows.forEach(r=>DISCIPLINES.forEach(d=>o[d]+=Number(r.valores[d]||0))); return o;}
 function totalSelected(r){let s=0; selected.forEach(d=>s += Number(r.valores[d]||0)); return s;}
@@ -2058,14 +2080,14 @@ function downloadCSV(){const rows=filtered(); const visible=DISCIPLINES.filter(d
 function setStatus(id, message, type=''){
   const el=$(id); if(!el) return; el.textContent=message||''; el.className='status' + (type ? ' '+type : '');
 }
-function todayISO(){const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+function todayISO(){const {year,month,day}=venezuelaDateParts(); return `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;}
 function labelForRecordHeader(d){return d;}
 function makeRecordFromPrefix(prefix){
   const record={};
   const fecha=$(prefix+'Fecha')?.value || '';
   const email=(prefix==='reg' && getRegisterSessionEmail()) ? getRegisterSessionEmail() : ($(prefix+'Email')?.value || '');
   const obs=$(prefix+'Obs')?.value || '';
-  if(prefix==='reg') record['Timestamp'] = new Date().toLocaleString('es-VE');
+  if(prefix==='reg') record['Timestamp'] = new Date().toLocaleString('es-VE',{timeZone:APP_TIME_ZONE});
   record['Fecha:'] = fecha;
   record['Email Address'] = email;
   DISCIPLINES.forEach(d=>{const el=$(prefix+'_'+normalizeKey(d)); record[d]=el ? el.value : '';});
@@ -2185,9 +2207,9 @@ function applyTodayFilter(){
   if($('fromDate')) $('fromDate').value=t;
   if($('toDate')) $('toDate').value=t;
   if($('yearFilter')) $('yearFilter').value=schoolYearForDate(t);
-  if($('monthFilter')) $('monthFilter').value=String(new Date().getMonth()+1).padStart(2,'0');
+  if($('monthFilter')) $('monthFilter').value=t.slice(5,7);
   if($('weekFilter')) $('weekFilter').value='';
-  if($('weekdayFilter')) $('weekdayFilter').value=String(new Date().getDay());
+  if($('weekdayFilter')) $('weekdayFilter').value=weekday(t);
   render();
 }
 function arrangeMobileExportButtons(){
