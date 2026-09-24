@@ -1255,7 +1255,7 @@ button{-webkit-tap-highlight-color:transparent}
 }
 
 </style>
-<link rel="stylesheet" href="./ui-v2.css?v=11">
+<link rel="stylesheet" href="./ui-v2.css?v=12">
 </head>
 <body>
 <div id="registerLoginModal" class="session-modal-backdrop" hidden>
@@ -1533,20 +1533,22 @@ button{-webkit-tap-highlight-color:transparent}
             </div>
           </div>
 
-          <section class="panel admin-unlock-card" id="adminUnlockCard">
-            <div class="admin-unlock-copy">
-              <span class="admin-eyebrow">Acceso restringido</span>
-              <strong>Panel administrativo</strong>
-            </div>
-            <div class="admin-unlock-form">
-              <div class="field">
-                <label>Clave de administración</label>
-                <input id="adminEditPassword" type="password" inputmode="numeric" placeholder="Clave" autocomplete="off">
+          <div class="admin-login-overlay" id="adminLoginOverlay">
+            <section class="panel admin-unlock-card" id="adminUnlockCard">
+              <div class="admin-unlock-copy">
+                <span class="admin-eyebrow">Acceso restringido</span>
+                <strong>Panel administrativo</strong>
               </div>
-              <button class="admin-primary-btn" id="adminUnlockBtn" type="button">Abrir</button>
-            </div>
-            <div id="adminStatus" class="status admin-main-status" aria-live="polite"></div>
-          </section>
+              <div class="admin-unlock-form">
+                <div class="field">
+                  <label>Clave de administración</label>
+                  <input id="adminEditPassword" type="password" inputmode="numeric" placeholder="Clave" autocomplete="off">
+                </div>
+                <button class="admin-primary-btn" id="adminUnlockBtn" type="button">Abrir</button>
+              </div>
+              <div id="adminStatus" class="status admin-main-status" aria-live="polite"></div>
+            </section>
+          </div>
 
           <div id="adminContent" class="admin-sections" hidden>
             <details class="panel admin-section" id="adminUsersSection" open>
@@ -2987,6 +2989,8 @@ async function deleteEditedRecord(unique, recordId){
 }
 
 async function ensureAdminUnlocked(){
+  const overlay=$('adminLoginOverlay');
+  if(overlay) overlay.hidden=false;
   const password=$('adminEditPassword')?.value.trim();
   if(adminSessionToken) return true;
   if(!password){setStatus('adminStatus','Escribe la clave de administración.','err'); return false;}
@@ -3410,10 +3414,22 @@ async function changeAccessKey(kind){
     setStatus('adminStatus',err.message==='ADMIN_LOCKED'?'La autorización administrativa venció. Vuelve a introducir la clave.':err.message,'err');
   }
 }
+function syncAdminLoginViewport(){
+  const overlay=$('adminLoginOverlay'); if(!overlay) return;
+  const vv=window.visualViewport;
+  const height=vv ? vv.height : window.innerHeight;
+  const offsetTop=vv ? vv.offsetTop : 0;
+  overlay.style.setProperty('--admin-vv-height',Math.max(240,height)+'px');
+  overlay.style.setProperty('--admin-vv-center',Math.max(120,offsetTop + height/2)+'px');
+  overlay.classList.toggle('keyboard-visible',height < window.innerHeight*0.78);
+}
 async function openAdminPanel(){
   if(!await ensureAdminUnlocked()) return;
   $('adminContent').hidden=false;
-  setStatus('adminStatus','Administración habilitada.','ok');
+  const overlay=$('adminLoginOverlay');
+  if(overlay) overlay.hidden=true;
+  document.body.classList.remove('admin-login-open');
+  setStatus('adminStatus','');
   await Promise.all([loadAdminUsers(),loadAdminAudit(),loadAdminBackups(),loadGuards()]);
   renderAdminGuards();
 }
@@ -3515,7 +3531,21 @@ function initLayoutNavigation(){
 }
 initLayoutNavigation();
 const isHiddenAdminPath=/\/00\/?$/.test(window.location.pathname);
-if(isHiddenAdminPath) showView('admin');
+if(isHiddenAdminPath){
+  showView('admin');
+  const adminOverlay=$('adminLoginOverlay');
+  const adminContent=$('adminContent');
+  if(adminContent) adminContent.hidden=true;
+  if(adminOverlay){
+    adminOverlay.hidden=false;
+    document.body.classList.add('admin-login-open');
+    syncAdminLoginViewport();
+    if(window.visualViewport){
+      window.visualViewport.addEventListener('resize',syncAdminLoginViewport);
+      window.visualViewport.addEventListener('scroll',syncAdminLoginViewport);
+    }
+  }
+}
 setupLandingCollapses();
 setupRegisterLoginModal();
 
