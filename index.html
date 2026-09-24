@@ -1255,7 +1255,7 @@ button{-webkit-tap-highlight-color:transparent}
 }
 
 </style>
-<link rel="stylesheet" href="./ui-v2.css?v=14">
+<link rel="stylesheet" href="./ui-v2.css?v=15">
 </head>
 <body>
 <div id="registerLoginModal" class="session-modal-backdrop" hidden>
@@ -1346,26 +1346,30 @@ button{-webkit-tap-highlight-color:transparent}
 
           <section class="panel home-total-card landing-collapsible" id="totalCollapseCard">
             <button class="landing-toggle" type="button" data-collapse-target="totalCollapseContent"><div class="landing-toggle-copy"><strong>Total por disciplina</strong><small>Resumen y exportación</small></div></button>
-            <div class="landing-collapse-content" id="totalCollapseContent" hidden>
-            <div class="section-head">
-              <div><h2>Total por disciplina</h2><p>Resumen según los filtros activos.</p></div>
-              <div class="total-card-actions" id="totalCardActions">
-                <button class="btn secondary quick-today-btn" id="todayTotalBtn" type="button">Hoy</button>
-                <button class="btn secondary advanced-filter-btn" type="button" data-toggle-filters>Filtros avanzados</button>
-                <button class="btn secondary export-mini-btn" id="exportTotalImageBtn" type="button" title="Exportar imagen">↓ Imagen</button>
-                <button class="btn secondary export-mini-btn" id="exportTotalPdfBtn" type="button" title="Exportar PDF">▣ PDF</button>
+            <div class="landing-collapse-content home-total-content" id="totalCollapseContent" hidden>
+              <div class="home-total-toolbar" id="totalCardActions" aria-label="Acciones del resumen">
+                <button class="home-total-action today quick-today-btn" id="todayTotalBtn" type="button" aria-label="Mostrar hoy" title="Hoy">Hoy</button>
+                <button class="home-total-action advanced-filter-btn" type="button" data-toggle-filters aria-label="Abrir filtros" title="Filtros">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h7M15 6h5M4 12h3M11 12h9M4 18h9M17 18h3"/><circle cx="13" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="15" cy="18" r="2"/></svg>
+                </button>
+                <button class="home-total-action export-mini-btn" id="exportTotalImageBtn" type="button" title="Exportar imagen" aria-label="Exportar imagen">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11M8.5 10.5 12 14l3.5-3.5M5 18.5h14"/></svg>
+                </button>
+                <button class="home-total-action export-mini-btn pdf" id="exportTotalPdfBtn" type="button" title="Exportar PDF" aria-label="Exportar PDF">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3.5h7l3 3V20.5H7z"/><path d="M14 3.5v4h4"/></svg><span>PDF</span>
+                </button>
               </div>
-            </div>
-            <div id="totalExportArea" class="export-area">
-              <div class="export-title">Total por disciplina</div>
-              <div id="totalSummaryDate" class="summary-meta">Rango: —</div>
-              <div id="barList" class="bar-list"></div>
-            </div>
-            <div class="mobile-export-actions" id="mobileExportActions" aria-label="Opciones de exportación"></div>
-            <div class="landing-mini">
-              <div class="mini-stat"><div class="label">Registros</div><div id="kpiRecords" class="value">—</div></div>
-              <div class="mini-stat"><div class="label">Asistencia total</div><div id="kpiTotal" class="value">—</div></div>
-            </div>
+              <div id="totalExportArea" class="home-total-summary">
+                <div class="home-total-summary-head">
+                  <div class="export-title">Total por disciplina</div>
+                  <div id="totalSummaryDate" class="summary-meta">Rango: —</div>
+                </div>
+                <div id="barList" class="bar-list"></div>
+              </div>
+              <div class="landing-mini home-total-kpis">
+                <div class="mini-stat"><div class="label">Registros</div><div id="kpiRecords" class="value">—</div></div>
+                <div class="mini-stat"><div class="label">Asistencia total</div><div id="kpiTotal" class="value">—</div></div>
+              </div>
             </div>
           </section>
         </div>
@@ -1457,7 +1461,7 @@ button{-webkit-tap-highlight-color:transparent}
               <h2>Guardias</h2>
               <p id="guardViewMeta">Consulta rápida por semana y día.</p>
             </div>
-            <button class="icon-action" id="guardTodayBtn" type="button" aria-label="Ir a hoy" title="Ir a hoy">◎</button>
+            <button class="guard-today-action" id="guardTodayBtn" type="button" aria-label="Ir a hoy" title="Ir a hoy">Hoy</button>
           </div>
 
           <div class="guard-switcher">
@@ -2291,21 +2295,7 @@ function applyTodayFilter(){
   if($('weekdayFilter')) $('weekdayFilter').value=weekday(t);
   render();
 }
-function arrangeMobileExportButtons(){
-  const mobile=window.matchMedia('(max-width:650px)').matches;
-  const holder=$('mobileExportActions');
-  const actions=$('totalCardActions');
-  const img=$('exportTotalImageBtn');
-  const pdf=$('exportTotalPdfBtn');
-  if(!holder || !actions || !img || !pdf) return;
-  if(mobile){
-    if(img.parentNode!==holder) holder.appendChild(img);
-    if(pdf.parentNode!==holder) holder.appendChild(pdf);
-  }else{
-    if(img.parentNode!==actions) actions.appendChild(img);
-    if(pdf.parentNode!==actions) actions.appendChild(pdf);
-  }
-}
+function arrangeMobileExportButtons(){}
 
 function getRegisterSessionEmail(){
   return registerSessionUser?.email || '';
@@ -2444,7 +2434,13 @@ function setupLandingCollapses(){
 function setupRegisterLoginModal(){
   const confirm=$('confirmRegisterLoginBtn'); if(confirm) confirm.onclick=confirmRegisterLogin;
   const cancel=$('cancelRegisterLoginBtn'); if(cancel) cancel.onclick=closeRegisterLoginModal;
-  const input=$('registerSessionPassword'); if(input) input.addEventListener('keydown',e=>{if(e.key==='Enter') confirmRegisterLogin();});
+  const input=$('registerSessionPassword');
+  if(input) input.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){
+      e.preventDefault();
+      if(!confirm?.disabled) confirmRegisterLogin();
+    }
+  });
 }
 
 function currentRegisterSnapshot(){
@@ -3453,7 +3449,10 @@ function initAdminModule(){
   $('saveRecordBtn').onclick=saveRecord;
   $('clearRecordFormBtn').onclick=clearRecordForm;
   $('findRecordsBtn').onclick=findEditableRecords;
+  if($('editPassword')) $('editPassword').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();if(!$('findRecordsBtn')?.disabled)findEditableRecords();}});
+  if($('editFecha')) $('editFecha').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();if(!$('findRecordsBtn')?.disabled)findEditableRecords();}});
   if($('adminUnlockBtn')) $('adminUnlockBtn').onclick=openAdminPanel;
+  if($('adminEditPassword')) $('adminEditPassword').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();if(!$('adminUnlockBtn')?.disabled)openAdminPanel();}});
   if($('adminCreateUserBtn')) $('adminCreateUserBtn').onclick=createAdminUser;
   if($('adminAddGuardPersonBtn')) $('adminAddGuardPersonBtn').onclick=addAdminGuardPerson;
   if($('adminAddGuardPointBtn')) $('adminAddGuardPointBtn').onclick=addAdminGuardPoint;
