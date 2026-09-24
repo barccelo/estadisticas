@@ -2115,3 +2115,24 @@ img,svg,canvas,iframe{max-width:100%!important}
     margin-bottom:10px!important;
   }
 }
+
+/* Alinear toolbar de Total con el recuadro inferior */
+#totalCollapseCard .home-total-toolbar{
+  margin-left:16px!important;
+  margin-right:16px!important;
+  width:auto!important;
+  max-width:none!important;
+}
+#totalCollapseCard .home-total-content{
+  padding-top:16px!important;
+}
+@media(max-width:650px){
+  #totalCollapseCard .home-total-content{
+    padding-top:18px!important;
+  }
+  #totalCollapseCard .home-total-toolbar{
+    margin-left:14px!important;
+    margin-right:14px!important;
+    margin-bottom:10px!important;
+  }
+}
