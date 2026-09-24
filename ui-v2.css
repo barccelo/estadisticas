@@ -1391,3 +1391,146 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .admin-login-open{
   overflow:hidden!important;
 }
+
+/* Pasada global final — navegación, iconografía y consistencia Apple-like */
+:root{
+  --app-radius-card:18px;
+  --app-radius-control:12px;
+  --app-hit:44px;
+}
+
+/* Iconografía consistente, monocroma y de trazo */
+.nav-icon{
+  width:22px!important;height:22px!important;display:inline-flex!important;
+  align-items:center!important;justify-content:center!important;flex:0 0 auto!important;
+}
+.nav-icon svg{
+  width:20px!important;height:20px!important;display:block!important;
+  fill:none!important;stroke:currentColor!important;stroke-width:1.8!important;
+  stroke-linecap:round!important;stroke-linejoin:round!important;
+}
+.side-link{
+  -webkit-tap-highlight-color:transparent!important;
+  transition:background-color .16s ease,color .16s ease,opacity .16s ease,transform .12s ease!important;
+}
+.side-link:active{transform:scale(.985)!important}
+.side-link.active .nav-icon{opacity:1!important}
+.side-link:not(.active) .nav-icon{opacity:.78!important}
+
+/* Superficies y controles */
+.panel{border-radius:var(--app-radius-card)!important;box-shadow:none!important}
+button,input,select,textarea{font-family:inherit!important}
+button{touch-action:manipulation!important}
+.btn,
+.edit-search-btn,
+.edit-save-btn,
+.edit-delete-btn,
+.admin-primary-btn,
+.admin-secondary-btn,
+.stats-icon-btn,
+.icon-action{
+  -webkit-tap-highlight-color:transparent!important;
+}
+.btn,.edit-search-btn,.edit-save-btn,.admin-primary-btn,.admin-secondary-btn{
+  min-height:var(--app-hit)!important;
+}
+.status{
+  line-height:1.35!important;
+  overflow-wrap:anywhere!important;
+}
+.status.ok{color:#3f6f4b!important;font-weight:600!important}
+.status.err{color:var(--ios-accent)!important;font-weight:650!important}
+
+/* El rojo queda reservado a acciones primarias/destructivas puntuales */
+#registerCollapseCard .landing-toggle::after,
+#totalCollapseCard .landing-toggle::after{
+  color:var(--ios-tertiary)!important;
+}
+.session-logout{
+  color:var(--ios-secondary)!important;
+}
+.edit-delete-btn,
+.admin-secondary-btn.destructive{
+  color:var(--ios-accent)!important;
+}
+
+/* Cabecera más contenida y alineada */
+.topbar-home-link{display:block!important;color:inherit!important;text-decoration:none!important}
+.topbar-inner{min-width:0!important}
+.topbar-copy{min-width:0!important}
+.topbar h1{overflow-wrap:anywhere!important}
+.topbar p{max-width:720px!important}
+
+/* Desktop: navegación lateral realmente tipo app */
+@media(min-width:901px){
+  .sidebar{
+    width:auto!important;
+    background:#151922!important;
+    border-right:1px solid rgba(255,255,255,.06)!important;
+  }
+  .side-nav{gap:5px!important}
+  .side-link{
+    grid-template-columns:24px minmax(0,1fr)!important;
+    min-height:46px!important;
+    padding:10px 11px!important;
+    border-radius:12px!important;
+    color:rgba(255,255,255,.70)!important;
+  }
+  .side-link.active{
+    background:rgba(255,255,255,.96)!important;
+    color:#151922!important;
+  }
+  .side-link .nav-label{
+    font-size:12.5px!important;
+    font-weight:620!important;
+  }
+}
+
+/* Móvil/tablet: tab bar equilibrada sin glifos burdos */
+@media(max-width:900px){
+  .sidebar{
+    background:#151922!important;
+    padding:7px 7px 9px!important;
+  }
+  .side-nav{
+    gap:4px!important;
+    overflow:hidden!important;
+  }
+  .side-link{
+    min-height:60px!important;
+    border-radius:13px!important;
+    padding:7px 2px 6px!important;
+    color:rgba(255,255,255,.68)!important;
+    gap:4px!important;
+  }
+  .side-link.active{
+    background:rgba(255,255,255,.96)!important;
+    color:#151922!important;
+  }
+  .side-link .nav-icon{width:21px!important;height:21px!important}
+  .side-link .nav-icon svg{width:19px!important;height:19px!important}
+  .side-link .nav-label{
+    font-size:10px!important;
+    font-weight:620!important;
+    letter-spacing:-.01em!important;
+  }
+}
+
+/* Microinteracciones sobrias */
+@media(prefers-reduced-motion:no-preference){
+  details>summary::after{transition:transform .16s ease!important}
+  .btn,.edit-search-btn,.edit-save-btn,.edit-delete-btn,.admin-primary-btn,.admin-secondary-btn,.stats-icon-btn{
+    transition:opacity .12s ease,transform .12s ease,background-color .16s ease,color .16s ease!important;
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}
+}
+
+/* Último seguro contra desbordes horizontales */
+html,body,.app-shell,.content,main.wrap,.view,.panel,.admin-shell-v2,.edit-shell,.stats-shell,.guards-shell,.schedules-shell{
+  width:auto!important;
+  max-width:100%!important;
+  min-width:0!important;
+}
+img,svg,canvas,iframe{max-width:100%!important}
