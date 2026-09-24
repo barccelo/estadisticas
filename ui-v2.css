@@ -2043,67 +2043,13 @@ img,svg,canvas,iframe{max-width:100%!important}
   }
 }
 
-/* Ajustes finos: iconos centrados y separación del toolbar */
+/* Ajustes finos: separación del toolbar, conservando los iconos originales */
 .home-total-content{
   padding-top:15px!important;
 }
 .home-total-toolbar{
   padding:0!important;
   min-height:38px!important;
-}
-.home-total-action{
-  box-sizing:border-box!important;
-  padding:0!important;
-  width:38px!important;
-  min-width:38px!important;
-  height:38px!important;
-  display:grid!important;
-  place-items:center!important;
-  line-height:1!important;
-}
-.home-total-action.today{
-  width:auto!important;
-  min-width:52px!important;
-  padding:0 12px!important;
-}
-.home-total-action.pdf{
-  width:58px!important;
-  min-width:58px!important;
-  display:flex!important;
-  align-items:center!important;
-  justify-content:center!important;
-  gap:4px!important;
-  padding:0 8px!important;
-}
-.home-total-action svg{
-  display:block!important;
-  margin:0!important;
-  transform:translateX(0)!important;
-}
-.home-total-action:not(.pdf) svg{
-  position:relative!important;
-  left:0!important;
-}
-.home-total-action.advanced-filter-btn svg{
-  top:2px!important;
-}
-.stats-icon-btn{
-  box-sizing:border-box!important;
-}
-.stats-icon-btn:not(.pdf-btn){
-  padding:0!important;
-  width:36px!important;
-  min-width:36px!important;
-  display:grid!important;
-  place-items:center!important;
-}
-.stats-icon-btn svg{
-  margin:0!important;
-  display:block!important;
-}
-.stats-icon-btn.pdf-btn{
-  min-width:56px!important;
-  justify-content:center!important;
 }
 
 @media(max-width:650px){
