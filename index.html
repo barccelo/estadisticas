@@ -1255,7 +1255,7 @@ button{-webkit-tap-highlight-color:transparent}
 }
 
 </style>
-<link rel="stylesheet" href="./ui-v2.css?v=7">
+<link rel="stylesheet" href="./ui-v2.css?v=8">
 </head>
 <body>
 <div id="registerLoginModal" class="session-modal-backdrop" hidden>
@@ -1494,19 +1494,34 @@ button{-webkit-tap-highlight-color:transparent}
       </section>
 
       <section id="view-edicion" class="view">
-        <section class="panel editing-wrap">
-          <div class="admin-card">
-            <h2>Editar datos guardados</h2>
-            <p>Busca y modifica los registros guardados en Cloudflare D1. La edición requiere una clave adicional, independiente de la sesión de usuario.</p>
-            <div class="mini-grid">
-              <div class="field"><label>Clave de edición</label><input id="editPassword" type="password" inputmode="numeric" placeholder="Clave de edición" autocomplete="off"></div>
-              <div class="field"><label>Fecha</label><input id="editFecha" type="date"></div>
+        <div class="edit-shell">
+          <div class="edit-page-head">
+            <div>
+              <h2>Editar datos</h2>
+              <p>Busca un día y modifica sus registros.</p>
             </div>
-            <div class="admin-row"><button class="btn" id="findRecordsBtn" type="button">Buscar registros</button></div>
-            <div id="editStatus" class="status"></div>
-            <div id="editResults" class="edit-results"></div>
           </div>
-        </section>
+
+          <section class="panel edit-search-card">
+            <div class="edit-search-grid">
+              <div class="field edit-date-field">
+                <label>Fecha</label>
+                <input id="editFecha" type="date">
+              </div>
+              <div class="field edit-key-field">
+                <label>Clave de edición</label>
+                <input id="editPassword" type="password" inputmode="numeric" placeholder="Clave" autocomplete="off">
+              </div>
+              <button class="edit-search-btn" id="findRecordsBtn" type="button" aria-label="Buscar registros">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 4 4"/></svg>
+                <span>Buscar</span>
+              </button>
+            </div>
+            <div id="editStatus" class="status edit-page-status" aria-live="polite"></div>
+          </section>
+
+          <div id="editResults" class="edit-results edit-results-v2"></div>
+        </div>
       </section>
 
       <section id="view-admin" class="view">
@@ -2749,7 +2764,7 @@ async function findEditableRecords(){
   const password=$('editPassword').value.trim();
   if(!password){setStatus('editStatus','Escribe la clave de edición.','err'); return;}
   if(!date){setStatus('editStatus','Selecciona una fecha para buscar.','err'); return;}
-  const btn=$('findRecordsBtn'); btn.disabled=true; $('editResults').innerHTML=''; setStatus('editStatus',editSessionToken?'Buscando registros...':'Verificando clave de edición...');
+  const btn=$('findRecordsBtn'); const btnLabel=btn?.querySelector('span'); if(btn){btn.disabled=true;btn.classList.add('is-loading');} if(btnLabel) btnLabel.textContent=editSessionToken?'Buscando…':'Verificando…'; $('editResults').innerHTML=''; setStatus('editStatus',editSessionToken?'Buscando registros…':'Verificando clave de edición…');
   try{
     if(!editSessionToken){
       const unlocked=await cloudApi('/api/edit/unlock',{
@@ -2773,7 +2788,7 @@ async function findEditableRecords(){
     }else{
       setStatus('editStatus',err.message || 'No se pudieron mostrar los registros.','err');
     }
-  }finally{btn.disabled=false;}
+  }finally{if(btn){btn.disabled=false;btn.classList.remove('is-loading');} if(btnLabel) btnLabel.textContent='Buscar';}
 }
 function valueFromRecord(rec, ...names){
   if(rec && rec.valores){
@@ -2792,15 +2807,18 @@ function renderEditResults(records){
   const box=$('editResults'); box.innerHTML='';
   records.forEach((rec, idx)=>{
     const recordId=String(rec.id || '');
-    const card=document.createElement('div'); card.className='edit-card'; card.dataset.recordId=recordId;
+    const card=document.createElement('article'); card.className='edit-card edit-record-card'; card.dataset.recordId=recordId;
     const unique='edit_'+recordId.replace(/[^a-zA-Z0-9_-]/g,'_')+'_'+idx;
-    let html=`<div class="edit-card-title"><span>Registro ${idx+1}</span><span>${escapeHtml(rec.responsable || valueFromRecord(rec,'Email Address','Dirección de correo electrónico','Correo electrónico'))}</span></div>`;
-    html+=`<div class="mini-grid"><div class="field"><label>Fecha</label><input id="${unique}_fecha" type="date" value="${escapeHtml(normalizeDate(valueFromRecord(rec,'Fecha:','Fecha')))}"></div><div class="field full"><label>Responsable / correo</label><select id="${unique}_email">${responsibleOptions(valueFromRecord(rec,'Email Address','Dirección de correo electrónico','Correo electrónico'), false)}</select></div></div>`;
-    html+=`<div class="num-grid">`;
-    DISCIPLINES.forEach(d=>{html+=`<div class="field"><label>${escapeHtml(d)}</label><input id="${unique}_${normalizeKey(d)}" type="number" min="0" step="1" value="${escapeHtml(valueFromRecord(rec,d))}"></div>`;});
-    html+=`</div><div class="field" style="margin-top:10px"><label>Observaciones</label><textarea id="${unique}_obs">${escapeHtml(valueFromRecord(rec,'Observaciones:','Observaciones'))}</textarea></div>`;
-    html+=`<div class="admin-row"><button class="btn" type="button" data-save-edit="${unique}" data-record-id="${escapeHtml(recordId)}">Guardar cambios</button><button class="btn secondary" type="button" data-delete-edit="${unique}" data-record-id="${escapeHtml(recordId)}">Eliminar registro</button><span id="${unique}_status" class="status"></span></div>`;
-    card.innerHTML=html; box.appendChild(card);
+    const rawDate=normalizeDate(valueFromRecord(rec,'Fecha:','Fecha'));
+    const person=rec.responsable || responsibleShort(valueFromRecord(rec,'Email Address','Dirección de correo electrónico','Correo electrónico'));
+    let out=`<div class="edit-record-head"><div><span class="edit-record-kicker">Registro ${idx+1}</span><strong>${escapeHtml(person)}</strong></div><span class="edit-record-date">${escapeHtml(niceDate(rawDate))}</span></div>`;
+    out+=`<div class="edit-record-section edit-record-main"><div class="edit-record-grid"><div class="field"><label>Fecha</label><input id="${unique}_fecha" type="date" value="${escapeHtml(rawDate)}"></div><div class="field"><label>Responsable</label><select id="${unique}_email">${responsibleOptions(valueFromRecord(rec,'Email Address','Dirección de correo electrónico','Correo electrónico'), false)}</select></div></div></div>`;
+    out+=`<div class="edit-record-section"><div class="edit-section-label">Asistencia</div><div class="edit-attendance-grid">`;
+    DISCIPLINES.forEach(d=>{out+=`<div class="field"><label>${escapeHtml(d)}</label><input id="${unique}_${normalizeKey(d)}" type="number" inputmode="numeric" min="0" step="1" value="${escapeHtml(valueFromRecord(rec,d))}"></div>`;});
+    out+=`</div></div>`;
+    out+=`<div class="edit-record-section"><div class="field"><label>Observaciones</label><textarea id="${unique}_obs" placeholder="Opcional">${escapeHtml(valueFromRecord(rec,'Observaciones:','Observaciones'))}</textarea></div></div>`;
+    out+=`<div class="edit-record-actions"><button class="edit-save-btn" type="button" data-save-edit="${unique}" data-record-id="${escapeHtml(recordId)}">Guardar cambios</button><button class="edit-delete-btn" type="button" data-delete-edit="${unique}" data-record-id="${escapeHtml(recordId)}" aria-label="Eliminar registro"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 7h15M9 7V4.5h6V7M7.5 7l.7 12h7.6l.7-12M10 10.5v5M14 10.5v5"/></svg><span>Eliminar</span></button></div><div id="${unique}_status" class="status edit-record-status" aria-live="polite"></div>`;
+    card.innerHTML=out; box.appendChild(card);
   });
   box.querySelectorAll('[data-save-edit]').forEach(btn=>btn.onclick=()=>saveEditedRecord(btn.dataset.saveEdit, btn.dataset.recordId));
   box.querySelectorAll('[data-delete-edit]').forEach(btn=>btn.onclick=()=>deleteEditedRecord(btn.dataset.deleteEdit, btn.dataset.recordId));
@@ -2834,7 +2852,7 @@ async function saveEditedRecord(unique, recordId){
   const attendance={};
   DISCIPLINES.forEach(d=>attendance[d]=Math.max(0,Math.trunc(parseNumber($(unique+'_'+normalizeKey(d)).value))));
 
-  const btn=document.querySelector(`[data-save-edit="${unique}"]`); btn.disabled=true; setStatus(unique+'_status','Guardando en Cloudflare...');
+  const btn=document.querySelector(`[data-save-edit="${unique}"]`); const originalLabel=btn?.textContent||'Guardar cambios'; if(btn){btn.disabled=true;btn.textContent='Guardando…';} setStatus(unique+'_status','Guardando…');
   try{
     const result=await cloudApi('/api/records/'+encodeURIComponent(recordId),{
       method:'PUT',
@@ -2866,7 +2884,7 @@ async function saveEditedRecord(unique, recordId){
         ? 'La autorización de edición venció. Vuelve a introducir la clave de edición.'
         : err.message;
     setStatus(unique+'_status',msg,'err');
-  }finally{btn.disabled=false;}
+  }finally{if(btn){btn.disabled=false;btn.textContent=originalLabel;}}
 }
 async function deleteEditedRecord(unique, recordId){
   if(!editSessionToken){
@@ -2875,8 +2893,10 @@ async function deleteEditedRecord(unique, recordId){
   }
   if(!confirm('¿Eliminar este registro? Esta acción lo quitará de las estadísticas.')) return;
   const btn=document.querySelector(`[data-delete-edit="${unique}"]`);
+  const deleteLabel=btn?.querySelector('span');
   if(btn) btn.disabled=true;
-  setStatus(unique+'_status','Eliminando de Cloudflare...');
+  if(deleteLabel) deleteLabel.textContent='Eliminando…';
+  setStatus(unique+'_status','Eliminando…');
   try{
     const result=await cloudApi('/api/records/'+encodeURIComponent(recordId),{
       method:'DELETE',
@@ -2901,7 +2921,7 @@ async function deleteEditedRecord(unique, recordId){
     if(err.message==='EDIT_LOCKED') editSessionToken='';
   editSessionPassword='';
     setStatus(unique+'_status',err.message==='EDIT_LOCKED'?'La autorización de edición venció. Vuelve a introducir la clave.':err.message,'err');
-  }finally{if(btn) btn.disabled=false;}
+  }finally{if(btn) btn.disabled=false; if(deleteLabel) deleteLabel.textContent='Eliminar';}
 }
 
 async function ensureAdminUnlocked(){
@@ -3333,6 +3353,17 @@ async function openAdminPanel(){
   await Promise.all([loadAdminUsers(),loadAdminAudit(),loadAdminBackups(),loadGuards()]);
   renderAdminGuards();
 }
+function keepEditFieldVisible(target){
+  if(!target || !target.closest('#view-edicion')) return;
+  const vv=window.visualViewport;
+  if(!vv) return;
+  setTimeout(()=>{
+    const keyboardVisible=vv.height < window.innerHeight*0.82;
+    if(keyboardVisible) target.scrollIntoView({behavior:'smooth',block:'center',inline:'nearest'});
+  },180);
+}
+document.addEventListener('focusin',event=>keepEditFieldVisible(event.target));
+
 function initAdminModule(){
   buildRegisterInputs();
   fillResponsibleSelect('regEmail', false, getRegisterSessionEmail() || ($('regEmail') ? $('regEmail').value : ''));
