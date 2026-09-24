@@ -1255,7 +1255,7 @@ button{-webkit-tap-highlight-color:transparent}
 }
 
 </style>
-<link rel="stylesheet" href="./ui-v2.css?v=10">
+<link rel="stylesheet" href="./ui-v2.css?v=11">
 </head>
 <body>
 <div id="registerLoginModal" class="session-modal-backdrop" hidden>
@@ -1525,59 +1525,121 @@ button{-webkit-tap-highlight-color:transparent}
       </section>
 
       <section id="view-admin" class="view">
-        <section class="panel editing-wrap">
-          <div class="admin-card">
-            <h2>Administración</h2>
-            <p>Gestiona usuarios, claves de acceso, roles y auditoría.</p>
-            <div class="mini-grid">
-              <div class="field"><label>Clave de administración</label><input id="adminEditPassword" type="password" inputmode="numeric" placeholder="Clave de administración" autocomplete="off"></div>
-              <div class="field"><label>&nbsp;</label><button class="btn" id="adminUnlockBtn" type="button">Abrir administración</button></div>
-            </div>
-            <div id="adminStatus" class="status"></div>
-
-            <div id="adminContent" hidden>
-              <div class="section-head" style="margin-top:18px"><div><h2>Seguridad de acceso</h2><p>Las claves de administración y de edición son independientes.</p></div></div>
-              <div class="mini-grid">
-                <div class="field"><label>Nueva clave de administración</label><input id="adminNewAdminKey" type="password" inputmode="numeric" placeholder="Nueva clave"></div>
-                <div class="field"><label>&nbsp;</label><button class="btn secondary" id="adminChangeAdminKeyBtn" type="button">Cambiar clave de administración</button></div>
-                <div class="field"><label>Nueva clave de edición</label><input id="adminNewEditKey" type="password" inputmode="numeric" placeholder="Nueva clave"></div>
-                <div class="field"><label>&nbsp;</label><button class="btn secondary" id="adminChangeEditKeyBtn" type="button">Cambiar clave de edición</button></div>
-              </div>
-
-              <div class="section-head" style="margin-top:22px"><div><h2>Usuarios</h2><p>Crear usuarios, cambiar rol, activar/desactivar y restablecer PIN.</p></div></div>
-              <div class="mini-grid">
-                <div class="field"><label>Nombre</label><input id="adminNewName" type="text" placeholder="Nombre"></div>
-                <div class="field"><label>Correo</label><input id="adminNewEmail" type="email" placeholder="correo@dominio.com"></div>
-                <div class="field"><label>PIN inicial</label><input id="adminNewPin" type="password" inputmode="numeric" placeholder="PIN"></div>
-                <div class="field"><label>Rol</label><select id="adminNewRole"><option value="registrador">Registrador</option><option value="editor">Editor</option><option value="admin">Administrador</option></select></div>
-              </div>
-              <div class="admin-row"><button class="btn" id="adminCreateUserBtn" type="button">Crear usuario</button></div>
-              <div id="adminUsers" class="edit-results"></div>
-
-              <div class="section-head" style="margin-top:22px"><div><h2>Guardias</h2><p>Edita personas, puntos y asignaciones de las cuatro semanas del mes.</p></div></div>
-              <div class="admin-row"><button class="btn secondary" id="adminAddGuardPersonBtn" type="button">Agregar persona</button><button class="btn secondary" id="adminAddGuardPointBtn" type="button">Agregar punto</button><button class="btn" id="adminSaveGuardsBtn" type="button">Guardar guardias</button><span id="adminGuardsStatus" class="status"></span></div>
-              <div class="section-head" style="margin-top:14px"><div><h2 style="font-size:16px">Personas</h2></div></div>
-              <div id="adminGuardPeople" class="guard-admin-list"></div>
-              <div class="section-head" style="margin-top:14px"><div><h2 style="font-size:16px">Puntos</h2></div></div>
-              <div id="adminGuardPoints" class="guard-admin-list"></div>
-              <div class="section-head" style="margin-top:14px"><div><h2 style="font-size:16px">Asignaciones</h2></div></div>
-              <div id="adminGuardAssignments"></div>
-
-              <div class="section-head" style="margin-top:22px"><div><h2>Respaldo en Google Sheets</h2><p>D1 es la fuente principal. Aquí se muestran operaciones de respaldo pendientes o completadas.</p></div></div>
-              <div class="admin-row"><button class="btn secondary" id="adminRefreshBackupsBtn" type="button">Actualizar estado</button><span id="adminBackupFeedback" class="status"></span></div>
-              <div id="adminBackupSummary" class="status"></div>
-              <div class="mini-grid" style="margin-top:10px">
-                <div class="field"><label>Clave de edición para reintentar pendientes</label><input id="adminRetryEditKey" type="password" inputmode="numeric" placeholder="Clave de edición"></div>
-                <div class="field"><label>&nbsp;</label><button class="btn secondary" id="adminRetryBackupsBtn" type="button">Reintentar pendientes</button></div>
-              </div>
-              <div id="adminBackups" class="edit-results"></div>
-
-              <div class="section-head" style="margin-top:22px"><div><h2>Auditoría reciente</h2><p>Últimos accesos, registros, ediciones y eliminaciones.</p></div></div>
-              <div class="admin-row"><button class="btn secondary" id="adminRefreshAuditBtn" type="button">Actualizar auditoría</button></div>
-              <div id="adminAudit" class="edit-results"></div>
+        <div class="admin-shell-v2">
+          <div class="admin-page-head">
+            <div>
+              <h2>Administración</h2>
+              <p>Usuarios, accesos, guardias y respaldo.</p>
             </div>
           </div>
-        </section>
+
+          <section class="panel admin-unlock-card" id="adminUnlockCard">
+            <div class="admin-unlock-copy">
+              <span class="admin-eyebrow">Acceso restringido</span>
+              <strong>Panel administrativo</strong>
+            </div>
+            <div class="admin-unlock-form">
+              <div class="field">
+                <label>Clave de administración</label>
+                <input id="adminEditPassword" type="password" inputmode="numeric" placeholder="Clave" autocomplete="off">
+              </div>
+              <button class="admin-primary-btn" id="adminUnlockBtn" type="button">Abrir</button>
+            </div>
+            <div id="adminStatus" class="status admin-main-status" aria-live="polite"></div>
+          </section>
+
+          <div id="adminContent" class="admin-sections" hidden>
+            <details class="panel admin-section" id="adminUsersSection" open>
+              <summary>
+                <div><span class="admin-section-title">Usuarios</span><span class="admin-section-sub">Cuentas, roles y acceso</span></div>
+              </summary>
+              <div class="admin-section-body">
+                <div class="admin-subhead">
+                  <div><strong>Nuevo usuario</strong><span>Nombre, correo, PIN y rol.</span></div>
+                </div>
+                <div class="admin-form-grid admin-user-create-grid">
+                  <div class="field"><label>Nombre</label><input id="adminNewName" type="text" placeholder="Nombre"></div>
+                  <div class="field"><label>Correo</label><input id="adminNewEmail" type="email" placeholder="correo@dominio.com"></div>
+                  <div class="field"><label>PIN inicial</label><input id="adminNewPin" type="password" inputmode="numeric" placeholder="PIN"></div>
+                  <div class="field"><label>Rol</label><select id="adminNewRole"><option value="registrador">Registrador</option><option value="editor">Editor</option><option value="admin">Administrador</option></select></div>
+                </div>
+                <div class="admin-action-row"><button class="admin-primary-btn" id="adminCreateUserBtn" type="button">Crear usuario</button></div>
+                <div id="adminUsers" class="admin-list-v2"></div>
+              </div>
+            </details>
+
+            <details class="panel admin-section" id="adminAccessSection">
+              <summary>
+                <div><span class="admin-section-title">Seguridad</span><span class="admin-section-sub">Claves de administración y edición</span></div>
+              </summary>
+              <div class="admin-section-body">
+                <div class="admin-form-grid">
+                  <div class="field"><label>Nueva clave de administración</label><input id="adminNewAdminKey" type="password" inputmode="numeric" placeholder="Nueva clave"></div>
+                  <div class="admin-inline-action"><button class="admin-secondary-btn" id="adminChangeAdminKeyBtn" type="button">Cambiar clave</button></div>
+                  <div class="field"><label>Nueva clave de edición</label><input id="adminNewEditKey" type="password" inputmode="numeric" placeholder="Nueva clave"></div>
+                  <div class="admin-inline-action"><button class="admin-secondary-btn" id="adminChangeEditKeyBtn" type="button">Cambiar clave</button></div>
+                </div>
+              </div>
+            </details>
+
+            <details class="panel admin-section" id="adminGuardsSection">
+              <summary>
+                <div><span class="admin-section-title">Guardias</span><span class="admin-section-sub">Personas, puntos y rotación mensual</span></div>
+              </summary>
+              <div class="admin-section-body">
+                <div class="admin-toolbar">
+                  <button class="admin-secondary-btn" id="adminAddGuardPersonBtn" type="button">+ Persona</button>
+                  <button class="admin-secondary-btn" id="adminAddGuardPointBtn" type="button">+ Punto</button>
+                  <button class="admin-primary-btn" id="adminSaveGuardsBtn" type="button">Guardar guardias</button>
+                </div>
+                <div id="adminGuardsStatus" class="status admin-inline-status"></div>
+
+                <details class="admin-subsection" open>
+                  <summary>Personas</summary>
+                  <div id="adminGuardPeople" class="guard-admin-list admin-list-v2"></div>
+                </details>
+                <details class="admin-subsection">
+                  <summary>Puntos</summary>
+                  <div id="adminGuardPoints" class="guard-admin-list admin-list-v2"></div>
+                </details>
+                <details class="admin-subsection">
+                  <summary>Asignaciones</summary>
+                  <div id="adminGuardAssignments"></div>
+                </details>
+              </div>
+            </details>
+
+            <details class="panel admin-section" id="adminBackupSection">
+              <summary>
+                <div><span class="admin-section-title">Respaldo</span><span class="admin-section-sub">Sincronización con Google Sheets</span></div>
+              </summary>
+              <div class="admin-section-body">
+                <div class="admin-toolbar">
+                  <button class="admin-secondary-btn" id="adminRefreshBackupsBtn" type="button">Actualizar estado</button>
+                  <span id="adminBackupFeedback" class="status admin-inline-status"></span>
+                </div>
+                <div id="adminBackupSummary" class="status"></div>
+                <div class="admin-form-grid admin-retry-grid">
+                  <div class="field"><label>Clave de edición</label><input id="adminRetryEditKey" type="password" inputmode="numeric" placeholder="Para reintentar pendientes"></div>
+                  <div class="admin-inline-action"><button class="admin-secondary-btn" id="adminRetryBackupsBtn" type="button">Reintentar pendientes</button></div>
+                </div>
+                <div id="adminBackups" class="admin-list-v2"></div>
+              </div>
+            </details>
+
+            <details class="panel admin-section" id="adminAuditSection">
+              <summary>
+                <div><span class="admin-section-title">Auditoría</span><span class="admin-section-sub">Actividad reciente del sistema</span></div>
+              </summary>
+              <div class="admin-section-body">
+                <div class="admin-toolbar">
+                  <button class="admin-secondary-btn" id="adminRefreshAuditBtn" type="button">Actualizar</button>
+                </div>
+                <div id="adminAudit" class="admin-list-v2"></div>
+              </div>
+            </details>
+          </div>
+        </div>
       </section>
 
     </main>
@@ -3050,20 +3112,22 @@ function renderAdminGuards(){
   if(!pb||!ptb||!ab) return;
   pb.innerHTML='';
   GUARD_CONFIG.people.forEach((p,i)=>{
-    const el=document.createElement('div'); el.className='guard-admin-item';
-    el.innerHTML=`<div class="mini-grid"><div class="field"><label>Nombre</label><input data-gp-name="${i}" value="${escapeHtml(p.name)}"></div><div class="field"><label>Color</label><input data-gp-color="${i}" type="color" value="${escapeHtml(p.color||'#d1d5db')}"></div><div class="field"><label>Estado</label><select data-gp-active="${i}"><option value="1" ${Number(p.active)!==0?'selected':''}>Activo</option><option value="0" ${Number(p.active)===0?'selected':''}>Inactivo</option></select></div></div>`;
+    const el=document.createElement('div'); el.className='guard-admin-item admin-compact-card';
+    el.innerHTML=`<div class="admin-form-grid guard-person-grid"><div class="field"><label>Nombre</label><input data-gp-name="${i}" value="${escapeHtml(p.name)}"></div><div class="field color-field"><label>Color</label><input data-gp-color="${i}" type="color" value="${escapeHtml(p.color||'#d1d5db')}"></div><div class="field"><label>Estado</label><select data-gp-active="${i}"><option value="1" ${Number(p.active)!==0?'selected':''}>Activo</option><option value="0" ${Number(p.active)===0?'selected':''}>Inactivo</option></select></div></div>`;
     pb.appendChild(el);
   });
   ptb.innerHTML='';
   GUARD_CONFIG.points.forEach((p,i)=>{
-    const el=document.createElement('div'); el.className='guard-admin-item';
-    el.innerHTML=`<div class="mini-grid"><div class="field"><label>Código</label><input data-gpt-code="${i}" value="${escapeHtml(p.code)}"></div><div class="field"><label>Nombre</label><input data-gpt-name="${i}" value="${escapeHtml(p.name)}"></div><div class="field full"><label>Descripción</label><input data-gpt-desc="${i}" value="${escapeHtml(p.description||'')}"></div><div class="field"><label>Estado</label><select data-gpt-active="${i}"><option value="1" ${Number(p.active)!==0?'selected':''}>Activo</option><option value="0" ${Number(p.active)===0?'selected':''}>Inactivo</option></select></div></div>`;
+    const el=document.createElement('div'); el.className='guard-admin-item admin-compact-card';
+    el.innerHTML=`<div class="admin-form-grid guard-point-grid"><div class="field"><label>Código</label><input data-gpt-code="${i}" value="${escapeHtml(p.code)}"></div><div class="field"><label>Nombre</label><input data-gpt-name="${i}" value="${escapeHtml(p.name)}"></div><div class="field guard-desc-field"><label>Descripción</label><input data-gpt-desc="${i}" value="${escapeHtml(p.description||'')}"></div><div class="field"><label>Estado</label><select data-gpt-active="${i}"><option value="1" ${Number(p.active)!==0?'selected':''}>Activo</option><option value="0" ${Number(p.active)===0?'selected':''}>Inactivo</option></select></div></div>`;
     ptb.appendChild(el);
   });
   const amap=new Map(GUARD_CONFIG.assignments.map(a=>[`${a.week_no}:${a.weekday}:${a.point_code}`,a.person_id]));
   ab.innerHTML='';
   for(let week=1;week<=4;week++){
-    const w=document.createElement('section'); w.className='guard-assignment-week'; w.innerHTML=`<h3>Semana ${week}</h3>`;
+    const w=document.createElement('details'); w.className='guard-assignment-week admin-week-card'; if(week===1) w.open=true;
+    w.innerHTML=`<summary>Semana ${week}</summary><div class="admin-week-body"></div>`;
+    const body=w.querySelector('.admin-week-body');
     for(let day=1;day<=5;day++){
       const d=document.createElement('div'); d.className='guard-assignment-day'; d.innerHTML=`<strong>${GUARD_DAY_NAMES[day]}</strong>`;
       GUARD_CONFIG.points.filter(p=>Number(p.active)!==0).forEach(point=>{
@@ -3072,7 +3136,7 @@ function renderAdminGuards(){
         row.innerHTML=`<span>${escapeHtml(point.code)}</span><select data-ga-week="${week}" data-ga-day="${day}" data-ga-point="${escapeHtml(point.code)}"><option value="">Sin asignar</option>${GUARD_CONFIG.people.filter(p=>Number(p.active)!==0).map(p=>`<option value="${escapeHtml(p.id)}" ${p.id===current?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}</select>`;
         d.appendChild(row);
       });
-      w.appendChild(d);
+      body.appendChild(d);
     }
     ab.appendChild(w);
   }
@@ -3109,19 +3173,19 @@ async function loadAdminUsers(){
   const box=$('adminUsers'); box.innerHTML='';
   (result.users||[]).forEach(user=>{
     const id=String(user.id);
-    const card=document.createElement('div'); card.className='edit-card';
+    const card=document.createElement('article'); card.className='admin-user-card';
     const active=Number(user.active)===1;
     const roleLabel=({registrador:'Registrador',editor:'Editor',admin:'Administrador'})[user.role]||user.role||'Registrador';
     const sessions=Number(user.active_sessions||0);
-    card.innerHTML=`<div class="edit-card-title"><span>${escapeHtml(user.display_name)}</span><span>${escapeHtml(user.email)}</span></div>
-      <div class="admin-badges"><span class="admin-badge">${escapeHtml(roleLabel)}</span><span class="admin-badge ${active?'':'muted'}">${active?'Activo':'Inactivo'}</span><span class="admin-badge muted">${sessions} sesión(es) activa(s)</span>${user.last_login?`<span class="admin-badge muted">Último acceso: ${escapeHtml(user.last_login)}</span>`:''}</div>
-      <div class="mini-grid" style="margin-top:10px">
+    card.innerHTML=`<div class="admin-user-head"><div><strong>${escapeHtml(user.display_name)}</strong><span>${escapeHtml(user.email)}</span></div><span class="admin-state-pill ${active?'active':'inactive'}">${active?'Activo':'Inactivo'}</span></div>
+      <div class="admin-user-meta"><span>${escapeHtml(roleLabel)}</span><span>${sessions} sesión(es)</span>${user.last_login?`<span>Último acceso: ${escapeHtml(user.last_login)}</span>`:''}</div>
+      <div class="admin-form-grid admin-user-edit-grid">
         <div class="field"><label>Nombre</label><input data-admin-name="${escapeHtml(id)}" value="${escapeHtml(user.display_name)}"></div>
         <div class="field"><label>Correo</label><input data-admin-email="${escapeHtml(id)}" value="${escapeHtml(user.email)}"></div>
         <div class="field"><label>Rol</label><select data-admin-role="${escapeHtml(id)}"><option value="registrador" ${user.role==='registrador'?'selected':''}>Registrador</option><option value="editor" ${user.role==='editor'?'selected':''}>Editor</option><option value="admin" ${user.role==='admin'?'selected':''}>Administrador</option></select></div>
-        <div class="field"><label>Nuevo PIN</label><input data-admin-pin="${escapeHtml(id)}" type="password" inputmode="numeric" placeholder="Dejar vacío para conservar"></div>
+        <div class="field"><label>Nuevo PIN</label><input data-admin-pin="${escapeHtml(id)}" type="password" inputmode="numeric" placeholder="Sin cambios"></div>
       </div>
-      <div class="admin-row"><button class="btn" data-admin-save="${escapeHtml(id)}" type="button">Guardar usuario</button><button class="btn secondary" data-admin-active="${escapeHtml(id)}" data-current="${active?'1':'0'}" type="button">${active?'Desactivar':'Activar'}</button><span class="status" data-admin-status="${escapeHtml(id)}"></span></div>`;
+      <div class="admin-card-actions"><button class="admin-primary-btn compact" data-admin-save="${escapeHtml(id)}" type="button">Guardar</button><button class="admin-secondary-btn compact ${active?'destructive':''}" data-admin-active="${escapeHtml(id)}" data-current="${active?'1':'0'}" type="button">${active?'Desactivar':'Activar'}</button></div><div class="status admin-card-status" data-admin-status="${escapeHtml(id)}"></div>`;
     box.appendChild(card);
   });
   box.querySelectorAll('[data-admin-save]').forEach(btn=>btn.onclick=()=>saveAdminUser(btn.dataset.adminSave));
@@ -3255,9 +3319,9 @@ async function loadAdminBackups(options={}){
     if(!box) return;
     box.innerHTML='';
     pending.forEach(job=>{
-      const card=document.createElement('div'); card.className='edit-card';
+      const card=document.createElement('article'); card.className='admin-log-card';
       const opLabel=({create:'Crear registro',update:'Actualizar registro',delete:'Eliminar registro'})[job.operation]||job.operation;
-      card.innerHTML=`<div class="edit-card-title"><span>${escapeHtml(opLabel)}</span><span>${escapeHtml(job.created_at||'')}</span></div><div class="small">${escapeHtml(job.responsible_email||'')}</div><div class="audit-detail">Intentos: ${Number(job.attempts||0)}${job.last_error?' · Último error: '+escapeHtml(job.last_error):''}</div>`;
+      card.innerHTML=`<div class="admin-log-head"><strong>${escapeHtml(opLabel)}</strong><span>${escapeHtml(job.created_at||'')}</span></div><div class="admin-log-who">${escapeHtml(job.responsible_email||'')}</div><div class="admin-log-detail">Intentos: ${Number(job.attempts||0)}${job.last_error?' · Último error: '+escapeHtml(job.last_error):''}</div>`;
       box.appendChild(card);
     });
     if(!silent && feedback){
@@ -3307,10 +3371,10 @@ async function loadAdminAudit(){
   const result=await cloudApi('/api/admin/audit',{headers:{'x-admin-token':adminSessionToken}});
   const box=$('adminAudit'); box.innerHTML='';
   (result.events||[]).forEach(ev=>{
-    const card=document.createElement('div'); card.className='edit-card';
+    const card=document.createElement('article'); card.className='admin-log-card';
     const who=ev.display_name||ev.email||'Sistema';
     const detail=adminAuditDetail(ev);
-    card.innerHTML=`<div class="edit-card-title"><span>${escapeHtml(adminAuditLabel(ev.event_type))}</span><span>${escapeHtml(ev.created_at||'')}</span></div><div class="small">${escapeHtml(who)}</div>${detail?`<div class="audit-detail">${escapeHtml(detail)}</div>`:''}`;
+    card.innerHTML=`<div class="admin-log-head"><strong>${escapeHtml(adminAuditLabel(ev.event_type))}</strong><span>${escapeHtml(ev.created_at||'')}</span></div><div class="admin-log-who">${escapeHtml(who)}</div>${detail?`<div class="admin-log-detail">${escapeHtml(detail)}</div>`:''}`;
     box.appendChild(card);
   });
 }
@@ -3354,7 +3418,7 @@ async function openAdminPanel(){
   renderAdminGuards();
 }
 function keepEditFieldVisible(target){
-  if(!target || !target.closest('#view-edicion')) return;
+  if(!target || !target.closest('#view-edicion, #view-admin')) return;
   const vv=window.visualViewport;
   if(!vv) return;
   setTimeout(()=>{
