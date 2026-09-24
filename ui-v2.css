@@ -1123,3 +1123,13 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .edit-attendance-grid{grid-template-columns:1fr 1fr!important}
   .edit-record-head strong{max-width:210px!important}
 }
+
+/* Ajuste óptico del selector de fecha en Editar */
+#view-edicion input[type="date"]{
+  padding-right:14px!important;
+}
+#view-edicion input[type="date"]::-webkit-calendar-picker-indicator{
+  margin-right:4px!important;
+  opacity:.72!important;
+  cursor:pointer!important;
+}
