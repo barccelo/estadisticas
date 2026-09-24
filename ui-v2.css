@@ -1827,3 +1827,218 @@ img,svg,canvas,iframe{max-width:100%!important}
     grid-template-columns:100px minmax(0,1fr) 140px!important;
   }
 }
+
+/* Correcciones de revisión — escritorio + total + fecha + enter */
+
+/* Sidebar de escritorio fijo y completo */
+@media(min-width:1051px){
+  .app-shell{
+    display:block!important;
+    min-height:100dvh!important;
+  }
+  .sidebar{
+    position:fixed!important;
+    inset:0 auto 0 0!important;
+    width:240px!important;
+    min-width:240px!important;
+    max-width:240px!important;
+    height:100dvh!important;
+    min-height:100dvh!important;
+    padding:22px 14px!important;
+    overflow-y:auto!important;
+    overflow-x:hidden!important;
+  }
+  .content{
+    display:block!important;
+    width:calc(100% - 240px)!important;
+    max-width:none!important;
+    min-width:0!important;
+    margin-left:240px!important;
+  }
+}
+
+/* Total por disciplina: misma gramática visual que Estadísticas */
+.home-total-content{
+  padding:12px 14px 14px!important;
+}
+.home-total-toolbar{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-end!important;
+  gap:6px!important;
+  flex-wrap:wrap!important;
+  margin:0 0 10px!important;
+}
+.home-total-action{
+  min-width:34px!important;
+  height:34px!important;
+  padding:0 9px!important;
+  border:0!important;
+  border-radius:10px!important;
+  background:var(--ios-fill)!important;
+  color:var(--ios-label)!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:4px!important;
+  font-size:11px!important;
+  font-weight:650!important;
+  box-shadow:none!important;
+  cursor:pointer!important;
+}
+.home-total-action.today{
+  min-width:auto!important;
+  padding-inline:11px!important;
+}
+.home-total-action svg{
+  width:18px!important;
+  height:18px!important;
+  fill:none!important;
+  stroke:currentColor!important;
+  stroke-width:1.8!important;
+  stroke-linecap:round!important;
+  stroke-linejoin:round!important;
+}
+.home-total-action.pdf span{
+  font-size:9px!important;
+  font-weight:750!important;
+}
+.home-total-summary{
+  padding:12px!important;
+  border:0!important;
+  border-radius:14px!important;
+  background:var(--ios-fill)!important;
+  box-shadow:none!important;
+}
+.home-total-summary-head{
+  margin-bottom:10px!important;
+}
+.home-total-summary .export-title{
+  font-size:15px!important;
+  font-weight:700!important;
+  letter-spacing:-.02em!important;
+  color:var(--ios-label)!important;
+}
+.home-total-summary .summary-meta{
+  margin-top:3px!important;
+  font-size:10.5px!important;
+  line-height:1.35!important;
+  color:var(--ios-secondary)!important;
+  font-weight:550!important;
+}
+.home-total-summary .bar-list{
+  gap:8px!important;
+}
+.home-total-summary .bar-row{
+  grid-template-columns:minmax(90px,1fr) minmax(100px,1.4fr) 46px!important;
+  gap:8px!important;
+  font-size:11px!important;
+}
+.home-total-summary .bar-row strong{
+  font-size:11px!important;
+  font-weight:650!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+.home-total-summary .bar-bg{
+  height:7px!important;
+  background:rgba(118,118,128,.12)!important;
+}
+.home-total-summary .bar-fill{
+  background:var(--ios-accent)!important;
+}
+.home-total-summary .bar-row span{
+  font-size:10.5px!important;
+  font-weight:650!important;
+  color:var(--ios-secondary)!important;
+  text-align:right!important;
+}
+.home-total-kpis{
+  margin-top:9px!important;
+  gap:8px!important;
+}
+.home-total-kpis .mini-stat{
+  padding:11px 12px!important;
+  border-radius:13px!important;
+  background:var(--ios-fill)!important;
+}
+.home-total-kpis .mini-stat .label{
+  font-size:9.5px!important;
+  color:var(--ios-secondary)!important;
+  letter-spacing:0!important;
+}
+.home-total-kpis .mini-stat .value{
+  margin-top:2px!important;
+  font-size:20px!important;
+}
+.mobile-export-actions{
+  display:none!important;
+}
+
+/* Guardias: acción legible */
+.guard-today-action{
+  min-height:36px!important;
+  padding:0 11px!important;
+  border:0!important;
+  border-radius:10px!important;
+  background:var(--ios-fill)!important;
+  color:var(--ios-label)!important;
+  font-size:12px!important;
+  font-weight:650!important;
+  cursor:pointer!important;
+}
+
+/* Selector de fecha: quitar overlay invisible que secuestraba clics */
+#view-edicion input[type="date"]{
+  -webkit-appearance:auto!important;
+  appearance:auto!important;
+  padding-right:12px!important;
+  background-image:none!important;
+}
+#view-edicion input[type="date"]::-webkit-calendar-picker-indicator{
+  position:static!important;
+  inset:auto!important;
+  width:18px!important;
+  height:18px!important;
+  opacity:.72!important;
+  margin:0 6px 0 auto!important;
+  cursor:pointer!important;
+}
+
+/* Escritorio: total y guardias más compactos */
+@media(min-width:1051px){
+  #totalCollapseCard .home-total-content{
+    padding:14px 16px 16px!important;
+  }
+  .home-total-toolbar{
+    margin-bottom:12px!important;
+  }
+  .home-total-summary{
+    padding:14px!important;
+  }
+  .guard-today-action{
+    min-width:48px!important;
+  }
+}
+
+@media(max-width:650px){
+  .home-total-content{
+    padding:10px 12px 12px!important;
+  }
+  .home-total-toolbar{
+    justify-content:flex-end!important;
+    margin-bottom:8px!important;
+  }
+  .home-total-summary{
+    padding:11px!important;
+  }
+  .home-total-summary .bar-row{
+    grid-template-columns:minmax(82px,1fr) minmax(76px,1.2fr) 38px!important;
+    gap:6px!important;
+  }
+  .home-total-summary .bar-row strong,
+  .home-total-summary .bar-row span{
+    font-size:10.5px!important;
+  }
+}
