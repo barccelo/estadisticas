@@ -1255,7 +1255,7 @@ button{-webkit-tap-highlight-color:transparent}
 }
 
 </style>
-<link rel="stylesheet" href="./ui-v2.css?v=15">
+<link rel="stylesheet" href="./ui-v2.css?v=16">
 </head>
 <body>
 <div id="registerLoginModal" class="session-modal-backdrop" hidden>
@@ -1746,7 +1746,10 @@ function currentSchoolYear(){
 function schoolYearRange(sy){
   const start=Number(String(sy||'').slice(0,4));
   if(!start) return {from:'', to:''};
-  return {from:`${start}-09-01`, to:`${start+1}-07-15`};
+  const from=`${start}-09-01`;
+  const end=`${start+1}-07-15`;
+  const today=todayISO();
+  return {from, to:String(sy||'')===currentSchoolYear() && today>=from && today<=end ? today : end};
 }
 function responsibleShort(email){return String(email||'').replace('@losroblesenlinea.com.ve','');}
 function responsibleOptions(selectedValue='', includeAll=false){
@@ -1799,9 +1802,12 @@ function transformRows(rows){
   }).filter(r=>r.fecha);
 }
 function setLoading(message){if($('tableCount')) $('tableCount').textContent = message; if($('barList')) $('barList').innerHTML = `<div class="notice">${escapeHtml(message)}</div>`; if($('statsBarList')) $('statsBarList').innerHTML = `<div class="notice">${escapeHtml(message)}</div>`; if($('totalSummaryDate')) $('totalSummaryDate').textContent='Rango: —';}
-async function loadCloudRecords(){
+async function loadCloudRecords(from='',to=''){
   try{
-    const response=await fetch(CLOUD_API_URL+'/api/records',{cache:'no-store'});
+    const params=new URLSearchParams();
+    if(from) params.set('from',from);
+    if(to) params.set('to',to);
+    const response=await fetch(CLOUD_API_URL+'/api/records'+(params.size?'?'+params.toString():''),{cache:'no-store'});
     if(!response.ok) throw new Error('No se pudieron leer los registros de Cloudflare.');
     const data=await response.json();
     return {
@@ -1819,43 +1825,21 @@ function recordMergeSignature(r){
 }
 async function loadData({keepFilters=false}={}){
   setLoading('Cargando datos desde Cloudflare...');
+  const currentSY=currentSchoolYear();
+  const currentRange=schoolYearRange(currentSY);
+  const requestedFrom=keepFilters ? canonicalFilterDate($('fromDate')?.value)||currentRange.from : currentRange.from;
+  const requestedTo=keepFilters ? canonicalFilterDate($('toDate')?.value)||currentRange.to : currentRange.to;
   try{
-    const cloud=await loadCloudRecords();
+    const cloud=await loadCloudRecords(requestedFrom,requestedTo);
     const cloudRows=cloud.records || [];
-    const migrationStatus=cloud.migration?.status || 'pending';
-
-    if(migrationStatus==='done'){
-      DATA_SOURCE_LABEL='Cloudflare D1';
-      DATA=cloudRows.sort((a,b)=>String(a.fecha||'').localeCompare(String(b.fecha||'')));
-      if(!DATA.length) throw new Error('No se encontraron registros válidos.');
-      init(keepFilters);
-      return;
-    }
-
-    DATA_SOURCE_LABEL='Cloudflare D1 + histórico de Google Sheets';
-    const url=SHEET_URL+(SHEET_URL.includes('?')?'&':'?')+'cacheBust='+Date.now();
-    const response=await fetch(url,{cache:'no-store'});
-    if(!response.ok) throw new Error('No se pudo leer la hoja publicada.');
-    const sheetRows=transformRows(parseCSV(await response.text()));
-    const cloudSignatures=new Set(cloudRows.map(recordMergeSignature));
-    const legacyRows=sheetRows.filter(r=>!cloudSignatures.has(recordMergeSignature(r)));
-    DATA=[...legacyRows,...cloudRows].sort((a,b)=>String(a.fecha||'').localeCompare(String(b.fecha||'')));
-    if(!DATA.length) throw new Error('No se encontraron registros válidos.');
+    DATA_SOURCE_LABEL='Cloudflare D1';
+    DATA=cloudRows.sort((a,b)=>String(a.fecha||'').localeCompare(String(b.fecha||'')));
     init(keepFilters);
-
-    if(migrationStatus==='running'){
-      setTimeout(()=>loadData({keepFilters:true}),8000);
+    if(cloud.migration?.status==='running'){
+      setTimeout(()=>loadData({keepFilters:true}),5000);
     }
   }catch(error){
     console.error(error);
-    const cloud=await loadCloudRecords();
-    const cloudRows=cloud.records || [];
-    if(cloudRows.length){
-      DATA_SOURCE_LABEL='Cloudflare D1';
-      DATA=cloudRows;
-      init(keepFilters);
-      return;
-    }
     setLoading('No se pudieron cargar los datos.');
   }
 }
@@ -1867,7 +1851,10 @@ function canonicalFilterDate(value){
   return normalizeDate(raw,'DMY');
 }
 function filtered(){
- const from=canonicalFilterDate($('fromDate').value), to=canonicalFilterDate($('toDate').value), year=$('yearFilter').value, month=$('monthFilter').value, week=$('weekFilter').value, email=$('emailFilter').value, wd=$('weekdayFilter').value, q=$('searchBox').value.trim().toLowerCase();
+ const rawFrom=canonicalFilterDate($('fromDate').value), rawTo=canonicalFilterDate($('toDate').value), year=$('yearFilter').value, month=$('monthFilter').value, week=$('weekFilter').value, email=$('emailFilter').value, wd=$('weekdayFilter').value, q=$('searchBox').value.trim().toLowerCase();
+ const yr=year ? schoolYearRange(year) : {from:'',to:''};
+ const from=yr.from && rawFrom ? (rawFrom>yr.from?rawFrom:yr.from) : (rawFrom||yr.from);
+ const to=yr.to && rawTo ? (rawTo<yr.to?rawTo:yr.to) : (rawTo||yr.to);
  return DATA.filter(r => {
    const date=canonicalFilterDate(r.fecha);
    if(!date) return false;
@@ -1895,8 +1882,9 @@ function init(keepFilters=false){
  const chips=$('disciplineChips'); chips.innerHTML=''; if(!keepFilters) selected = new Set(DISCIPLINES);
  DISCIPLINES.forEach(d=>{const c=document.createElement('span'); c.className='chip' + (selected.has(d)?' active':''); c.textContent=d; c.onclick=()=>{if(selected.has(d)){selected.delete(d); c.classList.remove('active')}else{selected.add(d); c.classList.add('active')} render();}; chips.appendChild(c)});
  if(previous){$('fromDate').value = previous.from || defaultDates.from; $('toDate').value = previous.to || defaultDates.to; $('yearFilter').value = previous.year || currentSY; $('monthFilter').value = previous.month || ''; $('weekFilter').value = previous.week || ''; $('emailFilter').value = previous.email || ''; $('weekdayFilter').value = previous.wd || ''; $('searchBox').value = previous.q || ''; selected = previous.selected;}else{$('fromDate').value=defaultDates.from; $('toDate').value=defaultDates.to; $('yearFilter').value=currentSY; $('monthFilter').value=''; $('weekFilter').value=''; $('emailFilter').value=''; $('weekdayFilter').value=''; $('searchBox').value='';}
- ['fromDate','toDate','monthFilter','weekFilter','emailFilter','weekdayFilter','searchBox'].forEach(id=>{const el=$(id); el.oninput=render; el.onchange=render;});
- $('yearFilter').onchange=()=>{const sy=$('yearFilter').value; if(sy){const r=schoolYearRange(sy); $('fromDate').value=r.from; $('toDate').value=r.to;}else{$('fromDate').value=dates[0] || ''; $('toDate').value=dates[dates.length-1] || '';} render();};
+ ['monthFilter','weekFilter','emailFilter','weekdayFilter','searchBox'].forEach(id=>{const el=$(id); el.oninput=render; el.onchange=render;});
+ ['fromDate','toDate'].forEach(id=>{const el=$(id); el.onchange=()=>loadData({keepFilters:true});});
+ $('yearFilter').onchange=()=>{const sy=$('yearFilter').value; if(sy){const r=schoolYearRange(sy); $('fromDate').value=r.from; $('toDate').value=r.to;}else{$('fromDate').value=dates[0] || ''; $('toDate').value=dates[dates.length-1] || '';} loadData({keepFilters:true});};
  $('clearDiscBtn').onclick=()=>{selected.clear(); syncDisciplineChips(); render();};
  $('allDiscBtn').onclick=()=>{selected=new Set(DISCIPLINES); syncDisciplineChips(); render();};
  $('resetBtn').onclick=()=>{selected=new Set(DISCIPLINES); syncDisciplineChips(); const r=schoolYearRange(currentSchoolYear()); $('fromDate').value=r.from; $('toDate').value=r.to; $('yearFilter').value=currentSchoolYear(); $('monthFilter').value=''; $('weekFilter').value=''; $('emailFilter').value=''; $('weekdayFilter').value=''; $('searchBox').value=''; render();};
