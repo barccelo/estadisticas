@@ -2084,6 +2084,9 @@ img,svg,canvas,iframe{max-width:100%!important}
   position:relative!important;
   left:0!important;
 }
+.home-total-action.advanced-filter-btn svg{
+  top:2px!important;
+}
 .stats-icon-btn{
   box-sizing:border-box!important;
 }
