@@ -1138,12 +1138,18 @@ async function ensureGuardSchema(env){
   guardSchemaReady=true;
 }
 
+function caracasDateParts(date=new Date()){
+  const parts=new Intl.DateTimeFormat("en-CA",{timeZone:"America/Caracas",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(date);
+  const get=(type)=>parts.find((p)=>p.type===type)?.value||"";
+  return {year:Number(get("year")),month:Number(get("month")),day:Number(get("day"))};
+}
+
 function guardWeekInfo(dateText){
   const m=String(dateText||"").match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  const now=new Date();
-  const y=m?Number(m[1]):now.getUTCFullYear();
-  const mo=m?Number(m[2])-1:now.getUTCMonth();
-  const d=m?Number(m[3]):now.getUTCDate();
+  const local=m?null:caracasDateParts();
+  const y=m?Number(m[1]):local.year;
+  const mo=m?Number(m[2])-1:local.month-1;
+  const d=m?Number(m[3]):local.day;
   const date=new Date(Date.UTC(y,mo,d));
   const first=new Date(Date.UTC(y,mo,1));
   const offset=(8-first.getUTCDay())%7;
