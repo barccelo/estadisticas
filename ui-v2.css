@@ -2077,7 +2077,7 @@ img,svg,canvas,iframe{max-width:100%!important}
 }
 @media(max-width:650px){
   #totalCollapseCard .home-total-content{
-    padding-top:18px!important;
+    padding-top:24px!important;
   }
   #totalCollapseCard .home-total-toolbar{
     margin-left:14px!important;
