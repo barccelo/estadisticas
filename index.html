@@ -1255,7 +1255,7 @@ button{-webkit-tap-highlight-color:transparent}
 }
 
 </style>
-<link rel="stylesheet" href="./ui-v2.css?v=18">
+<link rel="stylesheet" href="./ui-v2.css?v=19">
 </head>
 <body>
 <div id="registerLoginModal" class="session-modal-backdrop" hidden>
@@ -1728,8 +1728,8 @@ function schoolYearForDate(s){
   const [y,m,d]=s.split('-').map(Number);
   if(!y || !m || !d) return '';
   if(m>=9) return `${y}-${y+1}`;
-  if(m<7 || (m===7 && d<=15)) return `${y-1}-${y}`;
-  return `${y}-${y+1}`;
+  if(m<=6 || (m===7 && d<=30)) return `${y-1}-${y}`;
+  return '';
 }
 const APP_TIME_ZONE='America/Caracas';
 function venezuelaDateParts(date=new Date()){
@@ -1740,14 +1740,14 @@ function venezuelaDateParts(date=new Date()){
 function currentSchoolYear(){
   const {year:y,month:m,day:d}=venezuelaDateParts();
   if(m>=9) return `${y}-${y+1}`;
-  if(m<7 || (m===7 && d<=15)) return `${y-1}-${y}`;
+  if(m<=6 || (m===7 && d<=30)) return `${y-1}-${y}`;
   return `${y}-${y+1}`;
 }
 function schoolYearRange(sy){
   const start=Number(String(sy||'').slice(0,4));
   if(!start) return {from:'', to:''};
   const from=`${start}-09-01`;
-  const end=`${start+1}-07-15`;
+  const end=`${start+1}-07-30`;
   const today=todayISO();
   return {from, to:String(sy||'')===currentSchoolYear() && today>=from && today<=end ? today : end};
 }
@@ -1764,29 +1764,40 @@ function fillResponsibleSelect(id, includeAll=false, selectedValue=''){
   el.innerHTML = responsibleOptions(selectedValue, includeAll);
 }
 function syncDisciplineChips(){document.querySelectorAll('#disciplineChips .chip').forEach(chip=>chip.classList.toggle('active', selected.has(chip.textContent)));}
-function isoWeekInfo(s){
-  const date = toDate(s);
-  const target = new Date(date.valueOf());
-  const dayNr = (date.getDay() + 6) % 7;
-  target.setDate(target.getDate() - dayNr + 3);
-  const firstThursday = new Date(target.getFullYear(), 0, 4);
-  const firstDayNr = (firstThursday.getDay() + 6) % 7;
-  firstThursday.setDate(firstThursday.getDate() - firstDayNr + 3);
-  const week = 1 + Math.round((target - firstThursday) / 604800000);
-  const year = target.getFullYear();
-  return {year, week, key:`${year}-W${String(week).padStart(2,'0')}`};
+function academicWeekInfo(s){
+  const sy=schoolYearForDate(s);
+  if(!sy) return null;
+  const startYear=Number(sy.slice(0,4));
+  const [y,m,d]=String(s).split('-').map(Number);
+  if(!startYear || !y || !m || !d) return null;
+  const dayMs=86400000;
+  const dateUTC=Date.UTC(y,m-1,d);
+  const startUTC=Date.UTC(startYear,8,1);
+  const endUTC=Date.UTC(startYear+1,6,30);
+  if(dateUTC<startUTC || dateUTC>endUTC) return null;
+  const week=Math.floor((dateUTC-startUTC)/dayMs/7)+1;
+  const weekStartUTC=startUTC+(week-1)*7*dayMs;
+  const weekEndUTC=Math.min(weekStartUTC+6*dayMs,endUTC);
+  return {
+    schoolYear:sy,
+    week,
+    key:`${sy}-W${String(week).padStart(2,'0')}`,
+    startUTC:weekStartUTC,
+    endUTC:weekEndUTC
+  };
 }
-function isoWeekRangeLabel(key){
-  const [yearPart, weekPart] = key.split('-W');
-  const year = Number(yearPart), week = Number(weekPart);
-  const simple = new Date(year, 0, 1 + (week - 1) * 7);
-  const day = simple.getDay();
-  const monday = new Date(simple);
-  if(day <= 4) monday.setDate(simple.getDate() - simple.getDay() + 1);
-  else monday.setDate(simple.getDate() + 8 - simple.getDay());
-  const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
-  const f = d => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
-  return `${year} · Semana ${String(week).padStart(2,'0')} (${f(monday)}–${f(sunday)})`;
+function academicWeekRangeLabel(key){
+  const match=String(key||'').match(/^(\d{4}-\d{4})-W(\d{2})$/);
+  if(!match) return key;
+  const sy=match[1], week=Number(match[2]), startYear=Number(sy.slice(0,4));
+  const dayMs=86400000;
+  const startUTC=Date.UTC(startYear,8,1)+(week-1)*7*dayMs;
+  const endUTC=Math.min(startUTC+6*dayMs,Date.UTC(startYear+1,6,30));
+  const f=ms=>{
+    const d=new Date(ms);
+    return `${String(d.getUTCDate()).padStart(2,'0')}/${String(d.getUTCMonth()+1).padStart(2,'0')}`;
+  };
+  return `${sy} · Semana ${String(week).padStart(2,'0')} (${f(startUTC)}–${f(endUTC)})`;
 }
 function transformRows(rows){
   const dateValues = rows.map(row => makeGetter(row)('Fecha:', 'Fecha'));
@@ -1858,7 +1869,7 @@ function filtered(){
  return DATA.filter(r => {
    const date=canonicalFilterDate(r.fecha);
    if(!date) return false;
-   return (!from || date>=from) && (!to || date<=to) && (!year || schoolYearForDate(date)===year) && (!month || date.slice(5,7)===month) && (!week || isoWeekInfo(date).key===week) && (!email || r.email===email) && (!wd || weekday(date)===wd) && (!q || (r.observaciones||'').toLowerCase().includes(q));
+   return (!from || date>=from) && (!to || date<=to) && (!year || schoolYearForDate(date)===year) && (!month || date.slice(5,7)===month) && (!week || academicWeekInfo(date)?.key===week) && (!email || r.email===email) && (!wd || weekday(date)===wd) && (!q || (r.observaciones||'').toLowerCase().includes(q));
  });
 }
 function sumByDisc(rows){const o={}; DISCIPLINES.forEach(d=>o[d]=0); rows.forEach(r=>DISCIPLINES.forEach(d=>o[d]+=Number(r.valores[d]||0))); return o;}
@@ -1876,7 +1887,7 @@ function init(keepFilters=false){
  $('monthFilter').innerHTML='<option value="">Todos</option>';
  Array.from({length:12},(_,i)=>String(i+1).padStart(2,'0')).forEach(m=>{const op=document.createElement('option'); op.value=m; op.textContent=monthName(m); $('monthFilter').appendChild(op)});
  $('weekFilter').innerHTML='<option value="">Todas</option>';
- [...new Set(DATA.map(r=>isoWeekInfo(r.fecha).key).filter(Boolean))].sort().forEach(w=>{const op=document.createElement('option'); op.value=w; op.textContent=isoWeekRangeLabel(w); $('weekFilter').appendChild(op)});
+ [...new Set(DATA.map(r=>academicWeekInfo(r.fecha)?.key).filter(Boolean))].sort().forEach(w=>{const op=document.createElement('option'); op.value=w; op.textContent=academicWeekRangeLabel(w); $('weekFilter').appendChild(op)});
  fillResponsibleSelect('emailFilter', true, previous ? previous.email : '');
  fillResponsibleSelect('regEmail', false, $('regEmail') ? $('regEmail').value : '');
  const chips=$('disciplineChips'); chips.innerHTML=''; if(!keepFilters) selected = new Set(DISCIPLINES);
@@ -1924,7 +1935,7 @@ function totalSummaryData(rows){
   const filterParts=[];
   if(schoolYear) filterParts.push(`Año escolar ${schoolYear}`);
   if(month) filterParts.push(monthName(month));
-  if(week) filterParts.push(isoWeekRangeLabel(week));
+  if(week) filterParts.push(academicWeekRangeLabel(week));
   const descriptor=filterParts.length ? `${filterParts.join(' · ')} · ${dateLabel}` : dateLabel;
   return {dateLabel:descriptor, rows:visible.map(d=>({fecha:descriptor, disciplina:d, total:Number(sums[d]||0)})), registros:rows.length, total:rows.reduce((a,r)=>a+totalSelected(r),0)};
 }
