@@ -2086,3 +2086,29 @@ img,svg,canvas,iframe{max-width:100%!important}
     margin-bottom:10px!important;
   }
 }
+
+
+/* Registros: esta tabla sí debe conservar scroll horizontal */
+.stats-records-card .table-scroll{
+  overflow-x:auto!important;
+  overflow-y:auto!important;
+  -webkit-overflow-scrolling:touch!important;
+}
+.stats-records-card .table-scroll table{
+  width:max-content!important;
+  min-width:100%!important;
+  max-width:none!important;
+  table-layout:auto!important;
+}
+.stats-records-card .table-scroll th,
+.stats-records-card .table-scroll td{
+  white-space:nowrap!important;
+  overflow-wrap:normal!important;
+  word-break:normal!important;
+}
+.stats-records-card .table-scroll .obs{
+  max-width:480px!important;
+  white-space:normal!important;
+  overflow-wrap:break-word!important;
+  word-break:normal!important;
+}
