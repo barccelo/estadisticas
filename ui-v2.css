@@ -1341,3 +1341,53 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .admin-unlock-form .admin-primary-btn{width:100%!important}
   .admin-kpi-row{grid-template-columns:1fr!important}
 }
+
+/* /00 bloqueado: sólo modal sobre fondo blur */
+#adminContent[hidden],
+.admin-login-overlay[hidden]{
+  display:none!important;
+}
+.admin-login-overlay{
+  position:fixed!important;
+  inset:0!important;
+  z-index:9998!important;
+  background:rgba(245,245,247,.52)!important;
+  -webkit-backdrop-filter:blur(18px) saturate(120%)!important;
+  backdrop-filter:blur(18px) saturate(120%)!important;
+}
+.admin-login-overlay .admin-unlock-card{
+  position:absolute!important;
+  left:50%!important;
+  top:var(--admin-vv-center,50%)!important;
+  transform:translate(-50%,-50%)!important;
+  width:min(420px,calc(100% - 28px))!important;
+  max-height:calc(var(--admin-vv-height,100dvh) - 28px)!important;
+  overflow:auto!important;
+  margin:0!important;
+  padding:20px!important;
+  border-radius:22px!important;
+  border:1px solid rgba(60,60,67,.18)!important;
+  background:rgba(255,255,255,.94)!important;
+  box-shadow:0 20px 60px rgba(0,0,0,.18)!important;
+}
+.admin-login-overlay .admin-unlock-copy{margin-bottom:14px!important}
+.admin-login-overlay .admin-eyebrow{font-size:11px!important}
+.admin-login-overlay .admin-unlock-copy strong{
+  font-size:22px!important;
+  letter-spacing:-.035em!important;
+}
+.admin-login-overlay .admin-unlock-form{
+  grid-template-columns:1fr!important;
+  gap:10px!important;
+}
+.admin-login-overlay .admin-primary-btn{
+  width:100%!important;
+  min-height:46px!important;
+}
+.admin-login-overlay.keyboard-visible .admin-unlock-card{
+  padding:16px!important;
+  border-radius:18px!important;
+}
+.admin-login-open{
+  overflow:hidden!important;
+}
