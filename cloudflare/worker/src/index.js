@@ -46,6 +46,92 @@ async function sha256Hex(value) {
   return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+async function hmacSha256Hex(secret, value) {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    utf8(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const signature = await crypto.subtle.sign("HMAC", key, utf8(value));
+  return [...new Uint8Array(signature)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function pinFingerprint(pin, env) {
+  const pepper = String(env?.PIN_PEPPER || "");
+  if (!pepper) return "";
+  return hmacSha256Hex(pepper, `club-pin:${String(pin || "")}`);
+}
+
+async function findPinConflict(env, pin, excludeUserId = "") {
+  const result = await env.DB.prepare(
+    "SELECT id, pin_hash FROM users WHERE active = 1" + (excludeUserId ? " AND id <> ?1" : "") + " ORDER BY id"
+  );
+  const rows = excludeUserId ? await result.bind(excludeUserId).all() : await result.all();
+  for (const candidate of rows.results || []) {
+    if (await verifyPin(pin, candidate.pin_hash)) return candidate.id;
+  }
+  return "";
+}
+
+const LOGIN_MAX_FAILURES = 5;
+const LOGIN_WINDOW_SECONDS = 10 * 60;
+const LOGIN_BLOCK_SECONDS = 15 * 60;
+
+async function loginAttemptKeys(request, fingerprint = "") {
+  const forwarded = String(request.headers.get("CF-Connecting-IP") || request.headers.get("x-forwarded-for") || "")
+    .split(",")[0]
+    .trim();
+  const ipKey = "ip:" + await sha256Hex(forwarded || "unknown");
+  return fingerprint ? [ipKey, "pin:" + fingerprint] : [ipKey];
+}
+
+async function getLoginBlock(env, keys) {
+  const now = Math.floor(Date.now() / 1000);
+  let blockedUntil = 0;
+  for (const key of keys) {
+    const row = await env.DB.prepare(
+      "SELECT blocked_until FROM auth_login_attempts WHERE attempt_key=?1 LIMIT 1"
+    ).bind(key).first();
+    blockedUntil = Math.max(blockedUntil, Number(row?.blocked_until || 0));
+  }
+  return blockedUntil > now ? blockedUntil - now : 0;
+}
+
+async function noteLoginFailure(env, keys) {
+  const now = Math.floor(Date.now() / 1000);
+  let retryAfter = 0;
+  for (const key of keys) {
+    const row = await env.DB.prepare(
+      "SELECT failed_count, first_failed_at, blocked_until FROM auth_login_attempts WHERE attempt_key=?1 LIMIT 1"
+    ).bind(key).first();
+    let failedCount = Number(row?.failed_count || 0);
+    let firstFailedAt = Number(row?.first_failed_at || 0);
+    if (!firstFailedAt || now - firstFailedAt > LOGIN_WINDOW_SECONDS) {
+      failedCount = 0;
+      firstFailedAt = now;
+    }
+    failedCount += 1;
+    const blockedUntil = failedCount >= LOGIN_MAX_FAILURES ? now + LOGIN_BLOCK_SECONDS : Number(row?.blocked_until || 0);
+    await env.DB.prepare(
+      `INSERT INTO auth_login_attempts (attempt_key,failed_count,first_failed_at,blocked_until,updated_at)
+       VALUES (?1,?2,?3,?4,?5)
+       ON CONFLICT(attempt_key) DO UPDATE SET
+         failed_count=?2, first_failed_at=?3, blocked_until=?4, updated_at=?5`
+    ).bind(key, failedCount, firstFailedAt, blockedUntil, now).run();
+    if (blockedUntil > now) retryAfter = Math.max(retryAfter, blockedUntil - now);
+  }
+  return retryAfter;
+}
+
+async function clearLoginFailures(env, keys) {
+  if (!keys.length) return;
+  await env.DB.batch(keys.map((key) => env.DB.prepare(
+    "DELETE FROM auth_login_attempts WHERE attempt_key=?1"
+  ).bind(key)));
+}
+
 const RECORD_DISCIPLINES = ["Ajedrez","Astronomía","Atletismo","Baloncesto","Béisbol","Fútbol campo","Fútbol sala","Música","Tenis de campo","Robótica"];
 const LEGACY_SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQi7LJ9GkWvS8xSGabaKdLwMRzhaMXppm8Vt8Z5chsQr92cWEOYF2SKeNPI15SYc1oryFw3eJP1SQkg/pub?gid=590274017&single=true&output=csv";
 const LEGACY_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzHHgoVMHLbCWYYPnPgtWsG3Ipq3Q_5dkMRKBFbJYW5uG3mkhlHWkLwi1DyOuKCDAGh/exec";
@@ -87,6 +173,10 @@ async function verifyPin(pin, stored) {
 let authSchemaReady = false;
 async function ensureAuthSchema(env) {
   if (authSchemaReady) return;
+  try { await env.DB.prepare("ALTER TABLE users ADD COLUMN pin_fingerprint TEXT").run(); } catch (_) {}
+  await env.DB.prepare(
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_pin_fingerprint_unique ON users(pin_fingerprint) WHERE pin_fingerprint IS NOT NULL"
+  ).run();
   await env.DB.prepare(
     `CREATE TABLE IF NOT EXISTS auth_sessions (
       token_hash TEXT PRIMARY KEY,
@@ -98,6 +188,18 @@ async function ensureAuthSchema(env) {
   ).run();
   await env.DB.prepare(
     "CREATE INDEX IF NOT EXISTS idx_auth_sessions_expiry ON auth_sessions(expires_at)"
+  ).run();
+  await env.DB.prepare(
+    `CREATE TABLE IF NOT EXISTS auth_login_attempts (
+      attempt_key TEXT PRIMARY KEY,
+      failed_count INTEGER NOT NULL DEFAULT 0,
+      first_failed_at INTEGER NOT NULL DEFAULT 0,
+      blocked_until INTEGER NOT NULL DEFAULT 0,
+      updated_at INTEGER NOT NULL DEFAULT 0
+    )`
+  ).run();
+  await env.DB.prepare(
+    "CREATE INDEX IF NOT EXISTS idx_auth_login_attempts_updated ON auth_login_attempts(updated_at)"
   ).run();
   authSchemaReady = true;
 }
@@ -147,6 +249,7 @@ function accountRoleAllowed(auth, allowed) {
 
 async function login(request, env, ctx) {
   if (!env.DB) return json({ ok: false, error: "D1_NOT_BOUND" }, 503);
+  await ensureAuthSchema(env);
 
   let body;
   try {
@@ -156,29 +259,86 @@ async function login(request, env, ctx) {
   }
 
   const pin = String(body?.pin || "").trim();
-  if (!/^\d{4,20}$/.test(pin)) {
-    return json({ ok: false, error: "INVALID_CREDENTIALS" }, 401);
+  const fingerprint = /^\d{4,20}$/.test(pin) ? await pinFingerprint(pin, env) : "";
+  const attemptKeys = await loginAttemptKeys(request, fingerprint);
+  const existingBlock = await getLoginBlock(env, attemptKeys);
+  if (existingBlock > 0) {
+    return json(
+      { ok: false, error: "TOO_MANY_ATTEMPTS", retry_after: existingBlock },
+      429,
+      { "retry-after": String(existingBlock) }
+    );
   }
 
-  const users = await env.DB.prepare(
-    "SELECT id, email, display_name, pin_hash, COALESCE(role,'registrador') AS role FROM users WHERE active = 1 ORDER BY display_name"
-  ).all();
+  if (!/^\d{4,20}$/.test(pin)) {
+    const retryAfter = await noteLoginFailure(env, attemptKeys);
+    return retryAfter > 0
+      ? json({ ok: false, error: "TOO_MANY_ATTEMPTS", retry_after: retryAfter }, 429, { "retry-after": String(retryAfter) })
+      : json({ ok: false, error: "INVALID_CREDENTIALS" }, 401);
+  }
 
   let user = null;
-  for (const candidate of users.results || []) {
-    if (await verifyPin(pin, candidate.pin_hash)) {
-      user = candidate;
-      break;
+
+  if (fingerprint) {
+    const fingerprintUser = await env.DB.prepare(
+      "SELECT id, email, display_name, pin_hash, pin_fingerprint, COALESCE(role,'registrador') AS role FROM users WHERE active=1 AND pin_fingerprint=?1 LIMIT 1"
+    ).bind(fingerprint).first();
+
+    if (fingerprintUser) {
+      if (await verifyPin(pin, fingerprintUser.pin_hash)) user = fingerprintUser;
+    } else {
+      const pending = await env.DB.prepare(
+        "SELECT id, email, display_name, pin_hash, COALESCE(role,'registrador') AS role FROM users WHERE active=1 AND pin_fingerprint IS NULL ORDER BY display_name"
+      ).all();
+      const matches = [];
+      for (const candidate of pending.results || []) {
+        if (await verifyPin(pin, candidate.pin_hash)) matches.push(candidate);
+      }
+
+      if (matches.length > 1) {
+        await env.DB.prepare(
+          "INSERT INTO app_log (event_type,details_json) VALUES ('duplicate_pin_detected',?1)"
+        ).bind(JSON.stringify({ count: matches.length })).run();
+        return json({ ok: false, error: "DUPLICATE_PIN" }, 409);
+      }
+
+      if (matches.length === 1) {
+        const candidate = matches[0];
+        try {
+          await env.DB.prepare(
+            "UPDATE users SET pin_fingerprint=?1,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?2 AND pin_fingerprint IS NULL"
+          ).bind(fingerprint, candidate.id).run();
+          user = candidate;
+        } catch (_) {
+          return json({ ok: false, error: "DUPLICATE_PIN" }, 409);
+        }
+      }
+    }
+  } else {
+    const users = await env.DB.prepare(
+      "SELECT id, email, display_name, pin_hash, COALESCE(role,'registrador') AS role FROM users WHERE active = 1 ORDER BY display_name"
+    ).all();
+    for (const candidate of users.results || []) {
+      if (await verifyPin(pin, candidate.pin_hash)) {
+        user = candidate;
+        break;
+      }
     }
   }
 
-  if (!user) return json({ ok: false, error: "INVALID_CREDENTIALS" }, 401);
+  if (!user) {
+    const retryAfter = await noteLoginFailure(env, attemptKeys);
+    return retryAfter > 0
+      ? json({ ok: false, error: "TOO_MANY_ATTEMPTS", retry_after: retryAfter }, 429, { "retry-after": String(retryAfter) })
+      : json({ ok: false, error: "INVALID_CREDENTIALS" }, 401);
+  }
 
+  await clearLoginFailures(env, attemptKeys);
   const sessionData = await createSession(env, user.id);
 
   await env.DB.prepare(
     "INSERT INTO app_log (event_type, user_id, details_json) VALUES ('login', ?1, ?2)"
-  ).bind(user.id, JSON.stringify({ source: "cloudflare", auth: "d1-session" })).run();
+  ).bind(user.id, JSON.stringify({ source: "cloudflare", auth: "d1-session", fingerprinted: Boolean(fingerprint) })).run();
 
   const migration = await maybeStartLegacyImport(env, ctx);
   return json({
@@ -189,7 +349,6 @@ async function login(request, env, ctx) {
     migration,
   });
 }
-
 async function session(request, env) {
   const auth = await requireSession(request, env);
   if (!auth) return json({ ok: false, error: "UNAUTHORIZED" }, 401);
@@ -1270,12 +1429,16 @@ async function createAdminUser(request, env) {
   const pin=String(body?.pin||"").trim();
   const role=["admin","editor","registrador"].includes(String(body?.role||"")) ? String(body.role) : "registrador";
   if(!email || !name || !/^\d{4,20}$/.test(pin)) return json({ok:false,error:"INVALID_USER"},400);
+  await ensureAuthSchema(env);
+  const fingerprint=await pinFingerprint(pin,env);
+  if(!fingerprint) return json({ok:false,error:"AUTH_CONFIG_MISSING"},503);
+  if(await findPinConflict(env,pin)) return json({ok:false,error:"DUPLICATE_PIN"},409);
   const pinHash=await hashPin(pin);
   const id=crypto.randomUUID();
   try{
     await env.DB.prepare(
-      "INSERT INTO users (id,email,display_name,pin_hash,active,role) VALUES (?1,?2,?3,?4,1,?5)"
-    ).bind(id,email,name,pinHash,role).run();
+      "INSERT INTO users (id,email,display_name,pin_hash,pin_fingerprint,active,role) VALUES (?1,?2,?3,?4,?5,1,?6)"
+    ).bind(id,email,name,pinHash,fingerprint,role).run();
   }catch(e){
     return json({ok:false,error:"USER_EXISTS"},409);
   }
@@ -1303,11 +1466,15 @@ async function updateAdminUser(request, env, userId) {
 
   try{
     if(pin){
+      await ensureAuthSchema(env);
+      const fingerprint=await pinFingerprint(pin,env);
+      if(!fingerprint) return json({ok:false,error:"AUTH_CONFIG_MISSING"},503);
+      if(await findPinConflict(env,pin,userId)) return json({ok:false,error:"DUPLICATE_PIN"},409);
       const pinHash=await hashPin(pin);
       await env.DB.prepare(
-        `UPDATE users SET email=?1,display_name=?2,active=?3,role=?4,pin_hash=?5,
-         updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?6`
-      ).bind(email,name,active,role,pinHash,userId).run();
+        `UPDATE users SET email=?1,display_name=?2,active=?3,role=?4,pin_hash=?5,pin_fingerprint=?6,
+         updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?7`
+      ).bind(email,name,active,role,pinHash,fingerprint,userId).run();
     }else{
       await env.DB.prepare(
         `UPDATE users SET email=?1,display_name=?2,active=?3,role=?4,
