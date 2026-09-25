@@ -1,31 +1,45 @@
-# Club Deportivo API — migración a Cloudflare
+# Club Deportivo API — Cloudflare
 
-Esta carpeta prepara el backend nuevo sin modificar la aplicación pública actual.
+Backend del Club Deportivo sobre Cloudflare Workers + D1.
 
-## Primera fase
+## Autenticación actual
 
-Incluye:
+- Los usuarios se autentican con su PIN existente.
+- Los PIN no se guardan en texto plano: se almacenan con PBKDF2-SHA-256, sal aleatoria y 100.000 iteraciones.
+- `PIN_PEPPER` genera una huella HMAC independiente del hash de contraseña. Esa huella permite garantizar que dos cuentas no utilicen el mismo PIN sin guardar el PIN.
+- Los usuarios anteriores se migran de forma gradual: en su siguiente inicio de sesión correcto se completa automáticamente su `pin_fingerprint`.
+- Si el sistema detecta que dos cuentas antiguas comparten el mismo PIN, bloquea ese acceso y exige resolver el conflicto desde Administración.
+- Después de 5 intentos fallidos dentro de una ventana de 10 minutos, el inicio de sesión queda bloqueado durante 15 minutos.
+- Las sesiones usan tokens aleatorios de 256 bits; D1 conserva únicamente el hash del token.
 
-- Worker con `/api/health`.
-- Inicio de sesión con `/api/login`.
-- Validación de sesión con `/api/session`.
-- Esquema D1 para usuarios, registros, asistencias, borradores y log.
-- Protección para no guardar claves/PIN en texto plano.
+## Recursos
 
-## Recursos de Cloudflare pendientes de crear/vincular
+D1:
 
-1. Crear D1 con nombre `club-deportivo-db`.
-2. Vincularla al Worker usando el binding `DB`.
-3. Configurar secretos:
-   - `SESSION_SECRET`
-   - `PIN_PEPPER`
-4. Configurar variable:
-   - `ALLOWED_ORIGINS` con los orígenes permitidos separados por coma.
+- `club-deportivo-db`
+- binding: `DB`
 
-No se deben guardar PIN, `SESSION_SECRET` ni `PIN_PEPPER` en GitHub.
+Secreto obligatorio:
 
-## Después de vincular D1
+- `PIN_PEPPER`: cadena aleatoria larga y privada. No debe cambiarse después de comenzar a generar huellas de PIN.
 
-Aplicar la migración `0001_initial.sql` y crear los usuarios iniciales con hashes calculados fuera del repositorio.
+Variable:
 
-La versión actual basada en Apps Script sigue siendo la versión funcional hasta que esta rama sea probada.
+- `ALLOWED_ORIGINS`: orígenes web permitidos, separados por coma.
+
+No se deben guardar PIN ni `PIN_PEPPER` en GitHub.
+
+## Migraciones
+
+Aplicar en orden:
+
+1. `migrations/0001_initial.sql`
+2. `migrations/0002_auth_hardening.sql`
+
+La segunda migración agrega la huella única de PIN y el control de intentos de acceso.
+
+## Compatibilidad
+
+Si `PIN_PEPPER` todavía no está configurado, los usuarios existentes pueden seguir entrando mediante la comprobación PBKDF2 anterior, pero no se permite crear ni cambiar PIN hasta configurar el secreto. Esto evita introducir nuevas cuentas sin la protección de unicidad.
+
+El respaldo heredado de Google Sheets todavía depende temporalmente del PIN en memoria del navegador. Debe desacoplarse antes de activar passkeys como método principal, porque una autenticación biométrica no proporciona el PIN original al frontend.
