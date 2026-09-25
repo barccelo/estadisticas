@@ -66,7 +66,7 @@ async function pinFingerprint(pin, env) {
 
 async function findPinConflict(env, pin, excludeUserId = "") {
   const result = await env.DB.prepare(
-    "SELECT id, pin_hash FROM users WHERE active = 1" + (excludeUserId ? " AND id <> ?1" : "") + " ORDER BY id"
+    "SELECT id, pin_hash FROM users WHERE 1=1" + (excludeUserId ? " AND id <> ?1" : "") + " ORDER BY id"
   );
   const rows = excludeUserId ? await result.bind(excludeUserId).all() : await result.all();
   for (const candidate of rows.results || []) {
