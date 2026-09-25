@@ -2316,8 +2316,17 @@ async function cloudApi(path, options={}){
   let data={};
   try{data=await response.json();}catch(_e){}
   if(!response.ok){
-    const message=data.error==='ROLE_FORBIDDEN' ? 'Tu usuario no tiene permisos para esta acción.' : (data.error || 'No se pudo conectar con Cloudflare.');
-    throw new Error(message);
+    const messages={
+      ROLE_FORBIDDEN:'Tu usuario no tiene permisos para esta acción.',
+      INVALID_CREDENTIALS:'Clave no válida.',
+      TOO_MANY_ATTEMPTS:'Demasiados intentos. Espera unos minutos antes de volver a intentarlo.',
+      DUPLICATE_PIN:'Esta clave está asociada a más de un usuario. Debe corregirse desde Administración.',
+      AUTH_CONFIG_MISSING:'La seguridad de acceso todavía no está terminada de configurar en Cloudflare.'
+    };
+    const error=new Error(messages[data.error] || data.error || 'No se pudo conectar con Cloudflare.');
+    error.code=data.error || '';
+    error.retryAfter=Number(data.retry_after || 0);
+    throw error;
   }
   return data;
 }
@@ -2410,7 +2419,7 @@ async function confirmRegisterLogin(){
       setTimeout(()=>loadData({keepFilters:true}),2500);
     }
   }catch(err){
-    if(status){status.textContent=(err.message==='INVALID_CREDENTIALS'?'Clave no válida.':err.message) || 'No se pudo iniciar sesión.'; status.className='session-modal-status err';}
+    if(status){status.textContent=err.message || 'No se pudo iniciar sesión.'; status.className='session-modal-status err';}
   }finally{if(btn) btn.disabled=false;}
 }
 function setupLandingCollapses(){
