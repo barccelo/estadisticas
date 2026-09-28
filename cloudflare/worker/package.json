@@ -1,5 +1,5 @@
 {
-  "name": "club-deportivo-api",
+  "name": "cd",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -11,5 +11,8 @@
   },
   "devDependencies": {
     "wrangler": "^4.0.0"
+  },
+  "dependencies": {
+    "@simplewebauthn/server": "^14.0.3"
   }
 }
