@@ -2455,7 +2455,7 @@ function credentialToJSON(credential){
 }
 function passkeyErrorMessage(err){
   if(err?.code) return err.message||'No se pudo completar el acceso biométrico.';
-  if(err?.name==='NotAllowedError') return 'El dispositivo no completó la verificación. Si este equipo no tiene Windows Hello, Touch ID, Face ID o huella configurados, elige la opción de usar otro dispositivo cuando el navegador la ofrezca.';
+  if(err?.name==='NotAllowedError') return 'El navegador no pudo completar la verificación con el autenticador disponible. En Windows, verifica que Windows Hello esté configurado; si no lo está, usa la opción de teléfono u otro dispositivo. También puedes abrir esta misma dirección directamente en el teléfono y registrar allí la passkey.';
   if(err?.name==='InvalidStateError') return 'Este dispositivo ya tiene una credencial registrada para este usuario.';
   if(err?.name==='NotSupportedError') return 'Este dispositivo o navegador no admite este método de acceso.';
   if(err?.name==='SecurityError') return 'El acceso biométrico sólo puede configurarse desde cd.losrobles.workers.dev.';
@@ -2514,7 +2514,12 @@ async function registerCurrentPasskey(){
     status.className='session-modal-status';
   }
   try{
-    const start=await cloudApi('/api/passkeys/register/options',{method:'POST',token:registerSessionToken,body:{}});
+    const preferredAuthenticator=hasLocal?'localDevice':'remoteDevice';
+    const start=await cloudApi('/api/passkeys/register/options',{
+      method:'POST',
+      token:registerSessionToken,
+      body:{preferred_authenticator:preferredAuthenticator}
+    });
     if(start.already_registered){
       if(status){status.textContent='Este usuario ya tiene el acceso biométrico activo.';status.className='session-modal-status ok';}
       const wrap=$('passkeyEnrollWrap'); if(wrap) wrap.hidden=true;
