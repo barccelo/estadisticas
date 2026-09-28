@@ -1,3 +1,10 @@
+import {
+  generateRegistrationOptions,
+  verifyRegistrationResponse,
+  generateAuthenticationOptions,
+  verifyAuthenticationResponse,
+} from "@simplewebauthn/server";
+
 const json = (data, status = 200, extra = {}) =>
   new Response(JSON.stringify(data), {
     status,
@@ -137,6 +144,10 @@ const LEGACY_SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQi7LJ
 const LEGACY_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzHHgoVMHLbCWYYPnPgtWsG3Ipq3Q_5dkMRKBFbJYW5uG3mkhlHWkLwi1DyOuKCDAGh/exec";
 
 const PIN_ITERATIONS = 100000;
+const WEBAUTHN_RP_ID = "cd.losrobles.workers.dev";
+const WEBAUTHN_ORIGIN = "https://cd.losrobles.workers.dev";
+const WEBAUTHN_RP_NAME = "Club Deportivo · Los Robles";
+const WEBAUTHN_CHALLENGE_TTL = 5 * 60;
 
 async function hashPin(pin, saltBytes = null) {
   const salt = saltBytes || crypto.getRandomValues(new Uint8Array(16));
@@ -202,6 +213,317 @@ async function ensureAuthSchema(env) {
     "CREATE INDEX IF NOT EXISTS idx_auth_login_attempts_updated ON auth_login_attempts(updated_at)"
   ).run();
   authSchemaReady = true;
+}
+
+
+let passkeySchemaReady = false;
+async function ensurePasskeySchema(env) {
+  if (passkeySchemaReady) return;
+  await ensureAuthSchema(env);
+  try { await env.DB.prepare("ALTER TABLE users ADD COLUMN webauthn_user_id TEXT").run(); } catch (_) {}
+  await env.DB.prepare(
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_webauthn_user_id_unique ON users(webauthn_user_id) WHERE webauthn_user_id IS NOT NULL"
+  ).run();
+  await env.DB.prepare(
+    `CREATE TABLE IF NOT EXISTS webauthn_credentials (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL UNIQUE,
+      public_key TEXT NOT NULL,
+      counter INTEGER NOT NULL DEFAULT 0,
+      transports_json TEXT NOT NULL DEFAULT '[]',
+      device_type TEXT,
+      backed_up INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      last_used_at TEXT,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`
+  ).run();
+  await env.DB.prepare(
+    "CREATE INDEX IF NOT EXISTS idx_webauthn_credentials_user ON webauthn_credentials(user_id)"
+  ).run();
+  await env.DB.prepare(
+    `CREATE TABLE IF NOT EXISTS webauthn_challenges (
+      ceremony_id TEXT PRIMARY KEY,
+      challenge TEXT NOT NULL,
+      purpose TEXT NOT NULL,
+      user_id TEXT,
+      expires_at INTEGER NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`
+  ).run();
+  await env.DB.prepare(
+    "CREATE INDEX IF NOT EXISTS idx_webauthn_challenges_expiry ON webauthn_challenges(expires_at)"
+  ).run();
+  passkeySchemaReady = true;
+}
+
+function randomBase64url(bytes = 32) {
+  return base64url(crypto.getRandomValues(new Uint8Array(bytes)));
+}
+
+async function getOrCreateWebauthnUserId(env, userId) {
+  await ensurePasskeySchema(env);
+  let row = await env.DB.prepare(
+    "SELECT webauthn_user_id FROM users WHERE id=?1 LIMIT 1"
+  ).bind(userId).first();
+  if (row?.webauthn_user_id) return row.webauthn_user_id;
+
+  const candidate = randomBase64url(32);
+  await env.DB.prepare(
+    "UPDATE users SET webauthn_user_id=?1,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?2 AND webauthn_user_id IS NULL"
+  ).bind(candidate, userId).run();
+
+  row = await env.DB.prepare(
+    "SELECT webauthn_user_id FROM users WHERE id=?1 LIMIT 1"
+  ).bind(userId).first();
+  return row?.webauthn_user_id || candidate;
+}
+
+async function storeWebauthnChallenge(env, purpose, challenge, userId = null) {
+  await ensurePasskeySchema(env);
+  const ceremonyId = randomBase64url(24);
+  const now = Math.floor(Date.now() / 1000);
+  const expiresAt = now + WEBAUTHN_CHALLENGE_TTL;
+  await env.DB.prepare("DELETE FROM webauthn_challenges WHERE expires_at<=?1").bind(now).run();
+  await env.DB.prepare(
+    "INSERT INTO webauthn_challenges(ceremony_id,challenge,purpose,user_id,expires_at) VALUES(?1,?2,?3,?4,?5)"
+  ).bind(ceremonyId, challenge, purpose, userId, expiresAt).run();
+  return ceremonyId;
+}
+
+async function consumeWebauthnChallenge(env, ceremonyId, purpose, userId = null) {
+  await ensurePasskeySchema(env);
+  const now = Math.floor(Date.now() / 1000);
+  const row = await env.DB.prepare(
+    `SELECT ceremony_id,challenge,purpose,user_id,expires_at
+     FROM webauthn_challenges
+     WHERE ceremony_id=?1 AND purpose=?2 AND expires_at>?3
+       AND ((?4 IS NULL AND user_id IS NULL) OR user_id=?4)
+     LIMIT 1`
+  ).bind(ceremonyId, purpose, now, userId).first();
+  if (!row) return null;
+  await env.DB.prepare("DELETE FROM webauthn_challenges WHERE ceremony_id=?1").bind(ceremonyId).run();
+  return row;
+}
+
+function passkeyTransports(value) {
+  try {
+    const parsed = JSON.parse(String(value || "[]"));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+async function passkeyStatusForUser(env, userId) {
+  await ensurePasskeySchema(env);
+  const row = await env.DB.prepare(
+    "SELECT id,device_type,backed_up,created_at,last_used_at FROM webauthn_credentials WHERE user_id=?1 LIMIT 1"
+  ).bind(userId).first();
+  return row ? {
+    registered: true,
+    credential_id: row.id,
+    device_type: row.device_type || "",
+    backed_up: Boolean(row.backed_up),
+    created_at: row.created_at || "",
+    last_used_at: row.last_used_at || "",
+  } : { registered: false };
+}
+
+async function passkeyMe(request, env) {
+  const auth = await requireSession(request, env);
+  if (!auth) return json({ ok: false, error: "UNAUTHORIZED" }, 401);
+  return json({ ok: true, passkey: await passkeyStatusForUser(env, auth.user_id) });
+}
+
+async function passkeyRegistrationOptions(request, env) {
+  const auth = await requireSession(request, env);
+  if (!auth) return json({ ok: false, error: "UNAUTHORIZED" }, 401);
+  await ensurePasskeySchema(env);
+
+  const existing = await env.DB.prepare(
+    "SELECT id FROM webauthn_credentials WHERE user_id=?1 LIMIT 1"
+  ).bind(auth.user_id).first();
+  if (existing) {
+    return json({ ok: true, already_registered: true, passkey: await passkeyStatusForUser(env, auth.user_id) });
+  }
+
+  const webauthnUserId = await getOrCreateWebauthnUserId(env, auth.user_id);
+  const options = await generateRegistrationOptions({
+    rpName: WEBAUTHN_RP_NAME,
+    rpID: WEBAUTHN_RP_ID,
+    userID: fromBase64url(webauthnUserId),
+    userName: auth.email,
+    userDisplayName: auth.display_name,
+    attestationType: "none",
+    authenticatorSelection: {
+      residentKey: "required",
+      userVerification: "required",
+      authenticatorAttachment: "platform",
+    },
+    supportedAlgorithmIDs: [-7, -257],
+  });
+  const ceremonyId = await storeWebauthnChallenge(env, "registration", options.challenge, auth.user_id);
+  return json({ ok: true, ceremony_id: ceremonyId, options });
+}
+
+async function passkeyRegistrationVerify(request, env) {
+  const auth = await requireSession(request, env);
+  if (!auth) return json({ ok: false, error: "UNAUTHORIZED" }, 401);
+  await ensurePasskeySchema(env);
+
+  let body;
+  try { body = await request.json(); } catch { return json({ ok: false, error: "INVALID_JSON" }, 400); }
+  const ceremonyId = String(body?.ceremony_id || "");
+  const response = body?.response;
+  if (!ceremonyId || !response) return json({ ok: false, error: "INVALID_PASSKEY_RESPONSE" }, 400);
+
+  const challenge = await consumeWebauthnChallenge(env, ceremonyId, "registration", auth.user_id);
+  if (!challenge) return json({ ok: false, error: "PASSKEY_CHALLENGE_EXPIRED" }, 400);
+
+  const already = await env.DB.prepare(
+    "SELECT id FROM webauthn_credentials WHERE user_id=?1 LIMIT 1"
+  ).bind(auth.user_id).first();
+  if (already) return json({ ok: false, error: "PASSKEY_ALREADY_REGISTERED" }, 409);
+
+  let verification;
+  try {
+    verification = await verifyRegistrationResponse({
+      response,
+      expectedChallenge: challenge.challenge,
+      expectedOrigin: WEBAUTHN_ORIGIN,
+      expectedRPID: WEBAUTHN_RP_ID,
+      requireUserVerification: true,
+    });
+  } catch (error) {
+    console.error("Passkey registration verification failed", error);
+    return json({ ok: false, error: "PASSKEY_VERIFICATION_FAILED" }, 400);
+  }
+
+  if (!verification.verified || !verification.registrationInfo) {
+    return json({ ok: false, error: "PASSKEY_VERIFICATION_FAILED" }, 400);
+  }
+
+  const { credential, credentialDeviceType, credentialBackedUp } = verification.registrationInfo;
+  await env.DB.prepare(
+    `INSERT INTO webauthn_credentials
+      (id,user_id,public_key,counter,transports_json,device_type,backed_up)
+     VALUES(?1,?2,?3,?4,?5,?6,?7)`
+  ).bind(
+    credential.id,
+    auth.user_id,
+    base64url(credential.publicKey),
+    Number(credential.counter || 0),
+    JSON.stringify(credential.transports || []),
+    credentialDeviceType || "",
+    credentialBackedUp ? 1 : 0
+  ).run();
+
+  await env.DB.prepare(
+    "INSERT INTO app_log(event_type,user_id,details_json) VALUES('passkey_registered',?1,?2)"
+  ).bind(auth.user_id, JSON.stringify({ rp_id: WEBAUTHN_RP_ID, device_type: credentialDeviceType || "", backed_up: Boolean(credentialBackedUp) })).run();
+
+  return json({ ok: true, verified: true, passkey: await passkeyStatusForUser(env, auth.user_id) });
+}
+
+async function passkeyAuthenticationOptions(request, env) {
+  await ensurePasskeySchema(env);
+  const countRow = await env.DB.prepare(
+    "SELECT COUNT(*) AS n FROM webauthn_credentials c JOIN users u ON u.id=c.user_id WHERE u.active=1"
+  ).first();
+  if (Number(countRow?.n || 0) < 1) return json({ ok: false, error: "PASSKEY_NOT_READY" }, 409);
+
+  const options = await generateAuthenticationOptions({
+    rpID: WEBAUTHN_RP_ID,
+    userVerification: "required",
+  });
+  const ceremonyId = await storeWebauthnChallenge(env, "authentication", options.challenge, null);
+  return json({ ok: true, ceremony_id: ceremonyId, options });
+}
+
+async function passkeyAuthenticationVerify(request, env, ctx) {
+  await ensurePasskeySchema(env);
+  let body;
+  try { body = await request.json(); } catch { return json({ ok: false, error: "INVALID_JSON" }, 400); }
+  const ceremonyId = String(body?.ceremony_id || "");
+  const response = body?.response;
+  const credentialId = String(response?.id || "");
+  if (!ceremonyId || !response || !credentialId) return json({ ok: false, error: "INVALID_PASSKEY_RESPONSE" }, 400);
+
+  const challenge = await consumeWebauthnChallenge(env, ceremonyId, "authentication", null);
+  if (!challenge) return json({ ok: false, error: "PASSKEY_CHALLENGE_EXPIRED" }, 400);
+
+  const row = await env.DB.prepare(
+    `SELECT c.id,c.user_id,c.public_key,c.counter,c.transports_json,
+            u.email,u.display_name,COALESCE(u.role,'registrador') AS role
+     FROM webauthn_credentials c
+     JOIN users u ON u.id=c.user_id
+     WHERE c.id=?1 AND u.active=1
+     LIMIT 1`
+  ).bind(credentialId).first();
+  if (!row) return json({ ok: false, error: "PASSKEY_NOT_FOUND" }, 401);
+
+  let verification;
+  try {
+    verification = await verifyAuthenticationResponse({
+      response,
+      expectedChallenge: challenge.challenge,
+      expectedOrigin: WEBAUTHN_ORIGIN,
+      expectedRPID: WEBAUTHN_RP_ID,
+      credential: {
+        id: row.id,
+        publicKey: fromBase64url(row.public_key),
+        counter: Number(row.counter || 0),
+        transports: passkeyTransports(row.transports_json),
+      },
+      requireUserVerification: true,
+    });
+  } catch (error) {
+    console.error("Passkey authentication verification failed", error);
+    return json({ ok: false, error: "PASSKEY_VERIFICATION_FAILED" }, 401);
+  }
+
+  if (!verification.verified) return json({ ok: false, error: "PASSKEY_VERIFICATION_FAILED" }, 401);
+
+  const newCounter = Number(verification.authenticationInfo?.newCounter || 0);
+  await env.DB.prepare(
+    "UPDATE webauthn_credentials SET counter=?1,last_used_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?2"
+  ).bind(newCounter, row.id).run();
+
+  const sessionData = await createSession(env, row.user_id);
+  await env.DB.prepare(
+    "INSERT INTO app_log(event_type,user_id,details_json) VALUES('login',?1,?2)"
+  ).bind(row.user_id, JSON.stringify({ source: "cloudflare", auth: "passkey", rp_id: WEBAUTHN_RP_ID })).run();
+
+  const migration = await maybeStartLegacyImport(env, ctx);
+  return json({
+    ok: true,
+    token: sessionData.token,
+    expires_in: sessionData.expiresIn,
+    user: { id: row.user_id, email: row.email, name: row.display_name, role: row.role || "registrador" },
+    passkey_registered: true,
+    auth_method: "passkey",
+    migration,
+  });
+}
+
+async function deleteMyPasskey(request, env) {
+  const auth = await requireSession(request, env);
+  if (!auth) return json({ ok: false, error: "UNAUTHORIZED" }, 401);
+  await ensurePasskeySchema(env);
+  const result = await env.DB.prepare(
+    "DELETE FROM webauthn_credentials WHERE user_id=?1"
+  ).bind(auth.user_id).run();
+  await env.DB.prepare(
+    "DELETE FROM webauthn_challenges WHERE user_id=?1"
+  ).bind(auth.user_id).run();
+  if (Number(result.meta?.changes || 0) > 0) {
+    await env.DB.prepare(
+      "INSERT INTO app_log(event_type,user_id,details_json) VALUES('passkey_removed',?1,?2)"
+    ).bind(auth.user_id, JSON.stringify({ rp_id: WEBAUTHN_RP_ID })).run();
+  }
+  return json({ ok: true, passkey: { registered: false } });
 }
 
 function bearer(request) {
@@ -335,6 +657,7 @@ async function login(request, env, ctx) {
 
   await clearLoginFailures(env, attemptKeys);
   const sessionData = await createSession(env, user.id);
+  const passkeyStatus = await passkeyStatusForUser(env, user.id);
 
   await env.DB.prepare(
     "INSERT INTO app_log (event_type, user_id, details_json) VALUES ('login', ?1, ?2)"
@@ -346,6 +669,8 @@ async function login(request, env, ctx) {
     token: sessionData.token,
     expires_in: sessionData.expiresIn,
     user: { id: user.id, email: user.email, name: user.display_name, role: user.role || "registrador" },
+    passkey_registered: Boolean(passkeyStatus.registered),
+    auth_method: "pin",
     migration,
   });
 }
@@ -1407,12 +1732,14 @@ async function listAdminUsers(request, env) {
   const adminAllowed=await requireAdminSession(request,env);
   if(!adminAllowed) return json({ok:false,error:"ADMIN_LOCKED"},403);
   await ensureEditSchema(env);
+  await ensurePasskeySchema(env);
   const rows=await env.DB.prepare(
     `SELECT u.id,u.email,u.display_name,u.active,u.role,u.created_at,u.updated_at,
             (SELECT COUNT(*) FROM auth_sessions s
              WHERE s.user_id=u.id AND s.expires_at>strftime('%s','now')) AS active_sessions,
             (SELECT MAX(l.created_at) FROM app_log l
-             WHERE l.user_id=u.id AND l.event_type='login') AS last_login
+             WHERE l.user_id=u.id AND l.event_type='login') AS last_login,
+            (SELECT COUNT(*) FROM webauthn_credentials c WHERE c.user_id=u.id) AS passkey_count
      FROM users u
      ORDER BY u.display_name`
   ).all();
@@ -1666,6 +1993,18 @@ export default {
         response = await login(request, env, ctx);
       } else if (url.pathname === "/api/session" && request.method === "GET") {
         response = await session(request, env);
+      } else if (url.pathname === "/api/passkeys/me" && request.method === "GET") {
+        response = await passkeyMe(request, env);
+      } else if (url.pathname === "/api/passkeys/me" && request.method === "DELETE") {
+        response = await deleteMyPasskey(request, env);
+      } else if (url.pathname === "/api/passkeys/register/options" && request.method === "POST") {
+        response = await passkeyRegistrationOptions(request, env);
+      } else if (url.pathname === "/api/passkeys/register/verify" && request.method === "POST") {
+        response = await passkeyRegistrationVerify(request, env);
+      } else if (url.pathname === "/api/passkeys/authenticate/options" && request.method === "POST") {
+        response = await passkeyAuthenticationOptions(request, env);
+      } else if (url.pathname === "/api/passkeys/authenticate/verify" && request.method === "POST") {
+        response = await passkeyAuthenticationVerify(request, env, ctx);
       } else if (url.pathname === "/api/drafts" && request.method === "GET") {
         response = await getDraft(request, env);
       } else if (url.pathname === "/api/drafts" && request.method === "PUT") {
