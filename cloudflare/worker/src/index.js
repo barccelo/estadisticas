@@ -359,10 +359,10 @@ async function passkeyRegistrationOptions(request, env) {
     attestationType: "none",
     authenticatorSelection: {
       residentKey: "required",
-      userVerification: "required",
-      authenticatorAttachment: "platform",
+      userVerification: "preferred",
     },
     supportedAlgorithmIDs: [-7, -257],
+    timeout: 120000,
   });
   const ceremonyId = await storeWebauthnChallenge(env, "registration", options.challenge, auth.user_id);
   return json({ ok: true, ceremony_id: ceremonyId, options });
