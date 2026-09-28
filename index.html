@@ -1298,7 +1298,7 @@ button{-webkit-tap-highlight-color:transparent}
 }
 
 </style>
-<link rel="stylesheet" href="./ui-v2.css?v=26">
+<link rel="stylesheet" href="./ui-v2.css?v=27">
 </head>
 <body>
 <div id="registerLoginModal" class="session-modal-backdrop" hidden>
@@ -2740,6 +2740,8 @@ function openRegisterLoginModal(){
   if(status){status.textContent=''; status.className='session-modal-status';}
   if(input){
     input.value='';
+    input.onfocus=()=>{modal.classList.add('input-focused');syncRegisterModalViewport();};
+    input.onblur=()=>{modal.classList.remove('input-focused');syncRegisterModalViewport();};
     setTimeout(()=>{
       syncRegisterModalViewport();
       try{input.focus({preventScroll:true});}catch(_e){input.focus();}
@@ -2749,7 +2751,8 @@ function openRegisterLoginModal(){
   }
 }
 function closeRegisterLoginModal(){
-  const modal=$('registerLoginModal'); if(modal) modal.hidden=true;
+  const modal=$('registerLoginModal');
+  if(modal){modal.hidden=true;modal.classList.remove('input-focused','keyboard-visible');}
   const shouldShowWelcome=welcomePending;
   const vv=window.visualViewport;
   if(vv){
