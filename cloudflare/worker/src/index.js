@@ -979,8 +979,6 @@ async function maybeStartLegacyImport(env, ctx) {
 
 async function listRecords(request, env, ctx) {
   if (!env.DB) return json({ ok: false, error: "D1_NOT_BOUND" }, 503);
-  const auth = await requireSession(request, env);
-  if (!auth) return json({ ok: false, error: "UNAUTHORIZED" }, 401);
   await maybeStartLegacyImport(env, ctx);
   const url = new URL(request.url);
   const from = String(url.searchParams.get("from") || "").trim();
@@ -1680,8 +1678,6 @@ async function guardConfig(env){
 }
 
 async function getGuards(request,env){
-  const auth=await requireSession(request,env);
-  if(!auth) return json({ok:false,error:"UNAUTHORIZED"},401);
   const url=new URL(request.url);
   const info=guardWeekInfo(url.searchParams.get("date")||"");
   const config=await guardConfig(env);
