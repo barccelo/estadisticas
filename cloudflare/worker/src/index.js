@@ -697,6 +697,7 @@ async function session(request, env) {
   return json({
     ok: true,
     user: { id: auth.user_id, email: auth.email, name: auth.display_name, role: auth.role || "registrador" },
+    passkey: await passkeyStatusForUser(env, auth.user_id),
     expires_at: auth.expires_at,
   });
 }
