@@ -1651,8 +1651,10 @@ export default {
         response = json({
           ok: true,
           service: "club-deportivo-api",
+          version: "auth-hardening-v1",
           d1: Boolean(env.DB),
           auth: "d1-sessions",
+          auth_schema_auto_migrate: true,
           time: new Date().toISOString(),
         });
       } else if (url.pathname === "/api/login" && request.method === "POST") {
