@@ -425,8 +425,8 @@ body{background:#f6f7fb;}
 .session-modal p{margin:0 0 16px;color:#6b7280;font-size:14px;line-height:1.4}
 .session-modal input{width:100%;border:1px solid #e5e7eb;border-radius:14px;padding:12px 13px;font-size:16px;min-height:46px}
 .session-modal-actions{display:flex;gap:8px;margin-top:12px;justify-content:flex-end;flex-wrap:wrap}
-#registerLoginModal .session-modal-actions{display:grid;grid-template-columns:minmax(0,1fr);width:100%}
-#registerLoginModal .session-modal-actions .btn{width:100%;max-width:none;min-width:0;justify-self:stretch;box-sizing:border-box}
+#registerLoginModal .session-modal-actions{display:block!important;width:100%!important;max-width:none!important}
+#registerLoginModal .session-modal-actions .btn{display:flex!important;width:100%!important;max-width:none!important;min-width:0!important;box-sizing:border-box!important;align-items:center!important;justify-content:center!important}
 .session-modal-status{min-height:0;max-height:0;margin-top:0;opacity:0;overflow:hidden;font-size:13px;color:#6b7280;transition:max-height .18s ease,margin .18s ease,opacity .18s ease}
 .session-modal-status:not(:empty){min-height:18px;max-height:96px;margin-top:10px;opacity:1}
 .session-modal-status.err{color:#b91c1c;font-weight:800}
@@ -2750,6 +2750,26 @@ async function showSessionWelcomeModal(){
     welcomeLoading=false;
   }
 }
+function stabilizeRegisterLoginLayout(){
+  const modal=$('registerLoginModal');
+  if(!modal) return;
+  const actions=modal.querySelector('.session-modal-actions');
+  const confirm=$('confirmRegisterLoginBtn');
+  if(actions){
+    actions.style.setProperty('display','block','important');
+    actions.style.setProperty('width','100%','important');
+    actions.style.setProperty('max-width','none','important');
+  }
+  if(confirm){
+    confirm.style.setProperty('display','flex','important');
+    confirm.style.setProperty('width','100%','important');
+    confirm.style.setProperty('max-width','none','important');
+    confirm.style.setProperty('min-width','0','important');
+    confirm.style.setProperty('box-sizing','border-box','important');
+    confirm.style.setProperty('align-items','center','important');
+    confirm.style.setProperty('justify-content','center','important');
+  }
+}
 function syncRegisterModalViewport(){
   const modal=$('registerLoginModal'); if(!modal) return;
   const vv=window.visualViewport;
@@ -2759,11 +2779,13 @@ function syncRegisterModalViewport(){
   modal.style.setProperty('--modal-vv-top',Math.max(0,offsetTop)+'px');
   modal.style.setProperty('--modal-vv-center',Math.max(120,offsetTop + height/2)+'px');
   modal.classList.toggle('keyboard-visible',height < window.innerHeight*0.78);
+  stabilizeRegisterLoginLayout();
 }
 function openRegisterLoginModal(){
   const modal=$('registerLoginModal'); if(!modal) return;
   modal.hidden=false;
   setAuthCancelState();
+  stabilizeRegisterLoginLayout();
   syncRegisterModalViewport();
   const vv=window.visualViewport;
   if(vv){
