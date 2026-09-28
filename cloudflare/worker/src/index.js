@@ -1650,7 +1650,7 @@ export default {
       if (url.pathname === "/api/health" && request.method === "GET") {
         response = json({
           ok: true,
-          service: "club-deportivo-api",
+          service: "cd",
           version: "auth-hardening-v1",
           d1: Boolean(env.DB),
           auth: "d1-sessions",
