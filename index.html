@@ -1298,7 +1298,7 @@ button{-webkit-tap-highlight-color:transparent}
 }
 
 </style>
-<link rel="stylesheet" href="./ui-v2.css?v=25">
+<link rel="stylesheet" href="./ui-v2.css?v=26">
 </head>
 <body>
 <div id="registerLoginModal" class="session-modal-backdrop" hidden>
@@ -2719,10 +2719,10 @@ function syncRegisterModalViewport(){
   const vv=window.visualViewport;
   const height=vv ? vv.height : window.innerHeight;
   const offsetTop=vv ? vv.offsetTop : 0;
+  const keyboardVisible=height < window.innerHeight*0.78;
   modal.style.setProperty('--modal-vv-height',Math.max(240,height)+'px');
-  modal.style.setProperty('--modal-vv-top',Math.max(0,offsetTop)+'px');
-  modal.style.setProperty('--modal-vv-center',Math.max(120,offsetTop + height/2)+'px');
-  modal.classList.toggle('keyboard-visible',height < window.innerHeight*0.78);
+  modal.style.setProperty('--modal-vv-top',(keyboardVisible?0:Math.max(0,offsetTop))+'px');
+  modal.classList.toggle('keyboard-visible',keyboardVisible);
   stabilizeRegisterLoginLayout();
 }
 function openRegisterLoginModal(){
@@ -2742,8 +2742,9 @@ function openRegisterLoginModal(){
     input.value='';
     setTimeout(()=>{
       syncRegisterModalViewport();
-      input.focus();
+      try{input.focus({preventScroll:true});}catch(_e){input.focus();}
       setTimeout(syncRegisterModalViewport,120);
+      setTimeout(syncRegisterModalViewport,320);
     },50);
   }
 }
