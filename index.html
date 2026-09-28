@@ -2593,6 +2593,7 @@ function setRegisterPasswordSession(password, user, token=''){
   const topLogout=$('topbarLogoutBtn');
   if(topLogout) topLogout.hidden=!registerSessionUser;
   if(GUARD_CONFIG.people?.length){renderGuardFull();}
+  initGuardModule().catch(()=>{});
 }
 async function clearRegisterSession(){
   const token=registerSessionToken;
@@ -2610,8 +2611,9 @@ async function clearRegisterSession(){
   const topLogout=$('topbarLogoutBtn'); if(topLogout) topLogout.hidden=true;
   closeSessionWelcomeModal();
   if(token){try{await cloudApi('/api/logout',{method:'POST',token});}catch(_e){}}
-  DATA=[];
-  lockAppForLogin();
+  appAuthUnlocked=false;
+  loadData({keepFilters:true}).catch(()=>{});
+  initGuardModule().catch(()=>{});
 }
 function welcomeIcon(kind){
   const icons={
@@ -3419,10 +3421,13 @@ function renderGuardToday(result){
   }
   const currentPersonId=currentGuardPersonId();
   (result.assignments||[]).forEach(a=>{
-    const isCurrent=Boolean(currentPersonId && String(a.person.id)===String(currentPersonId));
+    const hasIdentifiedUser=Boolean(currentPersonId);
+    const isCurrent=Boolean(hasIdentifiedUser && String(a.person.id)===String(currentPersonId));
     const el=document.createElement('div');
-    el.className='guard-pill '+(isCurrent?'guard-current-user':'guard-other-user');
-    if(isCurrent){
+    el.className=hasIdentifiedUser
+      ? 'guard-pill '+(isCurrent?'guard-current-user':'guard-other-user')
+      : 'guard-pill';
+    if(!hasIdentifiedUser || isCurrent){
       el.style.background=a.person.color||'#fff';
       el.style.color=guardTextColor(a.person.color);
     }
