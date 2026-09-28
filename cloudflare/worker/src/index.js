@@ -427,6 +427,23 @@ async function passkeyRegistrationVerify(request, env) {
   return json({ ok: true, verified: true, passkey: await passkeyStatusForUser(env, auth.user_id) });
 }
 
+async function passkeyReadiness(env) {
+  await ensurePasskeySchema(env);
+  const row = await env.DB.prepare(
+    `SELECT
+       (SELECT COUNT(*) FROM users WHERE active=1) AS active_users,
+       (SELECT COUNT(*) FROM webauthn_credentials c JOIN users u ON u.id=c.user_id WHERE u.active=1) AS registered_users`
+  ).first();
+  const activeUsers = Number(row?.active_users || 0);
+  const registeredUsers = Number(row?.registered_users || 0);
+  return json({
+    ok: true,
+    active_users: activeUsers,
+    registered_users: registeredUsers,
+    ready: activeUsers > 0 && registeredUsers === activeUsers,
+  });
+}
+
 async function passkeyAuthenticationOptions(request, env) {
   await ensurePasskeySchema(env);
   const countRow = await env.DB.prepare(
@@ -960,8 +977,10 @@ async function maybeStartLegacyImport(env, ctx) {
 }
 
 async function listRecords(request, env, ctx) {
-  await maybeStartLegacyImport(env, ctx);
   if (!env.DB) return json({ ok: false, error: "D1_NOT_BOUND" }, 503);
+  const auth = await requireSession(request, env);
+  if (!auth) return json({ ok: false, error: "UNAUTHORIZED" }, 401);
+  await maybeStartLegacyImport(env, ctx);
   const url = new URL(request.url);
   const from = String(url.searchParams.get("from") || "").trim();
   const to = String(url.searchParams.get("to") || "").trim();
@@ -1660,6 +1679,8 @@ async function guardConfig(env){
 }
 
 async function getGuards(request,env){
+  const auth=await requireSession(request,env);
+  if(!auth) return json({ok:false,error:"UNAUTHORIZED"},401);
   const url=new URL(request.url);
   const info=guardWeekInfo(url.searchParams.get("date")||"");
   const config=await guardConfig(env);
@@ -1994,6 +2015,8 @@ export default {
         response = await login(request, env, ctx);
       } else if (url.pathname === "/api/session" && request.method === "GET") {
         response = await session(request, env);
+      } else if (url.pathname === "/api/passkeys/readiness" && request.method === "GET") {
+        response = await passkeyReadiness(env);
       } else if (url.pathname === "/api/passkeys/me" && request.method === "GET") {
         response = await passkeyMe(request, env);
       } else if (url.pathname === "/api/passkeys/me" && request.method === "DELETE") {
