@@ -1655,6 +1655,11 @@ export default {
           d1: Boolean(env.DB),
           auth: "d1-sessions",
           auth_schema_auto_migrate: true,
+          bindings: {
+            pin_pepper: Boolean(env.PIN_PEPPER),
+            session_secret: Boolean(env.SESSION_SECRET),
+            bootstrap_secret: Boolean(env.BOOTSTRAP_SECRET),
+          },
           time: new Date().toISOString(),
         });
       } else if (url.pathname === "/api/login" && request.method === "POST") {
