@@ -1,10 +1,9 @@
 PRAGMA foreign_keys = ON;
 
-ALTER TABLE users ADD COLUMN pin_fingerprint TEXT;
-
-CREATE UNIQUE INDEX IF NOT EXISTS idx_users_pin_fingerprint_unique
-  ON users(pin_fingerprint)
-  WHERE pin_fingerprint IS NOT NULL;
+-- El Worker crea de forma idempotente la columna users.pin_fingerprint
+-- y su índice único al inicializar el esquema de autenticación.
+-- Esta migración conserva únicamente las estructuras que sí son seguras
+-- de aplicar aunque el Worker ya haya arrancado antes.
 
 CREATE TABLE IF NOT EXISTS auth_login_attempts (
   attempt_key TEXT PRIMARY KEY,
