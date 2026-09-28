@@ -1978,10 +1978,11 @@ export default {
         response = json({
           ok: true,
           service: "cd",
-          version: "auth-hardening-v1",
+          version: "passkeys-v1",
           d1: Boolean(env.DB),
           auth: "d1-sessions",
           auth_schema_auto_migrate: true,
+          webauthn_rp_id: WEBAUTHN_RP_ID,
           bindings: {
             pin_pepper: Boolean(env.PIN_PEPPER),
             session_secret: Boolean(env.SESSION_SECRET),
