@@ -1300,18 +1300,12 @@ button{-webkit-tap-highlight-color:transparent}
 </style>
 <link rel="stylesheet" href="./ui-v2.css?v=24">
 </head>
-<body class="app-auth-locked">
+<body>
 <div id="registerLoginModal" class="session-modal-backdrop" hidden>
   <div class="session-modal" role="dialog" aria-modal="true" aria-labelledby="registerLoginTitle">
     <h2 id="registerLoginTitle">Acceso al Club Deportivo</h2>
-    <button class="btn passkey-login-btn" id="passkeyLoginBtn" type="button">Entrar con Face ID / huella / dispositivo</button>
-    <div class="session-divider" id="registerLoginDivider"><span>o usa tu clave</span></div>
     <input id="registerSessionPassword" type="password" inputmode="numeric" placeholder="Clave de entrada" autocomplete="off">
     <div id="registerLoginStatus" class="session-modal-status"></div>
-    <div id="passkeyEnrollWrap" class="passkey-enroll-wrap" hidden>
-      <p>Este usuario todavía no tiene acceso biométrico registrado en este dominio.</p>
-      <button class="btn passkey-enroll-btn" id="registerPasskeyBtn" type="button">Activar Face ID / huella / dispositivo</button>
-    </div>
     <div class="session-modal-actions">
       <button class="btn" id="confirmRegisterLoginBtn" type="button">Entrar con clave</button>
     </div>
@@ -1873,20 +1867,16 @@ function transformRows(rows){
 function setLoading(message){if($('tableCount')) $('tableCount').textContent = message; if($('barList')) $('barList').innerHTML = `<div class="notice">${escapeHtml(message)}</div>`; if($('statsBarList')) $('statsBarList').innerHTML = `<div class="notice">${escapeHtml(message)}</div>`; if($('totalSummaryDate')) $('totalSummaryDate').textContent='Rango: —';}
 async function loadCloudRecords(from='',to=''){
   try{
-    if(!registerSessionToken) throw new Error('UNAUTHORIZED');
     const params=new URLSearchParams();
     if(from) params.set('from',from);
     if(to) params.set('to',to);
-    const data=await cloudApi('/api/records'+(params.size?'?'+params.toString():''),{token:registerSessionToken});
+    const data=await cloudApi('/api/records'+(params.size?'?'+params.toString():''),registerSessionToken?{token:registerSessionToken}:{});
     return {
       records:Array.isArray(data.records) ? data.records : [],
       migration:data.migration || {status:'pending'}
     };
   }catch(error){
     console.error(error);
-    if(error?.code==='UNAUTHORIZED' || error?.message==='UNAUTHORIZED'){
-      await clearRegisterSession();
-    }
     return {records:[],migration:{status:'error'}};
   }
 }
@@ -1895,10 +1885,6 @@ function recordMergeSignature(r){
   return JSON.stringify([r.fecha||'',r.email||'',r.observaciones||'',values]);
 }
 async function loadData({keepFilters=false}={}){
-  if(!registerSessionToken){
-    lockAppForLogin();
-    return;
-  }
   setLoading('Cargando datos desde Cloudflare...');
   const currentSY=currentSchoolYear();
   const currentRange=schoolYearRange(currentSY);
@@ -2406,27 +2392,8 @@ async function cloudApi(path, options={}){
 
 function unlockAppAfterLogin(){
   appAuthUnlocked=true;
-  document.body.classList.remove('app-auth-locked');
-  const keep=appDataStarted;
-  appDataStarted=true;
-  loadData({keepFilters:keep}).catch(()=>{});
-  initGuardModule().catch(()=>{});
-}
-function lockAppForLogin(){
-  appAuthUnlocked=false;
-  document.body.classList.add('app-auth-locked');
-  openRegisterLoginModal();
-}
-async function startAppAuthentication(){
-  lockAppForLogin();
-  if(!passkeysAvailable() || passkeyAutoAttempted) return;
-  try{
-    const readiness=await cloudApi('/api/passkeys/readiness');
-    if(readiness?.ready){
-      passkeyAutoAttempted=true;
-      setTimeout(()=>loginWithPasskey(),120);
-    }
-  }catch(_e){}
+  const topLogout=$('topbarLogoutBtn');
+  if(topLogout) topLogout.hidden=!registerSessionUser;
 }
 
 async function getWebAuthnCapabilities(){
@@ -2768,25 +2735,17 @@ function openRegisterLoginModal(){
   }
   const input=$('registerSessionPassword');
   const status=$('registerLoginStatus');
-  const passkeyBtn=$('passkeyLoginBtn');
-  const divider=$('registerLoginDivider');
-  const enrollWrap=$('passkeyEnrollWrap');
-  const canPasskey=Boolean(passkeysAvailable());
-  if(passkeyBtn) passkeyBtn.hidden=!canPasskey;
-  if(divider) divider.hidden=!canPasskey;
-  if(enrollWrap) enrollWrap.hidden=true;
   if(status){status.textContent=''; status.className='session-modal-status';}
   if(input){
     input.value='';
     setTimeout(()=>{
       syncRegisterModalViewport();
-      if(!canPasskey) input.focus();
+      input.focus();
       setTimeout(syncRegisterModalViewport,120);
     },50);
   }
 }
 function closeRegisterLoginModal(){
-  if(!appAuthUnlocked) return;
   const modal=$('registerLoginModal'); if(modal) modal.hidden=true;
   const shouldShowWelcome=welcomePending;
   const vv=window.visualViewport;
@@ -2814,13 +2773,8 @@ async function confirmRegisterLogin(){
     checkSharedDraft();
     processRegisterBackupQueue().catch(()=>{});
     if(result.migration && result.migration.status!=='done') setTimeout(()=>loadData({keepFilters:true}),2500);
-    if(result.passkey_registered===false && passkeysAvailable()){
-      if(status){status.textContent='Clave correcta. Activa ahora Face ID o huella para este usuario.'; status.className='session-modal-status ok';}
-      const wrap=$('passkeyEnrollWrap'); if(wrap) wrap.hidden=false;
-    }else{
-      if(status){status.textContent='Sesión activa: '+(result.user.name || responsibleShort(result.user.email)); status.className='session-modal-status ok';}
-      closeRegisterLoginModal();
-    }
+    if(status){status.textContent='Sesión activa: '+(result.user.name || responsibleShort(result.user.email)); status.className='session-modal-status ok';}
+    closeRegisterLoginModal();
   }catch(err){
     if(status){status.textContent=err.message || 'No se pudo iniciar sesión.'; status.className='session-modal-status err';}
   }finally{if(btn) btn.disabled=false;}
@@ -2845,9 +2799,7 @@ function setupRegisterLoginModal(){
   const welcomeModal=$('sessionWelcomeModal');
   if(welcomeModal) welcomeModal.addEventListener('pointerdown',e=>{if(e.target===welcomeModal) closeSessionWelcomeModal();});
   const loginModal=$('registerLoginModal');
-  if(loginModal) loginModal.addEventListener('pointerdown',e=>{if(e.target===loginModal && appAuthUnlocked) closeRegisterLoginModal();});
-  const passkeyLogin=$('passkeyLoginBtn'); if(passkeyLogin) passkeyLogin.onclick=loginWithPasskey;
-  const passkeyEnroll=$('registerPasskeyBtn'); if(passkeyEnroll) passkeyEnroll.onclick=registerCurrentPasskey;
+  if(loginModal) loginModal.addEventListener('pointerdown',e=>{if(e.target===loginModal) closeRegisterLoginModal();});
   const input=$('registerSessionPassword');
   if(input) input.addEventListener('keydown',e=>{
     if(e.key==='Enter'){
@@ -3451,8 +3403,7 @@ function currentGuardPersonId(){
   return bestScore>=65?best:'';
 }
 async function loadGuards(date=''){
-  if(!registerSessionToken) throw new Error('UNAUTHORIZED');
-  const result=await cloudApi('/api/guards'+(date?'?date='+encodeURIComponent(date):''),{token:registerSessionToken});
+  const result=await cloudApi('/api/guards'+(date?'?date='+encodeURIComponent(date):''),registerSessionToken?{token:registerSessionToken}:{});
   GUARD_CONFIG=result.config||{people:[],points:[],assignments:[]};
   return result;
 }
@@ -4010,7 +3961,8 @@ setupRegisterLoginModal();
 window.addEventListener('resize',()=>{arrangeMobileExportButtons(); if(DATA.length) renderLine(filtered())});
 initAdminModule();
 window.addEventListener('beforeunload',()=>{try{saveSharedDraft();}catch(e){}});
-startAppAuthentication();
+loadData();
+initGuardModule();
 </script>
 </body>
 </html>
