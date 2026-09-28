@@ -342,6 +342,13 @@ async function passkeyRegistrationOptions(request, env) {
   if (!auth) return json({ ok: false, error: "UNAUTHORIZED" }, 401);
   await ensurePasskeySchema(env);
 
+  let body = {};
+  try { body = await request.json(); } catch (_) {}
+  const preferredAuthenticatorType =
+    body?.preferred_authenticator === "remoteDevice" ? "remoteDevice" :
+    body?.preferred_authenticator === "localDevice" ? "localDevice" :
+    undefined;
+
   const existing = await env.DB.prepare(
     "SELECT id FROM webauthn_credentials WHERE user_id=?1 LIMIT 1"
   ).bind(auth.user_id).first();
@@ -359,8 +366,9 @@ async function passkeyRegistrationOptions(request, env) {
     attestationType: "none",
     authenticatorSelection: {
       residentKey: "required",
-      userVerification: "preferred",
+      userVerification: "required",
     },
+    preferredAuthenticatorType,
     supportedAlgorithmIDs: [-7, -257],
     timeout: 120000,
   });
