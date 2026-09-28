@@ -1273,13 +1273,13 @@ button{-webkit-tap-highlight-color:transparent}
   <div class="session-modal" role="dialog" aria-modal="true" aria-labelledby="registerLoginTitle">
     <h2 id="registerLoginTitle">Acceso de registro</h2>
     <p>Usa Face ID, huella o el método de desbloqueo de tu dispositivo. La clave actual queda disponible como respaldo.</p>
-    <button class="btn passkey-login-btn" id="passkeyLoginBtn" type="button">Entrar con Face ID / huella</button>
+    <button class="btn passkey-login-btn" id="passkeyLoginBtn" type="button">Entrar con Face ID / huella / dispositivo</button>
     <div class="session-divider" id="registerLoginDivider"><span>o usa tu clave</span></div>
     <input id="registerSessionPassword" type="password" inputmode="numeric" placeholder="Clave de entrada" autocomplete="off">
     <div id="registerLoginStatus" class="session-modal-status"></div>
     <div id="passkeyEnrollWrap" class="passkey-enroll-wrap" hidden>
       <p>Este usuario todavía no tiene acceso biométrico registrado en este dominio.</p>
-      <button class="btn passkey-enroll-btn" id="registerPasskeyBtn" type="button">Activar Face ID / huella</button>
+      <button class="btn passkey-enroll-btn" id="registerPasskeyBtn" type="button">Activar Face ID / huella / dispositivo</button>
     </div>
     <div class="session-modal-actions">
       <button class="btn secondary" id="cancelRegisterLoginBtn" type="button">Cancelar</button>
@@ -2396,6 +2396,11 @@ async function startAppAuthentication(){
   }catch(_e){}
 }
 
+async function localAuthenticatorAvailable(){
+  try{
+    return Boolean(await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable?.());
+  }catch(_e){return false;}
+}
 function passkeysAvailable(){
   return location.hostname==='cd.losrobles.workers.dev'
     && window.isSecureContext
@@ -2450,7 +2455,7 @@ function credentialToJSON(credential){
 }
 function passkeyErrorMessage(err){
   if(err?.code) return err.message||'No se pudo completar el acceso biométrico.';
-  if(err?.name==='NotAllowedError') return 'La verificación fue cancelada o no se completó.';
+  if(err?.name==='NotAllowedError') return 'El dispositivo no completó la verificación. Si este equipo no tiene Windows Hello, Touch ID, Face ID o huella configurados, elige la opción de usar otro dispositivo cuando el navegador la ofrezca.';
   if(err?.name==='InvalidStateError') return 'Este dispositivo ya tiene una credencial registrada para este usuario.';
   if(err?.name==='NotSupportedError') return 'Este dispositivo o navegador no admite este método de acceso.';
   if(err?.name==='SecurityError') return 'El acceso biométrico sólo puede configurarse desde cd.losrobles.workers.dev.';
@@ -2501,7 +2506,13 @@ async function registerCurrentPasskey(){
     return;
   }
   if(btn) btn.disabled=true;
-  if(status){status.textContent='Preparando el acceso biométrico…';status.className='session-modal-status';}
+  const hasLocal=await localAuthenticatorAvailable();
+  if(status){
+    status.textContent=hasLocal
+      ? 'Preparando el acceso del dispositivo…'
+      : 'Este equipo no informa un autenticador local disponible. Puedes usar otro dispositivo si el navegador ofrece esa opción.';
+    status.className='session-modal-status';
+  }
   try{
     const start=await cloudApi('/api/passkeys/register/options',{method:'POST',token:registerSessionToken,body:{}});
     if(start.already_registered){
