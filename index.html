@@ -2538,6 +2538,7 @@ function passkeyErrorMessage(err){
 async function finishAuthenticatedSession(result,password=''){
   if(!result?.ok || !result?.user || !result?.token) throw new Error('No se pudo iniciar sesión.');
   setRegisterPasswordSession(password,result.user,result.token);
+  welcomePending=true;
   unlockAppAfterLogin();
   closeRegisterLoginModal();
   refreshRegisterDayPanels();
@@ -2633,6 +2634,8 @@ function setRegisterPasswordSession(password, user, token=''){
     const logoutBtn=$('registerSessionLogoutBtn');
     if(logoutBtn) logoutBtn.onclick=()=>clearRegisterSession();
   }
+  const topLogout=$('topbarLogoutBtn');
+  if(topLogout) topLogout.hidden=!registerSessionUser;
   if(GUARD_CONFIG.people?.length){renderGuardFull();}
 }
 async function clearRegisterSession(){
@@ -2648,9 +2651,94 @@ async function clearRegisterSession(){
     $('regEmail').classList.remove('session-locked');
   }
   const pill=$('registerSessionPill'); if(pill) pill.hidden=true;
+  const topLogout=$('topbarLogoutBtn'); if(topLogout) topLogout.hidden=true;
+  closeSessionWelcomeModal();
   if(token){try{await cloudApi('/api/logout',{method:'POST',token});}catch(_e){}}
   DATA=[];
   lockAppForLogin();
+}
+function welcomeIcon(kind){
+  const icons={
+    guard:'<svg viewBox="0 0 24 24"><path d="M12 3 20 6v5c0 5-3.3 8.2-8 10-4.7-1.8-8-5-8-10V6l8-3Z"/><path d="m9.5 12 1.7 1.7 3.5-3.7"/></svg>',
+    record:'<svg viewBox="0 0 24 24"><path d="M7 3h10v4H7z"/><path d="M6 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-1"/><path d="M7 12h10M7 16h6"/></svg>',
+    draft:'<svg viewBox="0 0 24 24"><path d="M4 20h4l10-10-4-4L4 16v4Z"/><path d="m12.5 7.5 4 4"/></svg>'
+  };
+  return icons[kind]||'';
+}
+function closeSessionWelcomeModal(){
+  const modal=$('sessionWelcomeModal');
+  if(modal) modal.hidden=true;
+}
+function openRegisterSectionFromWelcome(){
+  closeSessionWelcomeModal();
+  showView('inicio');
+  const target=$('registerCollapseContent');
+  const card=$('registerCollapseCard');
+  if(target) target.hidden=false;
+  if(card) card.classList.add('open');
+  setTimeout(()=>card?.scrollIntoView({behavior:'smooth',block:'start'}),80);
+}
+async function showSessionWelcomeModal(){
+  if(!registerSessionToken || !registerSessionUser || welcomeLoading) return;
+  welcomeLoading=true;
+  welcomePending=false;
+  const modal=$('sessionWelcomeModal');
+  const summary=$('sessionWelcomeSummary');
+  const name=$('sessionWelcomeName');
+  if(!modal||!summary||!name){welcomeLoading=false;return;}
+  const today=todayISO();
+  name.textContent='Hola, '+(registerSessionUser.name||responsibleShort(registerSessionUser.email||''))+'.';
+  summary.innerHTML='<div class="welcome-summary-item"><div class="welcome-summary-copy"><span>Cargando tu resumen de hoy…</span></div></div>';
+  modal.hidden=false;
+
+  let guardResult=null, recordsResult=null, draftResult=null;
+  try{
+    [guardResult,recordsResult,draftResult]=await Promise.all([
+      cloudApi('/api/guards?date='+encodeURIComponent(today),{token:registerSessionToken}).catch(()=>null),
+      cloudApi('/api/records?from='+encodeURIComponent(today)+'&to='+encodeURIComponent(today),{token:registerSessionToken}).catch(()=>null),
+      cloudApi('/api/drafts?date='+encodeURIComponent(today),{token:registerSessionToken}).catch(()=>null)
+    ]);
+
+    if(guardResult?.config) GUARD_CONFIG=guardResult.config;
+    const currentPersonId=currentGuardPersonId();
+    const ownGuards=(guardResult?.assignments||[]).filter(a=>currentPersonId && String(a.person?.id||'')===String(currentPersonId));
+    const guardText=ownGuards.length
+      ? ownGuards.map(a=>(a.point?.code||'—')+' · '+(a.point?.name||a.point?.description||'Guardia')).join(' · ')
+      : 'Hoy no tienes una guardia asignada.';
+
+    const records=Array.isArray(recordsResult?.records)?recordsResult.records:[];
+    const myEmail=String(registerSessionUser.email||'').toLowerCase();
+    const mine=records.filter(r=>String(r.email||'').toLowerCase()===myEmail);
+    const dayText=mine.length
+      ? 'Ya tienes '+(mine.length===1?'1 registro':mine.length+' registros')+' hoy. En total hay '+records.length+' '+(records.length===1?'registro':'registros')+' en el día.'
+      : records.length
+        ? 'Todavía no has registrado hoy. Ya hay '+records.length+' '+(records.length===1?'registro':'registros')+' guardados en el día.'
+        : 'Todavía no hay registros guardados hoy.';
+
+    const draft=draftResult?.draft||null;
+    const draftOwner=draft?(draft.updatedByName||draft.updatedBy||''):'';
+    const draftText=draft
+      ? 'Hay un borrador pendiente'+(draftOwner?' de '+draftOwner:'')+'.'
+      : 'No hay borradores pendientes para hoy.';
+
+    summary.innerHTML=
+      '<div class="welcome-summary-item '+(ownGuards.length?'attention':'')+'">'+
+        '<div class="welcome-summary-icon">'+welcomeIcon('guard')+'</div>'+
+        '<div class="welcome-summary-copy"><strong>Guardia de hoy</strong><span>'+escapeHtml(guardText)+'</span></div>'+
+      '</div>'+
+      '<div class="welcome-summary-item '+(mine.length?'':'attention')+'">'+
+        '<div class="welcome-summary-icon">'+welcomeIcon('record')+'</div>'+
+        '<div class="welcome-summary-copy"><strong>Estado del día</strong><span>'+escapeHtml(dayText)+'</span></div>'+
+      '</div>'+
+      '<div class="welcome-summary-item '+(draft?'attention':'')+'">'+
+        '<div class="welcome-summary-icon">'+welcomeIcon('draft')+'</div>'+
+        '<div class="welcome-summary-copy"><strong>Borradores</strong><span>'+escapeHtml(draftText)+'</span></div>'+
+      '</div>';
+  }catch(_e){
+    summary.innerHTML='<div class="welcome-summary-item"><div class="welcome-summary-copy"><strong>Resumen</strong><span>No se pudo cargar el resumen de hoy. Puedes continuar normalmente.</span></div></div>';
+  }finally{
+    welcomeLoading=false;
+  }
 }
 function syncRegisterModalViewport(){
   const modal=$('registerLoginModal'); if(!modal) return;
@@ -2694,11 +2782,13 @@ function openRegisterLoginModal(){
 function closeRegisterLoginModal(){
   if(!appAuthUnlocked) return;
   const modal=$('registerLoginModal'); if(modal) modal.hidden=true;
+  const shouldShowWelcome=welcomePending;
   const vv=window.visualViewport;
   if(vv){
     vv.removeEventListener('resize',syncRegisterModalViewport);
     vv.removeEventListener('scroll',syncRegisterModalViewport);
   }
+  if(shouldShowWelcome) setTimeout(()=>showSessionWelcomeModal(),120);
 }
 async function confirmRegisterLogin(){
   const input=$('registerSessionPassword');
@@ -2712,6 +2802,7 @@ async function confirmRegisterLogin(){
     const result=await cloudApi('/api/login',{method:'POST',body:{pin:password}});
     if(!result.ok || !result.user || !result.token) throw new Error('Clave no válida.');
     setRegisterPasswordSession(password, result.user, result.token);
+    welcomePending=true;
     unlockAppAfterLogin();
     refreshRegisterDayPanels();
     checkSharedDraft();
@@ -2744,6 +2835,10 @@ function setupLandingCollapses(){
 }
 function setupRegisterLoginModal(){
   const confirm=$('confirmRegisterLoginBtn'); if(confirm) confirm.onclick=confirmRegisterLogin;
+  const topLogout=$('topbarLogoutBtn'); if(topLogout) topLogout.onclick=()=>clearRegisterSession();
+  const welcomeContinue=$('welcomeContinueBtn'); if(welcomeContinue) welcomeContinue.onclick=closeSessionWelcomeModal;
+  const welcomeGuard=$('welcomeGuardBtn'); if(welcomeGuard) welcomeGuard.onclick=()=>{closeSessionWelcomeModal();showView('guardias');goToGuardToday();};
+  const welcomeRegister=$('welcomeRegisterBtn'); if(welcomeRegister) welcomeRegister.onclick=openRegisterSectionFromWelcome;
   const passkeyLogin=$('passkeyLoginBtn'); if(passkeyLogin) passkeyLogin.onclick=loginWithPasskey;
   const passkeyEnroll=$('registerPasskeyBtn'); if(passkeyEnroll) passkeyEnroll.onclick=registerCurrentPasskey;
   const cancel=$('cancelRegisterLoginBtn'); if(cancel) cancel.onclick=closeRegisterLoginModal;
