@@ -403,6 +403,9 @@ body{background:#f6f7fb;}
 .passkey-enroll-wrap[hidden]{display:none!important}
 .passkey-enroll-wrap p{margin:0 0 10px;color:#1e3a8a;font-size:13px}
 .passkey-enroll-btn{width:100%;background:#1d4ed8}
+body.app-auth-locked{overflow:hidden;background:#f6f7fb}
+body.app-auth-locked .app-shell{visibility:hidden;pointer-events:none}
+body.app-auth-locked #registerLoginModal{visibility:visible}
 @media(max-width:650px){
   .landing-toggle{padding:16px 18px;font-size:17px}
   .landing-toggle span{font-size:12px;line-height:1.25}
@@ -1265,7 +1268,7 @@ button{-webkit-tap-highlight-color:transparent}
 </style>
 <link rel="stylesheet" href="./ui-v2.css?v=24">
 </head>
-<body>
+<body class="app-auth-locked">
 <div id="registerLoginModal" class="session-modal-backdrop" hidden>
   <div class="session-modal" role="dialog" aria-modal="true" aria-labelledby="registerLoginTitle">
     <h2 id="registerLoginTitle">Acceso de registro</h2>
@@ -1685,6 +1688,9 @@ let editLoadedRecords = new Map();
 let editSessionToken = '';
 let editSessionPassword = '';
 let adminSessionToken = '';
+let appAuthUnlocked = false;
+let appDataStarted = false;
+let passkeyAutoAttempted = false;
 let GUARD_CONFIG={people:[],points:[],assignments:[]};
 const fmt = new Intl.NumberFormat('es-VE');
 function $(id){return document.getElementById(id)}
@@ -1826,18 +1832,20 @@ function transformRows(rows){
 function setLoading(message){if($('tableCount')) $('tableCount').textContent = message; if($('barList')) $('barList').innerHTML = `<div class="notice">${escapeHtml(message)}</div>`; if($('statsBarList')) $('statsBarList').innerHTML = `<div class="notice">${escapeHtml(message)}</div>`; if($('totalSummaryDate')) $('totalSummaryDate').textContent='Rango: —';}
 async function loadCloudRecords(from='',to=''){
   try{
+    if(!registerSessionToken) throw new Error('UNAUTHORIZED');
     const params=new URLSearchParams();
     if(from) params.set('from',from);
     if(to) params.set('to',to);
-    const response=await fetch(CLOUD_API_URL+'/api/records'+(params.size?'?'+params.toString():''),{cache:'no-store'});
-    if(!response.ok) throw new Error('No se pudieron leer los registros de Cloudflare.');
-    const data=await response.json();
+    const data=await cloudApi('/api/records'+(params.size?'?'+params.toString():''),{token:registerSessionToken});
     return {
       records:Array.isArray(data.records) ? data.records : [],
       migration:data.migration || {status:'pending'}
     };
   }catch(error){
     console.error(error);
+    if(error?.code==='UNAUTHORIZED' || error?.message==='UNAUTHORIZED'){
+      await clearRegisterSession();
+    }
     return {records:[],migration:{status:'error'}};
   }
 }
@@ -1846,6 +1854,10 @@ function recordMergeSignature(r){
   return JSON.stringify([r.fecha||'',r.email||'',r.observaciones||'',values]);
 }
 async function loadData({keepFilters=false}={}){
+  if(!registerSessionToken){
+    lockAppForLogin();
+    return;
+  }
   setLoading('Cargando datos desde Cloudflare...');
   const currentSY=currentSchoolYear();
   const currentRange=schoolYearRange(currentSY);
@@ -2351,6 +2363,39 @@ async function cloudApi(path, options={}){
   return data;
 }
 
+function setAuthCancelState(){
+  const cancel=$('cancelRegisterLoginBtn');
+  if(!cancel) return;
+  cancel.hidden=!appAuthUnlocked;
+  cancel.textContent=appAuthUnlocked?'Ahora no':'Cancelar';
+}
+function unlockAppAfterLogin(){
+  appAuthUnlocked=true;
+  document.body.classList.remove('app-auth-locked');
+  setAuthCancelState();
+  const keep=appDataStarted;
+  appDataStarted=true;
+  loadData({keepFilters:keep}).catch(()=>{});
+  initGuardModule().catch(()=>{});
+}
+function lockAppForLogin(){
+  appAuthUnlocked=false;
+  document.body.classList.add('app-auth-locked');
+  setAuthCancelState();
+  openRegisterLoginModal();
+}
+async function startAppAuthentication(){
+  lockAppForLogin();
+  if(!passkeysAvailable() || passkeyAutoAttempted) return;
+  try{
+    const readiness=await cloudApi('/api/passkeys/readiness');
+    if(readiness?.ready){
+      passkeyAutoAttempted=true;
+      setTimeout(()=>loginWithPasskey(),120);
+    }
+  }catch(_e){}
+}
+
 function passkeysAvailable(){
   return location.hostname==='cd.losrobles.workers.dev'
     && window.isSecureContext
@@ -2414,6 +2459,7 @@ function passkeyErrorMessage(err){
 async function finishAuthenticatedSession(result,password=''){
   if(!result?.ok || !result?.user || !result?.token) throw new Error('No se pudo iniciar sesión.');
   setRegisterPasswordSession(password,result.user,result.token);
+  unlockAppAfterLogin();
   closeRegisterLoginModal();
   refreshRegisterDayPanels();
   checkSharedDraft();
@@ -2516,6 +2562,8 @@ async function clearRegisterSession(){
   }
   const pill=$('registerSessionPill'); if(pill) pill.hidden=true;
   if(token){try{await cloudApi('/api/logout',{method:'POST',token});}catch(_e){}}
+  DATA=[];
+  lockAppForLogin();
 }
 function syncRegisterModalViewport(){
   const modal=$('registerLoginModal'); if(!modal) return;
@@ -2530,6 +2578,7 @@ function syncRegisterModalViewport(){
 function openRegisterLoginModal(){
   const modal=$('registerLoginModal'); if(!modal) return;
   modal.hidden=false;
+  setAuthCancelState();
   syncRegisterModalViewport();
   const vv=window.visualViewport;
   if(vv){
@@ -2556,6 +2605,7 @@ function openRegisterLoginModal(){
   }
 }
 function closeRegisterLoginModal(){
+  if(!appAuthUnlocked) return;
   const modal=$('registerLoginModal'); if(modal) modal.hidden=true;
   const vv=window.visualViewport;
   if(vv){
@@ -2575,6 +2625,7 @@ async function confirmRegisterLogin(){
     const result=await cloudApi('/api/login',{method:'POST',body:{pin:password}});
     if(!result.ok || !result.user || !result.token) throw new Error('Clave no válida.');
     setRegisterPasswordSession(password, result.user, result.token);
+    unlockAppAfterLogin();
     refreshRegisterDayPanels();
     checkSharedDraft();
     processRegisterBackupQueue().catch(()=>{});
@@ -2599,7 +2650,7 @@ function setupLandingCollapses(){
       const opening=target.hidden;
       target.hidden=!opening;
       if(card) card.classList.toggle('open', opening);
-      if(opening && btn.dataset.collapseTarget==='registerCollapseContent' && !getRegisterPassword()){openRegisterLoginModal();}
+      if(opening && btn.dataset.collapseTarget==='registerCollapseContent' && !registerSessionToken){openRegisterLoginModal();}
       if(opening && btn.dataset.collapseTarget==='totalCollapseContent'){setTimeout(()=>{arrangeMobileExportButtons(); render();}, 0);}
     });
   });
@@ -2747,7 +2798,9 @@ async function updateDayLogStatus(){
   const password=getRegisterPassword();
   if(!date){setDayLogStatus('', false); return;}
   if(!password){
-    setDayLogStatus('<strong>Historial del día:</strong> ingresa la contraseña de registro para ver la última edición.', true);
+    setDayLogStatus(registerSessionToken
+      ? '<strong>Historial auxiliar:</strong> el registro de Google Sheets se consulta al entrar con la clave de respaldo.'
+      : '<strong>Historial del día:</strong> inicia sesión para consultar la última edición.', true);
     return;
   }
   try{
@@ -2971,22 +3024,26 @@ async function saveRecord(){
     );
 
     if(!result.duplicate){
-      processRegisterBackupQueue(result.backup?.jobId||'',true).then(backup=>{
-        setStatus(
-          'regStatus',
-          backup.targetPending
-            ? 'Registro guardado correctamente en Cloudflare. Respaldo en Google Sheets pendiente: '+(backup.error||'reintento necesario')+'.'
-            : 'Registro guardado correctamente en Cloudflare. Respaldo en Google Sheets actualizado.',
-          'ok'
-        );
-        setTimeout(()=>processRegisterBackupQueue().catch(()=>{}),0);
-      });
+      if(!getRegisterPassword()){
+        setStatus('regStatus','Registro guardado correctamente en Cloudflare. El respaldo de Google Sheets quedó pendiente y puede sincronizarse posteriormente.','ok');
+      }else{
+        processRegisterBackupQueue(result.backup?.jobId||'',true).then(backup=>{
+          setStatus(
+            'regStatus',
+            backup.targetPending
+              ? 'Registro guardado correctamente en Cloudflare. Respaldo en Google Sheets pendiente: '+(backup.error||'reintento necesario')+'.'
+              : 'Registro guardado correctamente en Cloudflare. Respaldo en Google Sheets actualizado.',
+            'ok'
+          );
+          setTimeout(()=>processRegisterBackupQueue().catch(()=>{}),0);
+        });
+      }
     }
 
     draftFormDirty=false;
     draftLastSavedSignature='';
     draftLoadedId='';
-    apiCall('discardDraft',{password:getRegisterPassword(),date}).catch(()=>{});
+    if(getRegisterPassword()) apiCall('discardDraft',{password:getRegisterPassword(),date}).catch(()=>{});
     loadData({keepFilters:true}).catch(()=>{});
     refreshRegisterDayPanels();
   }catch(err){
@@ -3183,7 +3240,8 @@ function guardTextColor(hex){
   return (r*299+g*587+b*114)/1000>170?'#111827':'#fff';
 }
 async function loadGuards(date=''){
-  const result=await cloudApi('/api/guards'+(date?'?date='+encodeURIComponent(date):''));
+  if(!registerSessionToken) throw new Error('UNAUTHORIZED');
+  const result=await cloudApi('/api/guards'+(date?'?date='+encodeURIComponent(date):''),{token:registerSessionToken});
   GUARD_CONFIG=result.config||{people:[],points:[],assignments:[]};
   return result;
 }
@@ -3642,7 +3700,7 @@ function initAdminModule(){
   if($('adminRetryBackupsBtn')) $('adminRetryBackupsBtn').onclick=retryAdminBackups;
   if($('adminChangeAdminKeyBtn')) $('adminChangeAdminKeyBtn').onclick=()=>changeAccessKey('admin');
   if($('adminChangeEditKeyBtn')) $('adminChangeEditKeyBtn').onclick=()=>changeAccessKey('edit');
-  const checkBtn=$('checkDraftBtn'); if(checkBtn) checkBtn.onclick=()=>{if(!getRegisterPassword()){openRegisterLoginModal(); return;} checkSharedDraft();};
+  const checkBtn=$('checkDraftBtn'); if(checkBtn) checkBtn.onclick=()=>{if(!registerSessionToken){openRegisterLoginModal(); return;} checkSharedDraft();};
   ['regFecha'].forEach(id=>{const el=$(id); if(!el) return; el.addEventListener('change',refreshRegisterDayPanels);});
   ['regEmail','regObs'].forEach(id=>{const el=$(id); if(!el) return; el.addEventListener('input',()=>markDraftDirty(5000)); el.addEventListener('change',()=>markDraftDirty(1000));});
   ['guardPersonFilter','guardPointFilter'].forEach(id=>{if($(id)) $(id).onchange=renderGuardFull;});
@@ -3730,9 +3788,8 @@ setupRegisterLoginModal();
 
 window.addEventListener('resize',()=>{arrangeMobileExportButtons(); if(DATA.length) renderLine(filtered())});
 initAdminModule();
-initGuardModule();
 window.addEventListener('beforeunload',()=>{try{saveSharedDraft();}catch(e){}});
-loadData();
+startAppAuthentication();
 </script>
 </body>
 </html>
