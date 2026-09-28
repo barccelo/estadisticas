@@ -36,9 +36,9 @@ body{background:#f6f7fb;}
 .guard-pill.guard-current-user{position:relative;outline:2px solid #d4af37;outline-offset:1px;filter:none;opacity:1;animation:guardGoldPulse 1.8s ease-in-out infinite}
 .guard-point-row.guard-other-user{opacity:1;filter:none}
 .guard-point-row.guard-current-user{opacity:1;filter:none}
-.guard-point-row.guard-current-user .guard-dot{box-shadow:0 0 0 2px #fff,0 0 0 4px #d4af37;animation:guardDotGoldPulse 1.8s ease-in-out infinite}
+.guard-point-row.guard-current-user .guard-dot{box-shadow:0 0 0 1px #fff,0 0 0 2px #d4af37;animation:guardDotGoldPulse 1.8s ease-in-out infinite}
 @keyframes guardGoldPulse{0%,100%{box-shadow:0 0 0 0 rgba(212,175,55,.12)}50%{box-shadow:0 0 0 5px rgba(212,175,55,.18)}}
-@keyframes guardDotGoldPulse{0%,100%{box-shadow:0 0 0 2px #fff,0 0 0 4px rgba(212,175,55,.92)}50%{box-shadow:0 0 0 2px #fff,0 0 0 6px rgba(212,175,55,.38)}}
+@keyframes guardDotGoldPulse{0%,100%{box-shadow:0 0 0 1px #fff,0 0 0 2px rgba(212,175,55,.92)}50%{box-shadow:0 0 0 1px #fff,0 0 0 3px rgba(212,175,55,.34)}}
 @media (prefers-reduced-motion:reduce){.guard-pill.guard-current-user,.guard-point-row.guard-current-user .guard-dot{animation:none}}
 .guard-pill-code{font-weight:950}.guard-pill-name{font-weight:800}
 .guard-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:14px}
