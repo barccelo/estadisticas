@@ -2396,10 +2396,34 @@ async function startAppAuthentication(){
   }catch(_e){}
 }
 
-async function localAuthenticatorAvailable(){
+async function getWebAuthnCapabilities(){
+  const result={
+    local:false,
+    hybrid:false,
+    passkeyPlatform:false,
+    conditionalCreate:false,
+    clientCapabilities:false,
+  };
+  if(!('PublicKeyCredential' in window)) return result;
   try{
-    return Boolean(await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable?.());
-  }catch(_e){return false;}
+    if(typeof PublicKeyCredential.getClientCapabilities==='function'){
+      const caps=await PublicKeyCredential.getClientCapabilities();
+      result.clientCapabilities=true;
+      result.local=Boolean(caps?.userVerifyingPlatformAuthenticator);
+      result.hybrid=Boolean(caps?.hybridTransport);
+      result.passkeyPlatform=Boolean(caps?.passkeyPlatformAuthenticator);
+      result.conditionalCreate=Boolean(caps?.conditionalCreate);
+    }
+  }catch(_e){}
+  if(!result.local){
+    try{
+      result.local=Boolean(await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable?.());
+    }catch(_e){}
+  }
+  return result;
+}
+async function localAuthenticatorAvailable(){
+  return Boolean((await getWebAuthnCapabilities()).local);
 }
 function passkeysAvailable(){
   return location.hostname==='cd.losrobles.workers.dev'
@@ -2455,7 +2479,7 @@ function credentialToJSON(credential){
 }
 function passkeyErrorMessage(err){
   if(err?.code) return err.message||'No se pudo completar el acceso biométrico.';
-  if(err?.name==='NotAllowedError') return 'El navegador no pudo completar la verificación con el autenticador disponible. En Windows, verifica que Windows Hello esté configurado; si no lo está, usa la opción de teléfono u otro dispositivo. También puedes abrir esta misma dirección directamente en el teléfono y registrar allí la passkey.';
+  if(err?.name==='NotAllowedError') return 'El sistema rechazó o no pudo abrir el autenticador. No es un error de tu clave. Prueba esta misma dirección en Chrome o Edge, o directamente en el teléfono que vaya a usar la passkey.';
   if(err?.name==='InvalidStateError') return 'Este dispositivo ya tiene una credencial registrada para este usuario.';
   if(err?.name==='NotSupportedError') return 'Este dispositivo o navegador no admite este método de acceso.';
   if(err?.name==='SecurityError') return 'El acceso biométrico sólo puede configurarse desde cd.losrobles.workers.dev.';
@@ -2506,11 +2530,24 @@ async function registerCurrentPasskey(){
     return;
   }
   if(btn) btn.disabled=true;
-  const hasLocal=await localAuthenticatorAvailable();
+  const caps=await getWebAuthnCapabilities();
+  const hasLocal=Boolean(caps.local || caps.passkeyPlatform);
+  const canHybrid=Boolean(caps.hybrid);
+  const isOpera=/\bOPR\//.test(navigator.userAgent);
+  if(!hasLocal && !canHybrid){
+    if(status){
+      status.textContent=isOpera
+        ? 'Este navegador no informa un autenticador local ni acceso por teléfono. En este equipo abre cd.losrobles.workers.dev en Chrome o Edge, o registra la passkey directamente desde el teléfono.'
+        : 'Este navegador no informa un autenticador compatible. Abre cd.losrobles.workers.dev desde un dispositivo con Face ID, huella o Windows Hello, o prueba Chrome/Edge.';
+      status.className='session-modal-status err';
+    }
+    if(btn) btn.disabled=false;
+    return;
+  }
   if(status){
     status.textContent=hasLocal
-      ? 'Preparando el acceso del dispositivo…'
-      : 'Este equipo no informa un autenticador local disponible. Puedes usar otro dispositivo si el navegador ofrece esa opción.';
+      ? 'Preparando Windows Hello, Face ID, huella o PIN del dispositivo…'
+      : 'Preparando el acceso mediante teléfono u otro dispositivo…';
     status.className='session-modal-status';
   }
   try{
@@ -2611,6 +2648,15 @@ function openRegisterLoginModal(){
   if(divider) divider.hidden=!canPasskey;
   if(enrollWrap) enrollWrap.hidden=true;
   if(status){status.textContent=''; status.className='session-modal-status';}
+  if(canPasskey && status){
+    getWebAuthnCapabilities().then(caps=>{
+      if(modal.hidden || status.textContent) return;
+      if(!caps.local && !caps.hybrid && /\bOPR\//.test(navigator.userAgent)){
+        status.textContent='Opera no informa en este equipo una vía WebAuthn local ni por teléfono. Para registrar la passkey usa Chrome/Edge o abre esta dirección directamente en el teléfono.';
+        status.className='session-modal-status';
+      }
+    }).catch(()=>{});
+  }
   if(input){
     input.value='';
     setTimeout(()=>{
