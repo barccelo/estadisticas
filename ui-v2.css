@@ -621,25 +621,6 @@ body{-webkit-font-smoothing:antialiased!important;text-rendering:optimizeLegibil
   width:100%!important;
   min-height:42px!important;
 }
-#registerLoginModal.input-focused{
-  top:0!important;
-  bottom:0!important;
-  height:100%!important;
-  min-height:0!important;
-  padding:max(18px,env(safe-area-inset-top)) 14px 14px!important;
-  align-items:flex-start!important;
-  justify-content:center!important;
-  overflow-y:auto!important;
-}
-#registerLoginModal.input-focused .session-modal{
-  position:relative!important;
-  top:auto!important;
-  left:auto!important;
-  transform:none!important;
-  margin:0!important;
-  max-height:none!important;
-  flex:0 0 auto!important;
-}
 @media(max-width:430px){
   #view-inicio .guard-pill{
     flex-basis:calc((100% - 16px)/3)!important;
@@ -2202,4 +2183,53 @@ img,svg,canvas,iframe{max-width:100%!important}
     padding:0!important;
     min-height:0!important;
   }
+}
+
+
+/* Acceso de registro: mismo patrón estable que /00 */
+#registerLoginModal{
+  position:fixed!important;
+  inset:0!important;
+  z-index:9999!important;
+  background:rgba(245,245,247,.52)!important;
+  -webkit-backdrop-filter:blur(18px) saturate(120%)!important;
+  backdrop-filter:blur(18px) saturate(120%)!important;
+  padding:0!important;
+  overflow:hidden!important;
+  align-items:initial!important;
+  justify-content:initial!important;
+}
+#registerLoginModal .session-modal{
+  position:absolute!important;
+  left:50%!important;
+  top:var(--register-vv-center,50%)!important;
+  transform:translate(-50%,-50%)!important;
+  width:min(420px,calc(100% - 28px))!important;
+  max-height:calc(var(--register-vv-height,100dvh) - 28px)!important;
+  overflow:auto!important;
+  margin:0!important;
+  padding:20px!important;
+  border-radius:22px!important;
+  box-sizing:border-box!important;
+}
+#registerLoginModal.keyboard-visible .session-modal{
+  padding:16px!important;
+  border-radius:18px!important;
+}
+#registerLoginModal .session-modal-actions{
+  position:sticky!important;
+  bottom:0!important;
+  display:block!important;
+  width:100%!important;
+  background:#fff!important;
+  padding-top:10px!important;
+  margin-top:10px!important;
+}
+#registerLoginModal .session-modal-actions .btn{
+  width:100%!important;
+  max-width:none!important;
+  min-width:0!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
 }
