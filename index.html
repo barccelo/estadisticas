@@ -129,7 +129,6 @@ body{background:#f6f7fb;}
 .topbar-logout:active{transform:translateY(-50%) scale(.96)}
 .topbar-logout svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 .welcome-modal{width:min(460px,100%)}
-.welcome-name{margin:0 0 14px;color:#6b7280;font-size:14px}
 .welcome-summary{display:grid;gap:9px;margin:6px 0 4px}
 .welcome-summary-item{display:flex;align-items:flex-start;gap:11px;padding:12px 13px;border:1px solid #e5e7eb;border-radius:15px;background:#f9fafb}
 .welcome-summary-icon{width:30px;height:30px;flex:0 0 30px;border-radius:10px;background:#fff;border:1px solid #e5e7eb;display:flex;align-items:center;justify-content:center;color:#374151}
@@ -138,9 +137,8 @@ body{background:#f6f7fb;}
 .welcome-summary-copy strong{display:block;font-size:13px;color:#111827;margin-bottom:2px}
 .welcome-summary-copy span{display:block;font-size:13px;line-height:1.35;color:#6b7280}
 .welcome-summary-item.attention{border-color:#f1d78a;background:#fffbeb}
-.welcome-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px}
+.welcome-actions{display:grid;grid-template-columns:1fr;gap:8px;margin-top:14px}
 .welcome-actions .btn{width:100%}
-.welcome-actions .welcome-continue{grid-column:1/-1}
 .quick-today-btn{border-color:#fecaca;background:#fff5f5;color:#991b1b}
 .advanced-filter-btn{white-space:nowrap}
 .mobile-export-actions{display:none}
@@ -157,8 +155,6 @@ body{background:#f6f7fb;}
 @media(max-width:650px){
   .topbar-logout{top:50%;right:14px;width:42px;height:42px;border-radius:13px;background:#fff}
   .topbar-copy{padding-right:48px}
-  .welcome-actions{grid-template-columns:1fr}
-  .welcome-actions .welcome-continue{grid-column:auto}
   .topbar{background:#fff;color:#111827;border-bottom:4px solid #b91c1c;padding:20px 16px 42px}
   .topbar-inner{gap:12px}
   .topbar-logo{width:58px}
@@ -1324,14 +1320,9 @@ button{-webkit-tap-highlight-color:transparent}
 
 <div id="sessionWelcomeModal" class="session-modal-backdrop" hidden>
   <div class="session-modal welcome-modal" role="dialog" aria-modal="true" aria-labelledby="sessionWelcomeTitle">
-    <h2 id="sessionWelcomeTitle">Resumen al ingresar</h2>
-    <div id="sessionWelcomeName" class="welcome-name"></div>
+    <h2 id="sessionWelcomeTitle">Aviso</h2>
     <div id="sessionWelcomeSummary" class="welcome-summary"></div>
-    <div class="welcome-actions">
-      <button class="btn secondary" id="welcomeGuardBtn" type="button">Ir a Guardias</button>
-      <button class="btn secondary" id="welcomeRegisterBtn" type="button">Ir a Registrar</button>
-      <button class="btn welcome-continue" id="welcomeContinueBtn" type="button">Continuar</button>
-    </div>
+    <div id="sessionWelcomeActions" class="welcome-actions"></div>
   </div>
 </div>
 
@@ -1740,6 +1731,7 @@ let appDataStarted = false;
 let passkeyAutoAttempted = false;
 let welcomePending = false;
 let welcomeLoading = false;
+let welcomeDraftRecord = null;
 let GUARD_CONFIG={people:[],points:[],assignments:[]};
 const fmt = new Intl.NumberFormat('es-VE');
 function $(id){return document.getElementById(id)}
@@ -2656,7 +2648,6 @@ async function clearRegisterSession(){
 }
 function welcomeIcon(kind){
   const icons={
-    guard:'<svg viewBox="0 0 24 24"><path d="M12 3 20 6v5c0 5-3.3 8.2-8 10-4.7-1.8-8-5-8-10V6l8-3Z"/><path d="m9.5 12 1.7 1.7 3.5-3.7"/></svg>',
     record:'<svg viewBox="0 0 24 24"><path d="M7 3h10v4H7z"/><path d="M6 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-1"/><path d="M7 12h10M7 16h6"/></svg>',
     draft:'<svg viewBox="0 0 24 24"><path d="M4 20h4l10-10-4-4L4 16v4Z"/><path d="m12.5 7.5 4 4"/></svg>'
   };
@@ -2666,99 +2657,92 @@ function closeSessionWelcomeModal(){
   const modal=$('sessionWelcomeModal');
   if(modal) modal.hidden=true;
 }
-function openRegisterSectionFromWelcome(){
+function openTodayRecordsFromWelcome(){
+  closeSessionWelcomeModal();
+  showView('estadisticas');
+  applyTodayFilter();
+  const details=document.querySelector('#view-estadisticas .stats-records-card');
+  if(details){
+    details.open=true;
+    setTimeout(()=>details.scrollIntoView({behavior:'smooth',block:'start'}),80);
+  }
+}
+function openDraftFromWelcome(){
+  if(!welcomeDraftRecord) return;
   closeSessionWelcomeModal();
   showView('inicio');
   const target=$('registerCollapseContent');
   const card=$('registerCollapseCard');
   if(target) target.hidden=false;
   if(card) card.classList.add('open');
+  fillRegisterFormFromRecord(welcomeDraftRecord);
+  setDraftStatus('<strong>Borrador cargado.</strong><span class="log-muted">Revísalo y continúa desde aquí.</span>',true);
   setTimeout(()=>card?.scrollIntoView({behavior:'smooth',block:'start'}),80);
 }
 async function showSessionWelcomeModal(){
   if(!registerSessionToken || !registerSessionUser || welcomeLoading) return;
   welcomeLoading=true;
   welcomePending=false;
+  welcomeDraftRecord=null;
   const modal=$('sessionWelcomeModal');
   const summary=$('sessionWelcomeSummary');
-  const name=$('sessionWelcomeName');
-  if(!modal||!summary||!name){welcomeLoading=false;return;}
+  const actions=$('sessionWelcomeActions');
+  if(!modal||!summary||!actions){welcomeLoading=false;return;}
   const today=todayISO();
-  name.textContent='Hola, '+(registerSessionUser.name||responsibleShort(registerSessionUser.email||''))+'.';
   summary.innerHTML='';
+  actions.innerHTML='';
 
-  let guardResult=null, recordsResult=null, draftResult=null;
   try{
-    [guardResult,recordsResult,draftResult]=await Promise.all([
-      cloudApi('/api/guards?date='+encodeURIComponent(today),{token:registerSessionToken}).catch(()=>null),
+    const [recordsResult,draftResult]=await Promise.all([
       cloudApi('/api/records?from='+encodeURIComponent(today)+'&to='+encodeURIComponent(today),{token:registerSessionToken}).catch(()=>null),
       cloudApi('/api/drafts?date='+encodeURIComponent(today),{token:registerSessionToken}).catch(()=>null)
     ]);
 
-    if(guardResult?.config) GUARD_CONFIG=guardResult.config;
-    const currentPersonId=currentGuardPersonId();
-    const ownGuards=(guardResult?.assignments||[]).filter(a=>currentPersonId && String(a.person?.id||'')===String(currentPersonId));
-    const guardText=ownGuards.length
-      ? ownGuards.map(a=>(a.point?.code||'—')+' · '+(a.point?.name||a.point?.description||'Guardia')).join(' · ')
-      : 'Hoy no tienes una guardia asignada.';
-
     const records=Array.isArray(recordsResult?.records)?recordsResult.records:[];
-    const myEmail=String(registerSessionUser.email||'').toLowerCase();
-    const mine=records.filter(r=>String(r.email||'').toLowerCase()===myEmail);
-    const dayText=mine.length
-      ? 'Ya tienes '+(mine.length===1?'1 registro':mine.length+' registros')+' hoy. En total hay '+records.length+' '+(records.length===1?'registro':'registros')+' en el día.'
-      : records.length
-        ? 'Todavía no has registrado hoy. Ya hay '+records.length+' '+(records.length===1?'registro':'registros')+' guardados en el día.'
-        : 'Todavía no hay registros guardados hoy.';
-
     const draft=draftResult?.draft||null;
+
     if(!records.length && !draft){
       modal.hidden=true;
       return;
     }
-    modal.hidden=false;
-    const draftOwner=draft?(draft.updatedByName||draft.updatedBy||''):'';
-    const draftText=draft
-      ? 'Hay un borrador pendiente'+(draftOwner?' de '+draftOwner:'')+'.'
-      : 'No hay borradores pendientes para hoy.';
 
-    summary.innerHTML=
-      '<div class="welcome-summary-item '+(ownGuards.length?'attention':'')+'">'+
-        '<div class="welcome-summary-icon">'+welcomeIcon('guard')+'</div>'+
-        '<div class="welcome-summary-copy"><strong>Guardia de hoy</strong><span>'+escapeHtml(guardText)+'</span></div>'+
-      '</div>'+
-      '<div class="welcome-summary-item '+(mine.length?'':'attention')+'">'+
-        '<div class="welcome-summary-icon">'+welcomeIcon('record')+'</div>'+
-        '<div class="welcome-summary-copy"><strong>Estado del día</strong><span>'+escapeHtml(dayText)+'</span></div>'+
-      '</div>'+
-      '<div class="welcome-summary-item '+(draft?'attention':'')+'">'+
+    let cards='';
+    let buttons='';
+
+    if(draft){
+      welcomeDraftRecord=draft.record||null;
+      const draftOwner=draft.updatedByName||draft.updatedBy||'';
+      cards+='<div class="welcome-summary-item attention">'+
         '<div class="welcome-summary-icon">'+welcomeIcon('draft')+'</div>'+
-        '<div class="welcome-summary-copy"><strong>Borradores</strong><span>'+escapeHtml(draftText)+'</span></div>'+
-      '</div>';
+        '<div class="welcome-summary-copy"><strong>Borrador pendiente</strong><span>'+
+        escapeHtml('Hay un borrador pendiente'+(draftOwner?' de '+draftOwner:'')+'.')+
+        '</span></div></div>';
+      buttons+='<button class="btn" id="welcomeDraftBtn" type="button">Ver borrador</button>';
+    }
+
+    if(records.length){
+      cards+='<div class="welcome-summary-item attention">'+
+        '<div class="welcome-summary-icon">'+welcomeIcon('record')+'</div>'+
+        '<div class="welcome-summary-copy"><strong>Registro guardado</strong><span>'+
+        escapeHtml(records.length===1?'Hay 1 registro guardado hoy.':'Hay '+records.length+' registros guardados hoy.')+
+        '</span></div></div>';
+      buttons+='<button class="btn secondary" id="welcomeRecordBtn" type="button">'+
+        (records.length===1?'Ver registro':'Ver registros')+
+        '</button>';
+    }
+
+    summary.innerHTML=cards;
+    actions.innerHTML=buttons;
+    modal.hidden=false;
+
+    const draftBtn=$('welcomeDraftBtn');
+    if(draftBtn) draftBtn.onclick=openDraftFromWelcome;
+    const recordBtn=$('welcomeRecordBtn');
+    if(recordBtn) recordBtn.onclick=openTodayRecordsFromWelcome;
   }catch(_e){
     modal.hidden=true;
   }finally{
     welcomeLoading=false;
-  }
-}
-function stabilizeRegisterLoginLayout(){
-  const modal=$('registerLoginModal');
-  if(!modal) return;
-  const actions=modal.querySelector('.session-modal-actions');
-  const confirm=$('confirmRegisterLoginBtn');
-  if(actions){
-    actions.style.setProperty('display','block','important');
-    actions.style.setProperty('width','100%','important');
-    actions.style.setProperty('max-width','none','important');
-  }
-  if(confirm){
-    confirm.style.setProperty('display','flex','important');
-    confirm.style.setProperty('width','100%','important');
-    confirm.style.setProperty('max-width','none','important');
-    confirm.style.setProperty('min-width','0','important');
-    confirm.style.setProperty('box-sizing','border-box','important');
-    confirm.style.setProperty('align-items','center','important');
-    confirm.style.setProperty('justify-content','center','important');
   }
 }
 function syncRegisterModalViewport(){
@@ -2858,9 +2842,6 @@ function setupLandingCollapses(){
 function setupRegisterLoginModal(){
   const confirm=$('confirmRegisterLoginBtn'); if(confirm) confirm.onclick=confirmRegisterLogin;
   const topLogout=$('topbarLogoutBtn'); if(topLogout) topLogout.onclick=()=>clearRegisterSession();
-  const welcomeContinue=$('welcomeContinueBtn'); if(welcomeContinue) welcomeContinue.onclick=closeSessionWelcomeModal;
-  const welcomeGuard=$('welcomeGuardBtn'); if(welcomeGuard) welcomeGuard.onclick=()=>{closeSessionWelcomeModal();showView('guardias');goToGuardToday();};
-  const welcomeRegister=$('welcomeRegisterBtn'); if(welcomeRegister) welcomeRegister.onclick=openRegisterSectionFromWelcome;
   const welcomeModal=$('sessionWelcomeModal');
   if(welcomeModal) welcomeModal.addEventListener('pointerdown',e=>{if(e.target===welcomeModal) closeSessionWelcomeModal();});
   const loginModal=$('registerLoginModal');
