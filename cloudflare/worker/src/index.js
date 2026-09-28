@@ -366,7 +366,7 @@ async function passkeyRegistrationOptions(request, env) {
     attestationType: "none",
     authenticatorSelection: {
       residentKey: "required",
-      userVerification: "required",
+      userVerification: "preferred",
     },
     preferredAuthenticatorType,
     supportedAlgorithmIDs: [-7, -257],
