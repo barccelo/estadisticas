@@ -420,10 +420,13 @@ body{background:#f6f7fb;}
 .session-modal-backdrop{position:fixed;inset:0;background:rgba(17,24,39,.42);backdrop-filter:blur(8px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px}
 .session-modal-backdrop[hidden]{display:none!important}
 .session-modal{width:min(420px,100%);background:#fff;border:1px solid #e5e7eb;border-radius:24px;box-shadow:0 24px 70px rgba(15,23,42,.25);padding:22px}
+#registerLoginModal .session-modal{width:min(420px,calc(100vw - 36px));max-width:none;box-sizing:border-box}
 .session-modal h2{margin:0 0 6px;font-size:22px;letter-spacing:-.03em;color:#111827}
 .session-modal p{margin:0 0 16px;color:#6b7280;font-size:14px;line-height:1.4}
 .session-modal input{width:100%;border:1px solid #e5e7eb;border-radius:14px;padding:12px 13px;font-size:16px;min-height:46px}
 .session-modal-actions{display:flex;gap:8px;margin-top:12px;justify-content:flex-end;flex-wrap:wrap}
+#registerLoginModal .session-modal-actions{display:grid;grid-template-columns:minmax(0,1fr);width:100%}
+#registerLoginModal .session-modal-actions .btn{width:100%;max-width:none;min-width:0;justify-self:stretch;box-sizing:border-box}
 .session-modal-status{min-height:0;max-height:0;margin-top:0;opacity:0;overflow:hidden;font-size:13px;color:#6b7280;transition:max-height .18s ease,margin .18s ease,opacity .18s ease}
 .session-modal-status:not(:empty){min-height:18px;max-height:96px;margin-top:10px;opacity:1}
 .session-modal-status.err{color:#b91c1c;font-weight:800}
