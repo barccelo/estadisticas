@@ -1317,7 +1317,6 @@ button{-webkit-tap-highlight-color:transparent}
       <button class="btn passkey-enroll-btn" id="registerPasskeyBtn" type="button">Activar Face ID / huella / dispositivo</button>
     </div>
     <div class="session-modal-actions">
-      <button class="btn secondary" id="cancelRegisterLoginBtn" type="button">Cancelar</button>
       <button class="btn" id="confirmRegisterLoginBtn" type="button">Entrar con clave</button>
     </div>
   </div>
@@ -2413,16 +2412,9 @@ async function cloudApi(path, options={}){
   return data;
 }
 
-function setAuthCancelState(){
-  const cancel=$('cancelRegisterLoginBtn');
-  if(!cancel) return;
-  cancel.hidden=!appAuthUnlocked;
-  cancel.textContent=appAuthUnlocked?'Ahora no':'Cancelar';
-}
 function unlockAppAfterLogin(){
   appAuthUnlocked=true;
   document.body.classList.remove('app-auth-locked');
-  setAuthCancelState();
   const keep=appDataStarted;
   appDataStarted=true;
   loadData({keepFilters:keep}).catch(()=>{});
@@ -2431,7 +2423,6 @@ function unlockAppAfterLogin(){
 function lockAppForLogin(){
   appAuthUnlocked=false;
   document.body.classList.add('app-auth-locked');
-  setAuthCancelState();
   openRegisterLoginModal();
 }
 async function startAppAuthentication(){
@@ -2784,7 +2775,6 @@ function syncRegisterModalViewport(){
 function openRegisterLoginModal(){
   const modal=$('registerLoginModal'); if(!modal) return;
   modal.hidden=false;
-  setAuthCancelState();
   stabilizeRegisterLoginLayout();
   syncRegisterModalViewport();
   const vv=window.visualViewport;
@@ -2877,7 +2867,6 @@ function setupRegisterLoginModal(){
   if(loginModal) loginModal.addEventListener('pointerdown',e=>{if(e.target===loginModal && appAuthUnlocked) closeRegisterLoginModal();});
   const passkeyLogin=$('passkeyLoginBtn'); if(passkeyLogin) passkeyLogin.onclick=loginWithPasskey;
   const passkeyEnroll=$('registerPasskeyBtn'); if(passkeyEnroll) passkeyEnroll.onclick=registerCurrentPasskey;
-  const cancel=$('cancelRegisterLoginBtn'); if(cancel) cancel.onclick=closeRegisterLoginModal;
   const input=$('registerSessionPassword');
   if(input) input.addEventListener('keydown',e=>{
     if(e.key==='Enter'){
