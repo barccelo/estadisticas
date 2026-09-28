@@ -19,9 +19,9 @@ D1:
 - `club-deportivo-db`
 - binding: `DB`
 
-Secreto obligatorio:
+Secreto de runtime necesario para la huella de PIN:
 
-- `PIN_PEPPER`: cadena aleatoria larga y privada. No debe cambiarse después de comenzar a generar huellas de PIN.
+- `PIN_PEPPER`: cadena aleatoria larga y privada. Debe configurarse en Cloudflare para el Worker de producción. No se declara como `secrets.required` en Wrangler porque el despliegue automático desde Workers Builds no expone esos secretos de runtime a la validación previa del build. No debe cambiarse después de comenzar a generar huellas de PIN.
 
 Variable:
 
