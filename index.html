@@ -32,6 +32,13 @@ body{background:#f6f7fb;}
 .guard-today-title{font-size:15px;font-weight:900}.guard-today-meta{font-size:12px;color:var(--muted);font-weight:700}
 .guard-pills{display:flex;gap:8px;flex-wrap:wrap}
 .guard-pill{display:inline-flex;align-items:center;gap:7px;border:1px solid rgba(17,24,39,.12);border-radius:999px;padding:8px 11px;font-size:13px;font-weight:900;background:#fff}
+.guard-pill.guard-other-user{background:#f3f4f6!important;color:#9ca3af!important;border-color:#e5e7eb!important;filter:grayscale(1);opacity:.72}
+.guard-pill.guard-current-user{position:relative;border:2px solid #d4af37!important;filter:none;opacity:1;box-shadow:0 0 0 0 rgba(212,175,55,.40);animation:guardGoldPulse 1.8s ease-in-out infinite}
+.guard-point-row.guard-other-user{opacity:.48;filter:grayscale(1)}
+.guard-point-row.guard-current-user{position:relative;margin:2px -8px;padding-left:10px;padding-right:10px;border:2px solid #d4af37!important;border-radius:14px;opacity:1;filter:none;box-shadow:0 0 0 0 rgba(212,175,55,.32);animation:guardGoldPulse 1.8s ease-in-out infinite}
+.guard-point-row.guard-current-user .guard-dot{box-shadow:0 0 0 2px #fff,0 0 0 4px #d4af37}
+@keyframes guardGoldPulse{0%,100%{box-shadow:0 0 0 0 rgba(212,175,55,.18)}50%{box-shadow:0 0 0 5px rgba(212,175,55,.20)}}
+@media (prefers-reduced-motion:reduce){.guard-pill.guard-current-user,.guard-point-row.guard-current-user{animation:none}}
 .guard-pill-code{font-weight:950}.guard-pill-name{font-weight:800}
 .guard-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:14px}
 .guard-day-card{border:1px solid var(--line);border-radius:16px;background:#fff;padding:14px}
@@ -397,7 +404,7 @@ body{background:#f6f7fb;}
 .session-modal-status.ok{color:#166534;font-weight:800}
 .passkey-login-btn{width:100%;margin-bottom:12px;background:#111827;color:#fff}
 .passkey-login-btn[hidden],.passkey-enroll-btn[hidden]{display:none!important}
-.session-divider{display:flex;align-items:center;gap:10px;color:#9ca3af;font-size:12px;font-weight:800;margin:4px 0 12px;text-transform:uppercase;letter-spacing:.05em}
+.session-divider{display:flex;align-items:center;gap:10px;color:#9ca3af;font-size:12px;font-weight:800;margin:4px 0 12px;text-transform:uppercase;letter-spacing:.05em}.session-divider[hidden]{display:none!important}
 .session-divider::before,.session-divider::after{content:"";height:1px;background:#e5e7eb;flex:1}
 .passkey-enroll-wrap{margin-top:12px;padding:12px;border:1px solid #dbeafe;border-radius:14px;background:#eff6ff}
 .passkey-enroll-wrap[hidden]{display:none!important}
@@ -1271,8 +1278,7 @@ button{-webkit-tap-highlight-color:transparent}
 <body class="app-auth-locked">
 <div id="registerLoginModal" class="session-modal-backdrop" hidden>
   <div class="session-modal" role="dialog" aria-modal="true" aria-labelledby="registerLoginTitle">
-    <h2 id="registerLoginTitle">Acceso de registro</h2>
-    <p>Usa Face ID, huella o el método de desbloqueo de tu dispositivo. La clave actual queda disponible como respaldo.</p>
+    <h2 id="registerLoginTitle">Acceso al Club Deportivo</h2>
     <button class="btn passkey-login-btn" id="passkeyLoginBtn" type="button">Entrar con Face ID / huella / dispositivo</button>
     <div class="session-divider" id="registerLoginDivider"><span>o usa tu clave</span></div>
     <input id="registerSessionPassword" type="password" inputmode="numeric" placeholder="Clave de entrada" autocomplete="off">
@@ -2589,6 +2595,7 @@ function setRegisterPasswordSession(password, user, token=''){
     const logoutBtn=$('registerSessionLogoutBtn');
     if(logoutBtn) logoutBtn.onclick=()=>clearRegisterSession();
   }
+  if(GUARD_CONFIG.people?.length){renderGuardFull();}
 }
 async function clearRegisterSession(){
   const token=registerSessionToken;
@@ -3281,6 +3288,29 @@ function guardTextColor(hex){
   const r=parseInt(s.slice(0,2),16),g=parseInt(s.slice(2,4),16),b=parseInt(s.slice(4,6),16);
   return (r*299+g*587+b*114)/1000>170?'#111827':'#fff';
 }
+function guardIdentityKey(value){
+  return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');
+}
+function currentGuardPersonId(){
+  if(!registerSessionUser || !Array.isArray(GUARD_CONFIG.people)) return '';
+  const userName=guardIdentityKey(registerSessionUser.name||'');
+  const email=String(registerSessionUser.email||'').toLowerCase();
+  const emailLocal=guardIdentityKey(email.split('@')[0]||'');
+  const candidates=GUARD_CONFIG.people.filter(p=>Number(p.active)!==0);
+  let best='', bestScore=0;
+  for(const p of candidates){
+    const pid=guardIdentityKey(p.id||'');
+    const pname=guardIdentityKey(p.name||'');
+    let score=0;
+    if(userName && pname===userName) score=100;
+    else if(emailLocal && (pid===emailLocal || pname===emailLocal)) score=95;
+    else if(userName && pid===userName) score=90;
+    else if(userName && pname && (pname.includes(userName)||userName.includes(pname))) score=75;
+    else if(emailLocal && pid && (emailLocal.includes(pid)||pid.includes(emailLocal))) score=65;
+    if(score>bestScore){bestScore=score;best=String(p.id||'');}
+  }
+  return bestScore>=65?best:'';
+}
 async function loadGuards(date=''){
   if(!registerSessionToken) throw new Error('UNAUTHORIZED');
   const result=await cloudApi('/api/guards'+(date?'?date='+encodeURIComponent(date):''),{token:registerSessionToken});
@@ -3297,9 +3327,15 @@ function renderGuardToday(result){
     pills.innerHTML='<span class="guard-today-meta">No hay guardias configuradas para hoy.</span>';
     return;
   }
+  const currentPersonId=currentGuardPersonId();
   (result.assignments||[]).forEach(a=>{
-    const el=document.createElement('div'); el.className='guard-pill';
-    el.style.background=a.person.color||'#fff'; el.style.color=guardTextColor(a.person.color);
+    const isCurrent=Boolean(currentPersonId && String(a.person.id)===String(currentPersonId));
+    const el=document.createElement('div');
+    el.className='guard-pill '+(isCurrent?'guard-current-user':'guard-other-user');
+    if(isCurrent){
+      el.style.background=a.person.color||'#fff';
+      el.style.color=guardTextColor(a.person.color);
+    }
     el.title=a.point.description||a.point.name||a.point.code;
     el.innerHTML=`<span class="guard-pill-code">${escapeHtml(a.point.code)}</span><span>·</span><span class="guard-pill-name">${escapeHtml(a.person.name)}</span>`;
     pills.appendChild(el);
@@ -3338,16 +3374,20 @@ function renderGuardFull(){
   const meta=$('guardViewMeta');
   if(meta) meta.textContent=`Semana ${wf||'—'} · ${GUARD_DAY_NAMES[df]||'Todos los días'}`;
 
+  const currentPersonId=currentGuardPersonId();
   const card=document.createElement('article');
   card.className='guard-day-card guard-day-card-primary';
-  card.innerHTML=rows.map(x=>`
-    <div class="guard-point-row">
-      <span class="guard-dot" style="background:${escapeHtml(x.person.color||'#d1d5db')}"></span>
+  card.innerHTML=rows.map(x=>{
+    const isCurrent=Boolean(currentPersonId && String(x.person.id)===String(currentPersonId));
+    return `
+    <div class="guard-point-row ${isCurrent?'guard-current-user':'guard-other-user'}">
+      <span class="guard-dot" style="background:${isCurrent?escapeHtml(x.person.color||'#d1d5db'):'#d1d5db'}"></span>
       <div class="guard-point-copy">
         <div class="guard-point-main">${escapeHtml(x.point.code)} <span>·</span> ${escapeHtml(x.person.name)}</div>
         <div class="guard-point-sub">${escapeHtml(x.point.description||x.point.name)}</div>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   grid.appendChild(card);
 }
 async function goToGuardToday(){
