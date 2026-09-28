@@ -589,9 +589,19 @@ body{-webkit-font-smoothing:antialiased!important;text-rendering:optimizeLegibil
   padding-top:10px!important;
   margin-top:10px!important;
 }
+.session-modal-backdrop.keyboard-visible{
+  top:0!important;
+  bottom:auto!important;
+  height:var(--modal-vv-height,100dvh)!important;
+  min-height:0!important;
+  padding:10px 14px!important;
+  align-items:center!important;
+  justify-content:center!important;
+}
 .session-modal-backdrop.keyboard-visible .session-modal{
   padding:16px!important;
   border-radius:18px!important;
+  max-height:calc(var(--modal-vv-height,100dvh) - 20px)!important;
 }
 .session-modal-backdrop.keyboard-visible .session-modal h2{
   font-size:20px!important;
