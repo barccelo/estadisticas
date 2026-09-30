@@ -1298,14 +1298,20 @@ button{-webkit-tap-highlight-color:transparent}
 }
 
 </style>
-<link rel="stylesheet" href="./ui-v2.css?v=28">
+<link rel="stylesheet" href="./ui-v2.css?v=29">
 </head>
 <body>
 <div id="registerLoginModal" class="session-modal-backdrop" hidden>
   <div class="session-modal" role="dialog" aria-modal="true" aria-labelledby="registerLoginTitle">
     <h2 id="registerLoginTitle">Acceso al Club Deportivo</h2>
+    <button class="btn passkey-login-btn" id="passkeyLoginBtn" type="button" hidden>Entrar con huella / Face ID</button>
+    <div class="session-divider" id="registerLoginDivider" hidden><span>o usa tu clave</span></div>
     <input id="registerSessionPassword" type="password" inputmode="numeric" placeholder="Clave de entrada" autocomplete="off">
     <div id="registerLoginStatus" class="session-modal-status"></div>
+    <div id="passkeyEnrollWrap" class="passkey-enroll-wrap" hidden>
+      <p>Activa el acceso biométrico para entrar la próxima vez sin escribir la clave.</p>
+      <button class="btn passkey-enroll-btn" id="registerPasskeyBtn" type="button">Activar huella / Face ID</button>
+    </div>
     <div class="session-modal-actions">
       <button class="btn" id="confirmRegisterLoginBtn" type="button">Entrar con clave</button>
     </div>
@@ -2485,7 +2491,7 @@ function credentialToJSON(credential){
 }
 function passkeyErrorMessage(err){
   if(err?.code) return err.message||'No se pudo completar el acceso biométrico.';
-  if(err?.name==='NotAllowedError') return 'Chrome/Android no completó la creación de la passkey'+(err?.message?' ('+err.message+')':'')+'.';
+  if(err?.name==='NotAllowedError') return 'No se completó la verificación biométrica'+(err?.message?' ('+err.message+')':'')+'.';
   if(err?.name==='InvalidStateError') return 'Este dispositivo ya tiene una credencial registrada para este usuario.';
   if(err?.name==='NotSupportedError') return 'Este dispositivo o navegador no admite este método de acceso.';
   if(err?.name==='SecurityError') return 'El acceso biométrico sólo puede configurarse desde cd.losrobles.workers.dev.';
@@ -2502,6 +2508,23 @@ async function finishAuthenticatedSession(result,password=''){
   if(password) processRegisterBackupQueue().catch(()=>{});
   if(result.migration && result.migration.status!=='done') setTimeout(()=>loadData({keepFilters:true}),2500);
 }
+async function refreshPasskeyLoginAvailability(){
+  const btn=$('passkeyLoginBtn');
+  const divider=$('registerLoginDivider');
+  if(btn) btn.hidden=true;
+  if(divider) divider.hidden=true;
+  if(!passkeysAvailable()) return false;
+  try{
+    const readiness=await cloudApi('/api/passkeys/readiness');
+    const available=Number(readiness?.registered_users||0)>0;
+    if(btn) btn.hidden=!available;
+    if(divider) divider.hidden=!available;
+    return available;
+  }catch(_e){
+    return false;
+  }
+}
+
 async function loginWithPasskey(){
   const status=$('registerLoginStatus');
   const btn=$('passkeyLoginBtn');
@@ -2560,8 +2583,9 @@ async function registerCurrentPasskey(){
       body:{ceremony_id:start.ceremony_id,response:credentialToJSON(credential)}
     });
     if(!result?.verified) throw new Error('No se pudo verificar la credencial.');
-    if(status){status.textContent='Acceso biométrico activado para este usuario.';status.className='session-modal-status ok';}
+    if(status){status.textContent='Huella / Face ID activado para este usuario.';status.className='session-modal-status ok';}
     const wrap=$('passkeyEnrollWrap'); if(wrap) wrap.hidden=true;
+    refreshPasskeyLoginAvailability().catch(()=>{});
     setTimeout(closeRegisterLoginModal,700);
   }catch(err){
     if(status){status.textContent=passkeyErrorMessage(err);status.className='session-modal-status err';}
@@ -2734,8 +2758,11 @@ function openRegisterLoginModal(){
   }
   const input=$('registerSessionPassword');
   const status=$('registerLoginStatus');
+  const enrollWrap=$('passkeyEnrollWrap');
   if(status){status.textContent=''; status.className='session-modal-status';}
+  if(enrollWrap) enrollWrap.hidden=true;
   if(input) input.value='';
+  refreshPasskeyLoginAvailability().catch(()=>{});
 }
 function closeRegisterLoginModal(){
   const modal=$('registerLoginModal');
@@ -2766,8 +2793,19 @@ async function confirmRegisterLogin(){
     checkSharedDraft();
     processRegisterBackupQueue().catch(()=>{});
     if(result.migration && result.migration.status!=='done') setTimeout(()=>loadData({keepFilters:true}),2500);
-    if(status){status.textContent='Sesión activa: '+(result.user.name || responsibleShort(result.user.email)); status.className='session-modal-status ok';}
-    closeRegisterLoginModal();
+
+    const canEnroll=passkeysAvailable() && result.passkey_registered===false;
+    if(canEnroll){
+      if(status){
+        status.textContent='Clave correcta. Puedes activar huella / Face ID para este usuario.';
+        status.className='session-modal-status ok';
+      }
+      const wrap=$('passkeyEnrollWrap'); if(wrap) wrap.hidden=false;
+      const inputWrap=$('registerSessionPassword'); if(inputWrap) inputWrap.value='';
+    }else{
+      if(status){status.textContent='Sesión activa: '+(result.user.name || responsibleShort(result.user.email)); status.className='session-modal-status ok';}
+      closeRegisterLoginModal();
+    }
   }catch(err){
     if(status){status.textContent=err.message || 'No se pudo iniciar sesión.'; status.className='session-modal-status err';}
   }finally{if(btn) btn.disabled=false;}
@@ -2793,6 +2831,8 @@ function setupRegisterLoginModal(){
   if(welcomeModal) welcomeModal.addEventListener('pointerdown',e=>{if(e.target===welcomeModal) closeSessionWelcomeModal();});
   const loginModal=$('registerLoginModal');
   if(loginModal) loginModal.addEventListener('pointerdown',e=>{if(e.target===loginModal) closeRegisterLoginModal();});
+  const passkeyLogin=$('passkeyLoginBtn'); if(passkeyLogin) passkeyLogin.onclick=loginWithPasskey;
+  const passkeyEnroll=$('registerPasskeyBtn'); if(passkeyEnroll) passkeyEnroll.onclick=registerCurrentPasskey;
   const input=$('registerSessionPassword');
   if(input) input.addEventListener('keydown',e=>{
     if(e.key==='Enter'){
