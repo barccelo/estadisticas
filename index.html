@@ -4136,6 +4136,7 @@ function clearSwipeTarget(state){
   state.targetEl.classList.remove('swipe-adjacent','swipe-transitioning');
   state.targetEl.style.removeProperty('--swipe-adjacent-x');
   state.targetEl.style.removeProperty('--swipe-adjacent-opacity');
+  state.targetEl.style.removeProperty('z-index');
   if(state.targetAriaHidden===null) state.targetEl.removeAttribute('aria-hidden');
   else state.targetEl.setAttribute('aria-hidden',state.targetAriaHidden);
   state.targetEl=null;
@@ -4175,12 +4176,27 @@ function renderSwipe(state,rawDx){
   if(!state.targetEl) dx*=SWIPE_NAVIGATION_CONFIG.edgeResistance;
   state.renderedDx=dx;
   const progress=Math.min(1,Math.abs(dx)/width);
-  state.currentEl.style.setProperty('--swipe-current-x',dx+'px');
-  state.currentEl.style.setProperty('--swipe-current-opacity',String(1-progress*.06));
-  if(state.targetEl){
+  const currentIsSchedule=state.currentName==='horarios';
+  const targetIsSchedule=state.targetName==='horarios';
+
+  if(currentIsSchedule && state.targetEl){
+    state.currentEl.style.setProperty('--swipe-current-x','0px');
+    state.currentEl.style.setProperty('--swipe-current-opacity','1');
+    state.targetEl.style.setProperty('z-index','3');
     const base=state.step>0?width:-width;
     state.targetEl.style.setProperty('--swipe-adjacent-x',(base+dx)+'px');
-    state.targetEl.style.setProperty('--swipe-adjacent-opacity',String(.94+progress*.06));
+    state.targetEl.style.setProperty('--swipe-adjacent-opacity','1');
+    return;
+  }
+
+  state.currentEl.style.setProperty('--swipe-current-x',dx+'px');
+  state.currentEl.style.setProperty('--swipe-current-opacity',String(1-progress*.06));
+
+  if(state.targetEl){
+    state.targetEl.style.removeProperty('z-index');
+    const base=state.step>0?width:-width;
+    state.targetEl.style.setProperty('--swipe-adjacent-x',targetIsSchedule?'0px':(base+dx)+'px');
+    state.targetEl.style.setProperty('--swipe-adjacent-opacity',targetIsSchedule?'1':String(.94+progress*.06));
   }
 }
 function cleanupSwipeVisuals(state){
@@ -4204,17 +4220,37 @@ function finishSwipe(state,commit){
   state.currentEl.classList.add('swipe-transitioning');
   if(state.targetEl) state.targetEl.classList.add('swipe-transitioning');
   const width=Math.max(1,state.width);
+  const currentIsSchedule=state.currentName==='horarios';
+  const targetIsSchedule=state.targetName==='horarios';
+
   if(commit && state.targetEl){
-    state.currentEl.style.setProperty('--swipe-current-x',(state.step>0?-width:width)+'px');
-    state.currentEl.style.setProperty('--swipe-current-opacity','.94');
-    state.targetEl.style.setProperty('--swipe-adjacent-x','0px');
-    state.targetEl.style.setProperty('--swipe-adjacent-opacity','1');
+    if(currentIsSchedule){
+      state.currentEl.style.setProperty('--swipe-current-x','0px');
+      state.currentEl.style.setProperty('--swipe-current-opacity','1');
+      state.targetEl.style.setProperty('z-index','3');
+      state.targetEl.style.setProperty('--swipe-adjacent-x','0px');
+      state.targetEl.style.setProperty('--swipe-adjacent-opacity','1');
+    }else{
+      state.currentEl.style.setProperty('--swipe-current-x',(state.step>0?-width:width)+'px');
+      state.currentEl.style.setProperty('--swipe-current-opacity','.94');
+      state.targetEl.style.setProperty('--swipe-adjacent-x','0px');
+      state.targetEl.style.setProperty('--swipe-adjacent-opacity','1');
+    }
   }else{
     state.currentEl.style.setProperty('--swipe-current-x','0px');
     state.currentEl.style.setProperty('--swipe-current-opacity','1');
     if(state.targetEl){
-      state.targetEl.style.setProperty('--swipe-adjacent-x',(state.step>0?width:-width)+'px');
-      state.targetEl.style.setProperty('--swipe-adjacent-opacity','.94');
+      if(currentIsSchedule){
+        state.targetEl.style.setProperty('z-index','3');
+        state.targetEl.style.setProperty('--swipe-adjacent-x',(state.step>0?width:-width)+'px');
+        state.targetEl.style.setProperty('--swipe-adjacent-opacity','1');
+      }else if(targetIsSchedule){
+        state.targetEl.style.setProperty('--swipe-adjacent-x','0px');
+        state.targetEl.style.setProperty('--swipe-adjacent-opacity','1');
+      }else{
+        state.targetEl.style.setProperty('--swipe-adjacent-x',(state.step>0?width:-width)+'px');
+        state.targetEl.style.setProperty('--swipe-adjacent-opacity','.94');
+      }
     }
   }
   const targetName=commit?state.targetName:'';
