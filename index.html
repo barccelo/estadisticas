@@ -1298,6 +1298,47 @@ button{-webkit-tap-highlight-color:transparent}
   .admin-row .btn{width:100%}
 }
 
+
+
+/* Navegación horizontal por swipe entre módulos */
+.content .wrap.swipe-nav-active{
+  position:relative;
+  overflow:hidden;
+  isolation:isolate;
+}
+.view.swipe-current,
+.view.swipe-adjacent{
+  display:block!important;
+  will-change:transform,opacity;
+  backface-visibility:hidden;
+}
+.view.swipe-current{
+  position:relative;
+  z-index:2;
+  transform:translate3d(var(--swipe-current-x,0px),0,0);
+  opacity:var(--swipe-current-opacity,1);
+}
+.view.swipe-adjacent{
+  position:absolute!important;
+  z-index:1;
+  top:0;
+  left:0;
+  width:100%;
+  pointer-events:none!important;
+  transform:translate3d(var(--swipe-adjacent-x,0px),0,0);
+  opacity:var(--swipe-adjacent-opacity,.96);
+}
+.view.swipe-transitioning{
+  transition:transform .28s cubic-bezier(.22,.8,.24,1),opacity .28s ease;
+}
+body.swipe-navigation-active{
+  user-select:none;
+  -webkit-user-select:none;
+}
+@media(prefers-reduced-motion:reduce){
+  .view.swipe-transitioning{transition:none!important}
+}
+
 </style>
 <link rel="stylesheet" href="./ui-v2.css?v=30">
 </head>
@@ -3984,12 +4025,288 @@ function initAdminModule(){
 
 
 
-function showView(viewName){
-  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+const viewScrollPositions=new Map();
+let swipeNavigationState=null;
+let suppressSwipeClickUntil=0;
+const SWIPE_NAVIGATION_CONFIG={
+  intent:9,
+  directionRatio:1.14,
+  minCommit:34,
+  distanceRatio:.23,
+  maxCommitDistance:118,
+  velocity:.52,
+  edgeGuard:22,
+  edgeResistance:.22,
+  transitionMs:280
+};
+
+function currentViewName(){
+  const active=document.querySelector('.view.active');
+  return active && active.id ? active.id.replace(/^view-/,'') : '';
+}
+function navigableViewNames(){
+  return [...document.querySelectorAll('.side-link[data-view]')]
+    .filter(btn=>{
+      if(btn.hidden || btn.disabled || btn.getAttribute('aria-hidden')==='true') return false;
+      const style=window.getComputedStyle(btn);
+      return style.display!=='none' && style.visibility!=='hidden' && !!document.getElementById('view-'+btn.dataset.view);
+    })
+    .map(btn=>btn.dataset.view);
+}
+function saveViewScroll(viewName){
+  if(viewName) viewScrollPositions.set(viewName,window.scrollY||window.pageYOffset||0);
+}
+function restoreViewScroll(viewName){
+  const saved=viewScrollPositions.has(viewName)?viewScrollPositions.get(viewName):0;
+  requestAnimationFrame(()=>window.scrollTo({top:Math.max(0,Number(saved)||0),left:0,behavior:'auto'}));
+}
+function syncViewHistory(viewName,mode='push'){
+  if(mode==='none' || /\/00\/?$/.test(window.location.pathname)) return;
+  if(!navigableViewNames().includes(viewName)) return;
+  const url=new URL(window.location.href);
+  if(viewName==='inicio') url.searchParams.delete('view');
+  else url.searchParams.set('view',viewName);
+  const state=Object.assign({},history.state||{},{clubView:viewName});
+  if(mode==='replace') history.replaceState(state,'',url);
+  else history.pushState(state,'',url);
+}
+function showView(viewName,options={}){
   const target=document.getElementById('view-'+viewName);
-  if(target) target.classList.add('active');
-  document.querySelectorAll('.side-link').forEach(btn=>btn.classList.toggle('active', btn.dataset.view===viewName));
-  if(viewName==='estadisticas' && DATA.length) setTimeout(()=>renderLine(filtered()), 50);
+  if(!target) return false;
+  const current=currentViewName();
+  const historyMode=options.historyMode===undefined?'push':options.historyMode;
+  const restoreScroll=options.restoreScroll!==false;
+  if(current && current!==viewName) saveViewScroll(current);
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  target.classList.add('active');
+  document.querySelectorAll('.side-link[data-view]').forEach(btn=>{
+    const active=btn.dataset.view===viewName;
+    btn.classList.toggle('active',active);
+    if(active) btn.setAttribute('aria-current','page');
+    else btn.removeAttribute('aria-current');
+  });
+  if(current!==viewName) syncViewHistory(viewName,historyMode);
+  else if(historyMode==='replace') syncViewHistory(viewName,'replace');
+  if(restoreScroll && current!==viewName) restoreViewScroll(viewName);
+  if(viewName==='estadisticas' && DATA.length) setTimeout(()=>renderLine(filtered()),50);
+  return true;
+}
+
+function isSwipeBlockedTarget(target,root){
+  if(!(target instanceof Element)) return true;
+  if(target.closest('input,textarea,select,button,a,label,[contenteditable="true"],[data-swipe-ignore],.table-scroll,.guard-pills,.schedule-chip-row,.num-input-shell')) return true;
+  let node=target;
+  while(node && node!==root){
+    if(node instanceof Element){
+      const style=window.getComputedStyle(node);
+      const overflowX=style.overflowX;
+      if((overflowX==='auto'||overflowX==='scroll') && node.scrollWidth>node.clientWidth+3) return true;
+    }
+    node=node.parentElement;
+  }
+  return false;
+}
+function clearSwipeTarget(state){
+  if(!state?.targetEl) return;
+  state.targetEl.classList.remove('swipe-adjacent','swipe-transitioning');
+  state.targetEl.style.removeProperty('--swipe-adjacent-x');
+  state.targetEl.style.removeProperty('--swipe-adjacent-opacity');
+  if(state.targetAriaHidden===null) state.targetEl.removeAttribute('aria-hidden');
+  else state.targetEl.setAttribute('aria-hidden',state.targetAriaHidden);
+  state.targetEl=null;
+  state.targetName='';
+  state.targetIndex=-1;
+  state.targetAriaHidden=null;
+}
+function ensureSwipeTarget(state,dx){
+  const step=dx<0?1:-1;
+  const nextIndex=state.currentIndex+step;
+  if(nextIndex===state.targetIndex) return;
+  clearSwipeTarget(state);
+  state.step=step;
+  if(nextIndex<0 || nextIndex>=state.views.length) return;
+  const targetName=state.views[nextIndex];
+  const targetEl=document.getElementById('view-'+targetName);
+  if(!targetEl) return;
+  state.targetIndex=nextIndex;
+  state.targetName=targetName;
+  state.targetEl=targetEl;
+  state.targetAriaHidden=targetEl.getAttribute('aria-hidden');
+  targetEl.setAttribute('aria-hidden','true');
+  targetEl.classList.add('swipe-adjacent');
+}
+function beginSwipeVisuals(state){
+  if(state.visualsReady) return;
+  state.visualsReady=true;
+  state.root.classList.add('swipe-nav-active');
+  document.body.classList.add('swipe-navigation-active');
+  state.currentEl.classList.add('swipe-current');
+}
+function renderSwipe(state,rawDx){
+  beginSwipeVisuals(state);
+  const width=Math.max(1,state.width);
+  let dx=Math.max(-width,Math.min(width,rawDx));
+  ensureSwipeTarget(state,dx);
+  if(!state.targetEl) dx*=SWIPE_NAVIGATION_CONFIG.edgeResistance;
+  state.renderedDx=dx;
+  const progress=Math.min(1,Math.abs(dx)/width);
+  state.currentEl.style.setProperty('--swipe-current-x',dx+'px');
+  state.currentEl.style.setProperty('--swipe-current-opacity',String(1-progress*.06));
+  if(state.targetEl){
+    const base=state.step>0?width:-width;
+    state.targetEl.style.setProperty('--swipe-adjacent-x',(base+dx)+'px');
+    state.targetEl.style.setProperty('--swipe-adjacent-opacity',String(.94+progress*.06));
+  }
+}
+function cleanupSwipeVisuals(state){
+  if(!state) return;
+  clearSwipeTarget(state);
+  if(state.currentEl){
+    state.currentEl.classList.remove('swipe-current','swipe-transitioning');
+    state.currentEl.style.removeProperty('--swipe-current-x');
+    state.currentEl.style.removeProperty('--swipe-current-opacity');
+  }
+  state.root?.classList.remove('swipe-nav-active');
+  document.body.classList.remove('swipe-navigation-active');
+}
+function finishSwipe(state,commit){
+  if(!state?.visualsReady){
+    swipeNavigationState=null;
+    return;
+  }
+  const reduced=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const duration=reduced?0:SWIPE_NAVIGATION_CONFIG.transitionMs;
+  state.currentEl.classList.add('swipe-transitioning');
+  if(state.targetEl) state.targetEl.classList.add('swipe-transitioning');
+  const width=Math.max(1,state.width);
+  if(commit && state.targetEl){
+    state.currentEl.style.setProperty('--swipe-current-x',(state.step>0?-width:width)+'px');
+    state.currentEl.style.setProperty('--swipe-current-opacity','.94');
+    state.targetEl.style.setProperty('--swipe-adjacent-x','0px');
+    state.targetEl.style.setProperty('--swipe-adjacent-opacity','1');
+  }else{
+    state.currentEl.style.setProperty('--swipe-current-x','0px');
+    state.currentEl.style.setProperty('--swipe-current-opacity','1');
+    if(state.targetEl){
+      state.targetEl.style.setProperty('--swipe-adjacent-x',(state.step>0?width:-width)+'px');
+      state.targetEl.style.setProperty('--swipe-adjacent-opacity','.94');
+    }
+  }
+  const targetName=commit?state.targetName:'';
+  window.setTimeout(()=>{
+    if(commit && targetName){
+      showView(targetName,{historyMode:'push',restoreScroll:false});
+      suppressSwipeClickUntil=Date.now()+420;
+    }
+    cleanupSwipeVisuals(state);
+    swipeNavigationState=null;
+    if(commit && targetName) restoreViewScroll(targetName);
+  },duration+20);
+}
+function initSwipeNavigation(){
+  const root=document.querySelector('.content .wrap');
+  if(!root || root.dataset.swipeNavigationReady==='1') return;
+  root.dataset.swipeNavigationReady='1';
+
+  root.addEventListener('touchstart',event=>{
+    if(event.touches.length!==1 || swipeNavigationState) return;
+    if(document.body.classList.contains('app-auth-locked') || document.body.classList.contains('admin-login-open')) return;
+    const touch=event.touches[0];
+    if(touch.clientX<=SWIPE_NAVIGATION_CONFIG.edgeGuard || touch.clientX>=window.innerWidth-SWIPE_NAVIGATION_CONFIG.edgeGuard) return;
+    if(isSwipeBlockedTarget(event.target,root)) return;
+    const views=navigableViewNames();
+    const currentName=currentViewName();
+    const currentIndex=views.indexOf(currentName);
+    const currentEl=document.getElementById('view-'+currentName);
+    if(currentIndex<0 || !currentEl) return;
+    const now=performance.now();
+    swipeNavigationState={
+      root,views,currentName,currentIndex,currentEl,
+      startX:touch.clientX,startY:touch.clientY,lastX:touch.clientX,lastTime:now,
+      velocityX:0,axis:'',moved:false,visualsReady:false,
+      width:Math.max(1,root.clientWidth||window.innerWidth),
+      targetEl:null,targetName:'',targetIndex:-1,targetAriaHidden:null,step:0,renderedDx:0
+    };
+  },{passive:true});
+
+  root.addEventListener('touchmove',event=>{
+    const state=swipeNavigationState;
+    if(!state || event.touches.length!==1) return;
+    const touch=event.touches[0];
+    const dx=touch.clientX-state.startX;
+    const dy=touch.clientY-state.startY;
+    const ax=Math.abs(dx), ay=Math.abs(dy);
+    if(!state.axis){
+      if(Math.max(ax,ay)<SWIPE_NAVIGATION_CONFIG.intent) return;
+      if(ay>ax*SWIPE_NAVIGATION_CONFIG.directionRatio){
+        state.axis='vertical';
+        return;
+      }
+      if(ax>ay*SWIPE_NAVIGATION_CONFIG.directionRatio || Math.max(ax,ay)>18){
+        state.axis='horizontal';
+      }else return;
+    }
+    if(state.axis!=='horizontal') return;
+    event.preventDefault();
+    const now=performance.now();
+    const elapsed=Math.max(1,now-state.lastTime);
+    state.velocityX=(touch.clientX-state.lastX)/elapsed;
+    state.lastX=touch.clientX;
+    state.lastTime=now;
+    if(ax>12) state.moved=true;
+    renderSwipe(state,dx);
+  },{passive:false});
+
+  root.addEventListener('touchend',event=>{
+    const state=swipeNavigationState;
+    if(!state) return;
+    if(state.axis!=='horizontal'){
+      cleanupSwipeVisuals(state);
+      swipeNavigationState=null;
+      return;
+    }
+    const touch=event.changedTouches?.[0];
+    const rawDx=touch?touch.clientX-state.startX:state.renderedDx;
+    const distance=Math.abs(rawDx);
+    const commitDistance=Math.min(SWIPE_NAVIGATION_CONFIG.maxCommitDistance,Math.max(SWIPE_NAVIGATION_CONFIG.minCommit,state.width*SWIPE_NAVIGATION_CONFIG.distanceRatio));
+    const velocityCommit=Math.abs(state.velocityX)>=SWIPE_NAVIGATION_CONFIG.velocity &&
+      Math.sign(state.velocityX)===Math.sign(rawDx) &&
+      distance>=SWIPE_NAVIGATION_CONFIG.minCommit;
+    const commit=!!state.targetEl && (distance>=commitDistance || velocityCommit);
+    if(state.moved) suppressSwipeClickUntil=Date.now()+300;
+    finishSwipe(state,commit);
+  },{passive:true});
+
+  root.addEventListener('touchcancel',()=>{
+    const state=swipeNavigationState;
+    if(!state) return;
+    finishSwipe(state,false);
+  },{passive:true});
+
+  root.addEventListener('click',event=>{
+    if(Date.now()<suppressSwipeClickUntil){
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  },true);
+
+  window.addEventListener('resize',()=>{
+    const state=swipeNavigationState;
+    if(state) finishSwipe(state,false);
+  });
+}
+function initViewRouting(){
+  if(/\/00\/?$/.test(window.location.pathname)) return;
+  const views=navigableViewNames();
+  const requested=new URL(window.location.href).searchParams.get('view');
+  const initial=requested && views.includes(requested)?requested:'inicio';
+  showView(initial,{historyMode:'replace',restoreScroll:false});
+  window.addEventListener('popstate',()=>{
+    const available=navigableViewNames();
+    const requestedView=new URL(window.location.href).searchParams.get('view');
+    const next=requestedView && available.includes(requestedView)?requestedView:'inicio';
+    showView(next,{historyMode:'none'});
+  });
 }
 function toggleFilterPanel(trigger){
   const panel=document.getElementById('filterPanel');
@@ -4032,13 +4349,15 @@ function toggleFilterPanel(trigger){
   panel.classList.add('open');
 }
 function initLayoutNavigation(){
-  document.querySelectorAll('.side-link[data-view]').forEach(btn=>btn.onclick=()=>showView(btn.dataset.view));
+  document.querySelectorAll('.side-link[data-view]').forEach(btn=>btn.onclick=()=>showView(btn.dataset.view,{historyMode:'push'}));
   document.querySelectorAll('[data-toggle-filters]').forEach(btn=>btn.onclick=()=>toggleFilterPanel(btn));
 }
 initLayoutNavigation();
+initSwipeNavigation();
+initViewRouting();
 const isHiddenAdminPath=/\/00\/?$/.test(window.location.pathname);
 if(isHiddenAdminPath){
-  showView('admin');
+  showView('admin',{historyMode:'none',restoreScroll:false});
   const adminOverlay=$('adminLoginOverlay');
   const adminContent=$('adminContent');
   if(adminContent) adminContent.hidden=true;
