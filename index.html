@@ -1299,7 +1299,7 @@ button{-webkit-tap-highlight-color:transparent}
 }
 
 </style>
-<link rel="stylesheet" href="./ui-v2.css?v=29">
+<link rel="stylesheet" href="./ui-v2.css?v=30">
 </head>
 <body>
 <div id="registerLoginModal" class="session-modal-backdrop" hidden>
@@ -1730,6 +1730,7 @@ let adminSessionToken = '';
 let appAuthUnlocked = false;
 let appDataStarted = false;
 let passkeyAutoAttempted = false;
+const KNOWN_PASSKEY_STORAGE_KEY='club-deportivo-known-passkey-v1';
 let welcomePending = false;
 let welcomeLoading = false;
 let welcomeDraftRecord = null;
@@ -2438,6 +2439,27 @@ function passkeysAvailable(){
     && 'PublicKeyCredential' in window
     && navigator.credentials;
 }
+function getKnownPasskey(){
+  if(!passkeysAvailable()) return null;
+  try{
+    const parsed=JSON.parse(localStorage.getItem(KNOWN_PASSKEY_STORAGE_KEY)||'null');
+    return parsed?.credential_id ? parsed : null;
+  }catch(_e){return null;}
+}
+function rememberKnownPasskey(passkey,user=null){
+  const credentialId=String(passkey?.credential_id||'').trim();
+  if(!credentialId || !passkeysAvailable()) return;
+  try{
+    localStorage.setItem(KNOWN_PASSKEY_STORAGE_KEY,JSON.stringify({
+      credential_id:credentialId,
+      user_id:String(user?.id||''),
+      saved_at:Date.now()
+    }));
+  }catch(_e){}
+}
+function forgetKnownPasskey(){
+  try{localStorage.removeItem(KNOWN_PASSKEY_STORAGE_KEY);}catch(_e){}
+}
 function bufferToBase64url(buffer){
   const bytes=new Uint8Array(buffer);
   let binary='';
@@ -2526,28 +2548,62 @@ async function refreshPasskeyLoginAvailability(){
   }
 }
 
-async function loginWithPasskey(){
+async function loginWithPasskey(options={}){
+  const automatic=Boolean(options?.automatic);
   const status=$('registerLoginStatus');
   const btn=$('passkeyLoginBtn');
   if(!passkeysAvailable()){
-    if(status){status.textContent='Abre esta función desde cd.losrobles.workers.dev en un navegador compatible.';status.className='session-modal-status err';}
-    return;
+    if(!automatic && status){status.textContent='Abre esta función desde cd.losrobles.workers.dev en un navegador compatible.';status.className='session-modal-status err';}
+    return false;
   }
-  if(btn) btn.disabled=true;
-  if(status){status.textContent='Esperando verificación del dispositivo…';status.className='session-modal-status';}
+
+  const known=getKnownPasskey();
+  if(automatic && !known?.credential_id) return false;
+
+  if(btn && !automatic) btn.disabled=true;
+  if(!automatic && status){status.textContent='Esperando verificación del dispositivo…';status.className='session-modal-status';}
+
   try{
-    const start=await cloudApi('/api/passkeys/authenticate/options',{method:'POST',body:{}});
-    const credential=await navigator.credentials.get({publicKey:requestOptionsFromJSON(start.options)});
+    const start=await cloudApi('/api/passkeys/authenticate/options',{
+      method:'POST',
+      body:known?.credential_id ? {credential_id:known.credential_id} : {}
+    });
+
+    if(known?.credential_id){
+      start.options={...(start.options||{}),hints:['client-device']};
+    }
+
+    const credential=await navigator.credentials.get({
+      publicKey:requestOptionsFromJSON(start.options)
+    });
+
     const result=await cloudApi('/api/passkeys/authenticate/verify',{
       method:'POST',
       body:{ceremony_id:start.ceremony_id,response:credentialToJSON(credential)}
     });
+
+    rememberKnownPasskey(result.passkey,result.user);
     await finishAuthenticatedSession(result,'');
+    return true;
   }catch(err){
-    if(status){status.textContent=passkeyErrorMessage(err);status.className='session-modal-status err';}
+    if(err?.code==='PASSKEY_NOT_FOUND'){
+      forgetKnownPasskey();
+    }
+    if(!automatic && status){
+      status.textContent=passkeyErrorMessage(err);
+      status.className='session-modal-status err';
+    }
+    return false;
   }finally{
-    if(btn) btn.disabled=false;
+    if(btn && !automatic) btn.disabled=false;
   }
+}
+async function maybeAutoPasskeyLogin(){
+  if(passkeyAutoAttempted || registerSessionToken || !passkeysAvailable()) return;
+  const known=getKnownPasskey();
+  if(!known?.credential_id) return;
+  passkeyAutoAttempted=true;
+  await loginWithPasskey({automatic:true});
 }
 async function registerCurrentPasskey(){
   const status=$('registerLoginStatus');
@@ -2572,8 +2628,10 @@ async function registerCurrentPasskey(){
       body:{}
     });
     if(start.already_registered){
-      if(status){status.textContent='Este usuario ya tiene el acceso biométrico activo.';status.className='session-modal-status ok';}
+      rememberKnownPasskey(start.passkey,registerSessionUser);
+      if(status){status.textContent='Este usuario ya tiene el acceso biométrico activo en este sitio.';status.className='session-modal-status ok';}
       const wrap=$('passkeyEnrollWrap'); if(wrap) wrap.hidden=true;
+      refreshPasskeyLoginAvailability().catch(()=>{});
       setTimeout(closeRegisterLoginModal,500);
       return;
     }
@@ -2584,6 +2642,7 @@ async function registerCurrentPasskey(){
       body:{ceremony_id:start.ceremony_id,response:credentialToJSON(credential)}
     });
     if(!result?.verified) throw new Error('No se pudo verificar la credencial.');
+    rememberKnownPasskey(result.passkey,registerSessionUser);
     if(status){status.textContent='Huella / Face ID activado para este usuario.';status.className='session-modal-status ok';}
     const wrap=$('passkeyEnrollWrap'); if(wrap) wrap.hidden=true;
     refreshPasskeyLoginAvailability().catch(()=>{});
@@ -2637,6 +2696,7 @@ async function clearRegisterSession(){
   closeSessionWelcomeModal();
   if(token){try{await cloudApi('/api/logout',{method:'POST',token});}catch(_e){}}
   appAuthUnlocked=false;
+  passkeyAutoAttempted=true;
   loadData({keepFilters:true}).catch(()=>{});
   initGuardModule().catch(()=>{});
 }
@@ -2832,7 +2892,7 @@ function setupRegisterLoginModal(){
   if(welcomeModal) welcomeModal.addEventListener('pointerdown',e=>{if(e.target===welcomeModal) closeSessionWelcomeModal();});
   const loginModal=$('registerLoginModal');
   if(loginModal) loginModal.addEventListener('pointerdown',e=>{if(e.target===loginModal) closeRegisterLoginModal();});
-  const passkeyLogin=$('passkeyLoginBtn'); if(passkeyLogin) passkeyLogin.onclick=loginWithPasskey;
+  const passkeyLogin=$('passkeyLoginBtn'); if(passkeyLogin) passkeyLogin.onclick=()=>loginWithPasskey();
   const passkeyEnroll=$('registerPasskeyBtn'); if(passkeyEnroll) passkeyEnroll.onclick=registerCurrentPasskey;
   const input=$('registerSessionPassword');
   if(input) input.addEventListener('keydown',e=>{
@@ -4000,6 +4060,7 @@ initAdminModule();
 window.addEventListener('beforeunload',()=>{try{saveSharedDraft();}catch(e){}});
 loadData();
 initGuardModule();
+setTimeout(()=>maybeAutoPasskeyLogin(),250);
 </script>
 </body>
 </html>
