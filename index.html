@@ -4092,19 +4092,44 @@ function showView(viewName,options={}){
   return true;
 }
 
-function isSwipeBlockedTarget(target,root){
-  if(!(target instanceof Element)) return true;
-  if(target.closest('input,textarea,select,button,a,label,[contenteditable="true"],[data-swipe-ignore],.table-scroll,.guard-pills,.schedule-chip-row,.num-input-shell')) return true;
-  let node=target;
-  while(node && node!==root){
-    if(node instanceof Element){
-      const style=window.getComputedStyle(node);
-      const overflowX=style.overflowX;
-      if((overflowX==='auto'||overflowX==='scroll') && node.scrollWidth>node.clientWidth+3) return true;
-    }
-    node=node.parentElement;
+function swipeNavigationSuspended(){
+  if(document.body.classList.contains('app-auth-locked') || document.body.classList.contains('admin-login-open')) return true;
+  if([...document.querySelectorAll('.session-modal-backdrop')].some(el=>!el.hidden && window.getComputedStyle(el).display!=='none')) return true;
+  const focused=document.activeElement;
+  if(focused instanceof Element && focused.matches('input,textarea,select,[contenteditable="true"]')) return true;
+  if(currentViewName()==='inicio'){
+    const registerCard=$('registerCollapseCard');
+    const registerContent=$('registerCollapseContent');
+    if(registerCard?.classList.contains('open') && registerContent && !registerContent.hidden) return true;
   }
   return false;
+}
+function isSwipeBlockedTarget(target){
+  if(!(target instanceof Element)) return true;
+  return !!target.closest('input,textarea,select,button,summary,[contenteditable="true"],[data-swipe-ignore],.table-scroll,.guard-pills,.side-nav,.num-input-shell');
+}
+function createSwipeState(root,source='page'){
+  const views=navigableViewNames();
+  const currentName=currentViewName();
+  const currentIndex=views.indexOf(currentName);
+  const currentEl=document.getElementById('view-'+currentName);
+  if(currentIndex<0 || !currentEl) return null;
+  return {
+    root,views,currentName,currentIndex,currentEl,source,
+    startX:0,startY:0,lastX:0,lastTime:performance.now(),
+    velocityX:0,axis:'',moved:false,visualsReady:false,
+    width:Math.max(1,root.clientWidth||window.innerWidth),
+    targetEl:null,targetName:'',targetIndex:-1,targetAriaHidden:null,step:0,renderedDx:0
+  };
+}
+function swipeShouldCommit(state,rawDx,velocityX=state?.velocityX||0){
+  if(!state?.targetEl) return false;
+  const distance=Math.abs(rawDx);
+  const commitDistance=Math.min(SWIPE_NAVIGATION_CONFIG.maxCommitDistance,Math.max(SWIPE_NAVIGATION_CONFIG.minCommit,state.width*SWIPE_NAVIGATION_CONFIG.distanceRatio));
+  const velocityCommit=Math.abs(velocityX)>=SWIPE_NAVIGATION_CONFIG.velocity &&
+    Math.sign(velocityX)===Math.sign(rawDx) &&
+    distance>=SWIPE_NAVIGATION_CONFIG.minCommit;
+  return distance>=commitDistance || velocityCommit;
 }
 function clearSwipeTarget(state){
   if(!state?.targetEl) return;
@@ -4208,30 +4233,24 @@ function initSwipeNavigation(){
   if(!root || root.dataset.swipeNavigationReady==='1') return;
   root.dataset.swipeNavigationReady='1';
 
-  root.addEventListener('touchstart',event=>{
-    if(event.touches.length!==1 || swipeNavigationState) return;
-    if(document.body.classList.contains('app-auth-locked') || document.body.classList.contains('admin-login-open')) return;
+  document.addEventListener('touchstart',event=>{
+    if(event.touches.length!==1 || swipeNavigationState || swipeNavigationSuspended()) return;
     const touch=event.touches[0];
     if(touch.clientX<=SWIPE_NAVIGATION_CONFIG.edgeGuard || touch.clientX>=window.innerWidth-SWIPE_NAVIGATION_CONFIG.edgeGuard) return;
-    if(isSwipeBlockedTarget(event.target,root)) return;
-    const views=navigableViewNames();
-    const currentName=currentViewName();
-    const currentIndex=views.indexOf(currentName);
-    const currentEl=document.getElementById('view-'+currentName);
-    if(currentIndex<0 || !currentEl) return;
+    if(isSwipeBlockedTarget(event.target)) return;
+    const state=createSwipeState(root,'page');
+    if(!state) return;
     const now=performance.now();
-    swipeNavigationState={
-      root,views,currentName,currentIndex,currentEl,
-      startX:touch.clientX,startY:touch.clientY,lastX:touch.clientX,lastTime:now,
-      velocityX:0,axis:'',moved:false,visualsReady:false,
-      width:Math.max(1,root.clientWidth||window.innerWidth),
-      targetEl:null,targetName:'',targetIndex:-1,targetAriaHidden:null,step:0,renderedDx:0
-    };
+    state.startX=touch.clientX;
+    state.startY=touch.clientY;
+    state.lastX=touch.clientX;
+    state.lastTime=now;
+    swipeNavigationState=state;
   },{passive:true});
 
-  root.addEventListener('touchmove',event=>{
+  document.addEventListener('touchmove',event=>{
     const state=swipeNavigationState;
-    if(!state || event.touches.length!==1) return;
+    if(!state || state.source!=='page' || event.touches.length!==1) return;
     const touch=event.touches[0];
     const dx=touch.clientX-state.startX;
     const dy=touch.clientY-state.startY;
@@ -4257,9 +4276,9 @@ function initSwipeNavigation(){
     renderSwipe(state,dx);
   },{passive:false});
 
-  root.addEventListener('touchend',event=>{
+  document.addEventListener('touchend',event=>{
     const state=swipeNavigationState;
-    if(!state) return;
+    if(!state || state.source!=='page') return;
     if(state.axis!=='horizontal'){
       cleanupSwipeVisuals(state);
       swipeNavigationState=null;
@@ -4267,28 +4286,60 @@ function initSwipeNavigation(){
     }
     const touch=event.changedTouches?.[0];
     const rawDx=touch?touch.clientX-state.startX:state.renderedDx;
-    const distance=Math.abs(rawDx);
-    const commitDistance=Math.min(SWIPE_NAVIGATION_CONFIG.maxCommitDistance,Math.max(SWIPE_NAVIGATION_CONFIG.minCommit,state.width*SWIPE_NAVIGATION_CONFIG.distanceRatio));
-    const velocityCommit=Math.abs(state.velocityX)>=SWIPE_NAVIGATION_CONFIG.velocity &&
-      Math.sign(state.velocityX)===Math.sign(rawDx) &&
-      distance>=SWIPE_NAVIGATION_CONFIG.minCommit;
-    const commit=!!state.targetEl && (distance>=commitDistance || velocityCommit);
     if(state.moved) suppressSwipeClickUntil=Date.now()+300;
-    finishSwipe(state,commit);
+    finishSwipe(state,swipeShouldCommit(state,rawDx));
   },{passive:true});
 
-  root.addEventListener('touchcancel',()=>{
+  document.addEventListener('touchcancel',()=>{
     const state=swipeNavigationState;
-    if(!state) return;
+    if(!state || state.source!=='page') return;
     finishSwipe(state,false);
   },{passive:true});
 
-  root.addEventListener('click',event=>{
+  document.addEventListener('click',event=>{
     if(Date.now()<suppressSwipeClickUntil){
       event.preventDefault();
       event.stopPropagation();
     }
   },true);
+
+  window.addEventListener('message',event=>{
+    const frame=document.querySelector('.schedule-frame');
+    const data=event.data;
+    if(event.origin!=='https://llr-edu.github.io' || !frame || event.source!==frame.contentWindow) return;
+    if(!data || data.type!=='club-module-swipe') return;
+    if(currentViewName()!=='horarios' || swipeNavigationSuspended()) return;
+
+    if(data.phase==='start'){
+      if(swipeNavigationState) return;
+      const state=createSwipeState(root,'schedule-frame');
+      if(!state) return;
+      state.axis='horizontal';
+      state.moved=true;
+      swipeNavigationState=state;
+      return;
+    }
+
+    const state=swipeNavigationState;
+    if(!state || state.source!=='schedule-frame') return;
+    const sourceWidth=Math.max(1,Number(data.viewportWidth)||state.width);
+    const scale=state.width/sourceWidth;
+    const dx=(Number(data.dx)||0)*scale;
+
+    if(data.phase==='move'){
+      renderSwipe(state,dx);
+      return;
+    }
+    if(data.phase==='end'){
+      const velocity=(Number(data.velocityX)||0)*scale;
+      suppressSwipeClickUntil=Date.now()+300;
+      finishSwipe(state,swipeShouldCommit(state,dx,velocity));
+      return;
+    }
+    if(data.phase==='cancel'){
+      finishSwipe(state,false);
+    }
+  });
 
   window.addEventListener('resize',()=>{
     const state=swipeNavigationState;
