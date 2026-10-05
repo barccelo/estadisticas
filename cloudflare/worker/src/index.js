@@ -446,17 +446,50 @@ async function passkeyReadiness(env) {
 
 async function passkeyAuthenticationOptions(request, env) {
   await ensurePasskeySchema(env);
-  const countRow = await env.DB.prepare(
-    "SELECT COUNT(*) AS n FROM webauthn_credentials c JOIN users u ON u.id=c.user_id WHERE u.active=1"
-  ).first();
-  if (Number(countRow?.n || 0) < 1) return json({ ok: false, error: "PASSKEY_NOT_READY" }, 409);
+
+  let body = {};
+  try { body = await request.json(); } catch (_) {}
+  const requestedCredentialId = String(body?.credential_id || "").trim();
+
+  let requestedCredential = null;
+  if (requestedCredentialId) {
+    requestedCredential = await env.DB.prepare(
+      `SELECT c.id,c.transports_json,c.user_id
+       FROM webauthn_credentials c
+       JOIN users u ON u.id=c.user_id
+       WHERE c.id=?1 AND u.active=1
+       LIMIT 1`
+    ).bind(requestedCredentialId).first();
+    if (!requestedCredential) return json({ ok: false, error: "PASSKEY_NOT_FOUND" }, 404);
+  } else {
+    const countRow = await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM webauthn_credentials c JOIN users u ON u.id=c.user_id WHERE u.active=1"
+    ).first();
+    if (Number(countRow?.n || 0) < 1) return json({ ok: false, error: "PASSKEY_NOT_READY" }, 409);
+  }
 
   const options = await generateAuthenticationOptions({
     rpID: WEBAUTHN_RP_ID,
     userVerification: "required",
+    ...(requestedCredential ? {
+      allowCredentials: [{
+        id: requestedCredential.id,
+        transports: passkeyTransports(requestedCredential.transports_json),
+      }],
+    } : {}),
   });
-  const ceremonyId = await storeWebauthnChallenge(env, "authentication", options.challenge, null);
-  return json({ ok: true, ceremony_id: ceremonyId, options });
+  const ceremonyId = await storeWebauthnChallenge(
+    env,
+    "authentication",
+    options.challenge,
+    requestedCredential?.user_id || null
+  );
+  return json({
+    ok: true,
+    ceremony_id: ceremonyId,
+    options,
+    targeted: Boolean(requestedCredential),
+  });
 }
 
 async function passkeyAuthenticationVerify(request, env, ctx) {
@@ -468,8 +501,18 @@ async function passkeyAuthenticationVerify(request, env, ctx) {
   const credentialId = String(response?.id || "");
   if (!ceremonyId || !response || !credentialId) return json({ ok: false, error: "INVALID_PASSKEY_RESPONSE" }, 400);
 
-  const challenge = await consumeWebauthnChallenge(env, ceremonyId, "authentication", null);
-  if (!challenge) return json({ ok: false, error: "PASSKEY_CHALLENGE_EXPIRED" }, 400);
+  const challengeRow = await env.DB.prepare(
+    `SELECT ceremony_id,challenge,purpose,user_id,expires_at
+     FROM webauthn_challenges
+     WHERE ceremony_id=?1 AND purpose='authentication'
+     LIMIT 1`
+  ).bind(ceremonyId).first();
+  if (!challengeRow || Number(challengeRow.expires_at || 0) <= Math.floor(Date.now()/1000)) {
+    if (challengeRow) await env.DB.prepare("DELETE FROM webauthn_challenges WHERE ceremony_id=?1").bind(ceremonyId).run();
+    return json({ ok: false, error: "PASSKEY_CHALLENGE_EXPIRED" }, 400);
+  }
+  await env.DB.prepare("DELETE FROM webauthn_challenges WHERE ceremony_id=?1").bind(ceremonyId).run();
+  const challenge = challengeRow;
 
   const row = await env.DB.prepare(
     `SELECT c.id,c.user_id,c.public_key,c.counter,c.transports_json,
@@ -480,6 +523,9 @@ async function passkeyAuthenticationVerify(request, env, ctx) {
      LIMIT 1`
   ).bind(credentialId).first();
   if (!row) return json({ ok: false, error: "PASSKEY_NOT_FOUND" }, 401);
+  if (challenge.user_id && String(challenge.user_id) !== String(row.user_id)) {
+    return json({ ok: false, error: "PASSKEY_NOT_FOUND" }, 401);
+  }
 
   let verification;
   try {
@@ -520,6 +566,7 @@ async function passkeyAuthenticationVerify(request, env, ctx) {
     expires_in: sessionData.expiresIn,
     user: { id: row.user_id, email: row.email, name: row.display_name, role: row.role || "registrador" },
     passkey_registered: true,
+    passkey: await passkeyStatusForUser(env, row.user_id),
     auth_method: "passkey",
     migration,
   });
