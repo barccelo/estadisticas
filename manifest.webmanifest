@@ -4,7 +4,7 @@
   "short_name": "Club Deportivo",
   "description": "Estadísticas, registro, horarios y guardias del Club Deportivo del Liceo Los Robles.",
   "lang": "es",
-  "start_url": "/?source=pwa",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#f2f2f7",

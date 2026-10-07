@@ -2257,16 +2257,7 @@ function downloadTotalPDF(){
 }
 
 
-</style></head><body><h1>Total por disciplina</h1><div class="meta">Rango: ${escapeHtml(summary.dateLabel)}<br>Registros: ${fmt.format(summary.registros)} · Asistencia total: ${fmt.format(summary.total)}</div><div class="bar-list">${barsHtml}</div><div class="footer">Fuente: Google Sheets · Club Deportivo</div><script>window.onload=function(){window.print();};<\/script><script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(error => {
-      console.warn('No se pudo registrar el service worker:', error);
-    });
-  });
-}
-</script>
-</body></html>`;
+</style></head><body><h1>Total por disciplina</h1><div class="meta">Rango: ${escapeHtml(summary.dateLabel)}<br>Registros: ${fmt.format(summary.registros)} · Asistencia total: ${fmt.format(summary.total)}</div><div class="bar-list">${barsHtml}</div><div class="footer">Fuente: Google Sheets · Club Deportivo</div><script>window.onload=function(){window.print();};<\/script></body></html>`;
   const win=window.open('', '_blank');
   if(!win){alert('El navegador bloqueó la ventana emergente. Permite pop-ups para exportar PDF.'); return;}
   win.document.open(); win.document.write(html); win.document.close();
@@ -4485,6 +4476,13 @@ window.addEventListener('beforeunload',()=>{try{saveSharedDraft();}catch(e){}});
 loadData();
 initGuardModule();
 setTimeout(()=>maybeAutoPasskeyLogin(),250);
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
+  }, { once: true });
+}
 </script>
 </body>
 </html>
