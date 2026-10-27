@@ -2468,7 +2468,9 @@ async function cloudApi(path, options={}){
       STATISTIC_ALREADY_FILLED:'Esa estadística acaba de ser llenada desde otro dispositivo.',
       STATISTIC_CHANGED:'Esa estadística fue modificada desde otro dispositivo. Se cargará la versión más reciente.',
       INVALID_DISCIPLINE:'La disciplina no es válida.',
-      INVALID_ATTENDANCE:'La asistencia debe ser un número entero válido.'
+      INVALID_ATTENDANCE:'La asistencia debe ser un número entero válido.',
+      PARTIAL_STATISTICS_INCOMPLETE:'Todavía faltan estadísticas por llenar y bloquear.',
+      STATISTICS_STALE:'Las estadísticas cambiaron desde otro dispositivo. Se cargó la versión más reciente.'
     };
     const error=new Error(messages[data.error] || data.error || 'No se pudo conectar con Cloudflare.');
     error.code=data.error || '';
@@ -3072,7 +3074,7 @@ function lockedStatisticsCount(){
   return DISCIPLINES.reduce((n,d)=>n+(partialStatistics.has(d)?1:0),0);
 }
 function allStatisticsLocked(){
-  return lockedStatisticsCount()===DISCIPLINES.length;
+  return lockedStatisticsCount()===DISCIPLINES.length && partialStatisticsEditing.size===0;
 }
 function renderStatisticFieldState(discipline){
   const key=normalizeKey(discipline);
@@ -3363,12 +3365,14 @@ function clearRecordForm(){
   else $('regEmail').value='';
   $('regObs').value='';
   DISCIPLINES.forEach(d=>{const el=$('reg_'+normalizeKey(d)); if(el){el.value=''; delete el.dataset.prevValue;} const undo=$('undo_reg_'+normalizeKey(d)); if(undo) undo.classList.remove('show');});
+  partialStatistics.clear();
+  partialStatisticsEditing.clear();
+  partialStatisticsDate='';
+  renderAllStatisticStates();
   refreshRegisterDayPanels();
   draftLastSavedSignature='';
   draftFormDirty=false;
   clearTimeout(draftAutosaveTimer);
-  partialStatisticsEditing.clear();
-  renderAllStatisticStates();
   setStatus('regStatus','');
 }
 function legacyRecordFromBackupPayload(payload){
@@ -3536,6 +3540,14 @@ async function saveRecord(){
   if($('regEmail')) $('regEmail').value=getRegisterSessionEmail();
   const date=$('regFecha').value;
   if(!date){setStatus('regStatus','Selecciona una fecha.','err'); return;}
+  if(partialStatisticsDate!==date) await loadPartialStatistics({silent:true});
+  if(!allStatisticsLocked()){
+    const missing=Math.max(0,DISCIPLINES.length-lockedStatisticsCount());
+    setStatus('regStatus',partialStatisticsEditing.size
+      ? 'Termina de editar y vuelve a bloquear las estadísticas abiertas antes de guardar.'
+      : 'Faltan '+missing+' '+(missing===1?'disciplina':'disciplinas')+' por llenar y bloquear antes de guardar el registro final.','err');
+    return;
+  }
   const record=makeRecordFromPrefix('reg');
   const attendance={};
   DISCIPLINES.forEach(d=>attendance[d]=Math.max(0,Math.trunc(parseNumber(record[d]))));
@@ -3590,6 +3602,10 @@ async function saveRecord(){
     loadData({keepFilters:true}).catch(()=>{});
     refreshRegisterDayPanels();
   }catch(err){
+    if(err.code==='PARTIAL_STATISTICS_INCOMPLETE'||err.code==='STATISTICS_STALE'){
+      await loadPartialStatistics({silent:true});
+      setDraftStatus(collaborativeStatusHtml(),true);
+    }
     if(err.message==='UNAUTHORIZED'){await clearRegisterSession(); openRegisterLoginModal();}
     setStatus('regStatus', err.message==='UNAUTHORIZED'?'La sesión venció. Inicia sesión nuevamente.':err.message, 'err');
   }finally{btn.disabled=false;}

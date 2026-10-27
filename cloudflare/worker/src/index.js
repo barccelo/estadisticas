@@ -929,7 +929,6 @@ async function saveDraft(request, env) {
   const auth = await requireSession(request, env);
   if (!auth) return json({ ok: false, error: "UNAUTHORIZED" }, 401);
   if (!accountRoleAllowed(auth, ["registrador","editor","admin"])) return json({ ok:false, error:"ROLE_FORBIDDEN" },403);
-  await ensurePartialStatisticsSchema(env);
 
   let body;
   try { body = await request.json(); }
@@ -1562,6 +1561,7 @@ async function createRecord(request, env) {
   const auth = await requireSession(request, env);
   if (!auth) return json({ ok: false, error: "UNAUTHORIZED" }, 401);
   if (!accountRoleAllowed(auth, ["registrador","editor","admin"])) return json({ ok:false, error:"ROLE_FORBIDDEN" },403);
+  await ensurePartialStatisticsSchema(env);
 
   let body;
   try { body = await request.json(); }
@@ -1583,6 +1583,23 @@ async function createRecord(request, env) {
       return json({ ok: false, error: "INVALID_ATTENDANCE", discipline }, 400);
     }
     clean[discipline] = raw;
+  }
+
+  const lockedRows = await env.DB.prepare(
+    "SELECT discipline, attendance FROM partial_statistics WHERE record_date=?1"
+  ).bind(date).all();
+  const lockedMap = new Map(
+    (lockedRows.results || [])
+      .filter(row => RECORD_DISCIPLINES.includes(String(row.discipline || "")))
+      .map(row => [String(row.discipline), Number(row.attendance || 0)])
+  );
+  if (!RECORD_DISCIPLINES.every(d => lockedMap.has(d))) {
+    return json({ ok:false, error:"PARTIAL_STATISTICS_INCOMPLETE" },409);
+  }
+  for (const discipline of RECORD_DISCIPLINES) {
+    if (Number(clean[discipline]) !== Number(lockedMap.get(discipline))) {
+      return json({ ok:false, error:"STATISTICS_STALE", discipline },409);
+    }
   }
 
   const suppliedClientKey = String(body?.client_key || "").trim().toLowerCase();
