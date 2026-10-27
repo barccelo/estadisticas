@@ -410,6 +410,19 @@ body{background:#f6f7fb;}
 .draft-check-row .compact{min-height:34px;padding:7px 10px;font-size:12px}
 .draft-check-hint{font-size:12px;color:#6b7280;line-height:1.25}
 @media(max-width:650px){.draft-status .draft-actions .btn{flex:1 1 auto;width:auto}.day-log-status,.draft-status{font-size:13px}.draft-check-row{display:grid;grid-template-columns:1fr;gap:6px}.draft-check-row .btn{width:100%}.draft-check-hint{font-size:11px}}
+.stat-field-head{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:28px}
+.stat-field-head label{margin:0}
+.stat-lock{display:inline-flex;align-items:center;justify-content:center;gap:4px;min-width:40px;height:28px;padding:0 7px;border:1px solid #d1d5db;border-radius:999px;background:#fff;color:#6b7280;cursor:pointer;transition:.16s ease}
+.stat-lock svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.stat-lock:hover{border-color:#9ca3af;color:#111827}
+.stat-lock.locked{background:#111827;border-color:#111827;color:#fff}
+.stat-lock.editing{background:#fff7ed;border-color:#fdba74;color:#9a3412}
+.stat-lock.saving{opacity:.55;pointer-events:none}
+.stat-lock-owner{display:inline-grid;place-items:center;min-width:16px;height:16px;border-radius:999px;background:rgba(255,255,255,.2);font-size:10px;font-weight:900;line-height:1}
+.numeric-field.stat-locked .num-input-shell input{background:#f3f4f6;color:#374151;border-color:#e5e7eb;font-weight:800}
+.numeric-field.stat-locked .sum-control{opacity:.35;cursor:default}
+.numeric-field.stat-editing .num-input-shell input{border-color:#fdba74;box-shadow:0 0 0 2px rgba(251,146,60,.12)}
+
 
 
 /* Sesión de registro y landing colapsada */
@@ -1438,9 +1451,9 @@ body.swipe-navigation-active{
                   <div class="register-actions"><button class="btn" id="saveRecordBtn" type="button">Guardar</button><button class="btn secondary" id="clearRecordFormBtn" type="button">Limpiar</button></div>
                   <div id="regStatus" class="status register-save-status"></div>
                   <details class="register-secondary">
-                    <summary>Estado y borradores</summary>
+                    <summary>Estado del llenado</summary>
                     <div class="register-secondary-body">
-                      <div class="draft-check-row"><button class="btn secondary compact" id="checkDraftBtn" type="button">Verificar borrador</button></div>
+                      <div class="draft-check-row"><button class="btn secondary compact" id="checkDraftBtn" type="button">Actualizar estado</button><span class="draft-check-hint">Los candados muestran qué disciplinas ya fueron llenadas y quién registró cada dato.</span></div>
                       <div id="dayLogStatus" class="daily-record-status day-log-status" aria-live="polite"></div>
                       <div id="draftStatus" class="daily-record-status draft-status" aria-live="polite"></div>
                     </div>
@@ -1769,6 +1782,10 @@ let draftLastSavedSignature = '';
 let draftLoadedId = '';
 let draftSuppressAutosave = false;
 let draftFormDirty = false;
+let partialStatistics = new Map();
+let partialStatisticsEditing = new Set();
+let partialStatisticsDate = '';
+let partialStatisticsLoadSeq = 0;
 let registerSessionPassword = '';
 let registerSessionUser = null;
 let registerSessionToken = '';
@@ -2303,12 +2320,17 @@ function apiCall(action, payload={}){
     document.body.appendChild(script);
   });
 }
+function statisticLockSvg(locked){
+  return locked
+    ? '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>'
+    : '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 7.4-2"/></svg>';
+}
 function buildRegisterInputs(){
   const box=$('regDiscInputs'); if(!box) return; box.innerHTML='';
   DISCIPLINES.forEach(d=>{
     const key=normalizeKey(d);
-    const wrap=document.createElement('div'); wrap.className='field numeric-field';
-    wrap.innerHTML=`<label>${escapeHtml(d)}</label><div class="num-input-shell"><input id="reg_${key}" type="number" min="0" step="1" placeholder="0"><button class="sum-control" type="button" data-target="reg_${key}" data-label="${escapeHtml(d)}">+</button></div><button class="undo-sum" type="button" id="undo_reg_${key}" data-target="reg_${key}">Deshacer suma</button>`;
+    const wrap=document.createElement('div'); wrap.className='field numeric-field'; wrap.dataset.discipline=d;
+    wrap.innerHTML=`<div class="stat-field-head"><label for="reg_${key}">${escapeHtml(d)}</label><button class="stat-lock" type="button" data-discipline="${escapeHtml(d)}" aria-label="Guardar y bloquear ${escapeHtml(d)}">${statisticLockSvg(false)}<span class="stat-lock-owner" hidden></span></button></div><div class="num-input-shell"><input id="reg_${key}" type="number" min="0" step="1" placeholder="0"><button class="sum-control" type="button" data-target="reg_${key}" data-label="${escapeHtml(d)}">+</button></div><button class="undo-sum" type="button" id="undo_reg_${key}" data-target="reg_${key}">Deshacer suma</button>`;
     box.appendChild(wrap);
   });
   box.querySelectorAll('.sum-control').forEach(btn=>{
@@ -2320,7 +2342,11 @@ function buildRegisterInputs(){
     attachSumGesture(btn);
   });
   box.querySelectorAll('.undo-sum').forEach(btn=>btn.addEventListener('click',()=>undoQuickSum(btn.dataset.target)));
-  box.querySelectorAll('input').forEach(el=>{el.addEventListener('input',()=>markDraftDirty(5000)); el.addEventListener('change',()=>markDraftDirty(1000));});
+  box.querySelectorAll('.stat-lock').forEach(btn=>btn.addEventListener('click',()=>toggleStatisticLock(btn.dataset.discipline||'')));
+  box.querySelectorAll('input').forEach(el=>{
+    el.addEventListener('input',()=>markStatisticInputChanged(el.id));
+    el.addEventListener('change',()=>markStatisticInputChanged(el.id));
+  });
   if($('regFecha') && !$('regFecha').value) $('regFecha').value=todayISO();
   refreshRegisterDayPanels();
 }
@@ -2355,7 +2381,7 @@ function applyDirectDelta(targetId, delta){
   if(input.dataset.prevValue===undefined) input.dataset.prevValue=String(prev);
   input.value=Math.max(0, prev + delta);
   const undo=$('undo_'+targetId); if(undo) undo.classList.add('show');
-  markDraftDirty(1200);
+  markStatisticInputChanged(targetId);
 }
 function applyQuickSum(targetId, label){
   const input=$(targetId); if(!input) return;
@@ -2367,14 +2393,14 @@ function applyQuickSum(targetId, label){
   input.dataset.prevValue=String(prev);
   input.value=Math.max(0, prev + add);
   const undo=$('undo_'+targetId); if(undo) undo.classList.add('show');
-  markDraftDirty(1200);
+  markStatisticInputChanged(targetId);
 }
 function undoQuickSum(targetId){
   const input=$(targetId); if(!input || input.dataset.prevValue===undefined) return;
   input.value=input.dataset.prevValue;
   delete input.dataset.prevValue;
   const undo=$('undo_'+targetId); if(undo) undo.classList.remove('show');
-  markDraftDirty(1200);
+  markStatisticInputChanged(targetId);
 }
 function updateDailyRecordStatus(){
   const box=$('dailyRecordStatus'); if(!box) return;
@@ -2438,7 +2464,11 @@ async function cloudApi(path, options={}){
       PASSKEY_CHALLENGE_EXPIRED:'La solicitud de acceso venció. Inténtalo nuevamente.',
       PASSKEY_VERIFICATION_FAILED:'No se pudo verificar el acceso biométrico.',
       PASSKEY_ALREADY_REGISTERED:'Este usuario ya tiene un acceso biométrico registrado.',
-      INVALID_PASSKEY_RESPONSE:'La respuesta del dispositivo no fue válida.'
+      INVALID_PASSKEY_RESPONSE:'La respuesta del dispositivo no fue válida.',
+      STATISTIC_ALREADY_FILLED:'Esa estadística acaba de ser llenada desde otro dispositivo.',
+      STATISTIC_CHANGED:'Esa estadística fue modificada desde otro dispositivo. Se cargará la versión más reciente.',
+      INVALID_DISCIPLINE:'La disciplina no es válida.',
+      INVALID_ATTENDANCE:'La asistencia debe ser un número entero válido.'
     };
     const error=new Error(messages[data.error] || data.error || 'No se pudo conectar con Cloudflare.');
     error.code=data.error || '';
@@ -2753,7 +2783,8 @@ async function clearRegisterSession(){
 function welcomeIcon(kind){
   const icons={
     record:'<svg viewBox="0 0 24 24"><path d="M7 3h10v4H7z"/><path d="M6 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-1"/><path d="M7 12h10M7 16h6"/></svg>',
-    draft:'<svg viewBox="0 0 24 24"><path d="M4 20h4l10-10-4-4L4 16v4Z"/><path d="m12.5 7.5 4 4"/></svg>'
+    draft:'<svg viewBox="0 0 24 24"><path d="M4 20h4l10-10-4-4L4 16v4Z"/><path d="m12.5 7.5 4 4"/></svg>',
+    stats:'<svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>'
   };
   return icons[kind]||'';
 }
@@ -2783,8 +2814,18 @@ function openDraftFromWelcome(){
   setDraftStatus('<strong>Borrador cargado.</strong><span class="log-muted">Revísalo y continúa desde aquí.</span>',true);
   setTimeout(()=>card?.scrollIntoView({behavior:'smooth',block:'start'}),80);
 }
+function openStatisticsFromWelcome(){
+  closeSessionWelcomeModal();
+  showView('inicio');
+  const target=$('registerCollapseContent');
+  const card=$('registerCollapseCard');
+  if(target) target.hidden=false;
+  if(card) card.classList.add('open');
+  loadPartialStatistics().then(()=>setDraftStatus(collaborativeStatusHtml(),true));
+  setTimeout(()=>card?.scrollIntoView({behavior:'smooth',block:'start'}),80);
+}
 async function showSessionWelcomeModal(){
-  if(!registerSessionToken || !registerSessionUser || welcomeLoading) return;
+  if(!registerSessionToken||!registerSessionUser||welcomeLoading) return;
   welcomeLoading=true;
   welcomePending=false;
   welcomeDraftRecord=null;
@@ -2797,15 +2838,19 @@ async function showSessionWelcomeModal(){
   actions.innerHTML='';
 
   try{
-    const [recordsResult,draftResult]=await Promise.all([
+    const [recordsResult,draftResult,statsResult]=await Promise.all([
       cloudApi('/api/records?from='+encodeURIComponent(today)+'&to='+encodeURIComponent(today),{token:registerSessionToken}).catch(()=>null),
-      cloudApi('/api/drafts?date='+encodeURIComponent(today),{token:registerSessionToken}).catch(()=>null)
+      cloudApi('/api/drafts?date='+encodeURIComponent(today),{token:registerSessionToken}).catch(()=>null),
+      cloudApi('/api/partial-statistics?date='+encodeURIComponent(today),{token:registerSessionToken}).catch(()=>null)
     ]);
 
     const records=Array.isArray(recordsResult?.records)?recordsResult.records:[];
     const draft=draftResult?.draft||null;
+    const statsEntries=Array.isArray(statsResult?.entries)?statsResult.entries:[];
+    const statsCount=statsEntries.filter(e=>DISCIPLINES.includes(String(e?.discipline||''))).length;
+    const statsComplete=statsCount===DISCIPLINES.length;
 
-    if(!records.length && !draft){
+    if(!records.length&&!draft&&!statsCount){
       modal.hidden=true;
       return;
     }
@@ -2813,12 +2858,21 @@ async function showSessionWelcomeModal(){
     let cards='';
     let buttons='';
 
-    if(draft){
+    if(statsCount){
+      cards+='<div class="welcome-summary-item attention">'+
+        '<div class="welcome-summary-icon">'+welcomeIcon('stats')+'</div>'+
+        '<div class="welcome-summary-copy"><strong>'+(statsComplete?'Borrador completo':'Estadísticas llenas')+'</strong><span>'+
+        escapeHtml(statsComplete
+          ? 'Las '+DISCIPLINES.length+' disciplinas ya están llenas y listas para revisar.'
+          : statsCount+' de '+DISCIPLINES.length+' disciplinas ya fueron registradas.')+
+        '</span></div></div>';
+      buttons+='<button class="btn" id="welcomeStatsBtn" type="button">'+(statsComplete?'Revisar borrador':'Continuar llenado')+'</button>';
+    }else if(draft){
       welcomeDraftRecord=draft.record||null;
       const draftOwner=draft.updatedByName||draft.updatedBy||'';
       cards+='<div class="welcome-summary-item attention">'+
         '<div class="welcome-summary-icon">'+welcomeIcon('draft')+'</div>'+
-        '<div class="welcome-summary-copy"><strong>Borrador pendiente</strong><span>'+
+        '<div class="welcome-summary-copy"><strong>Borrador anterior</strong><span>'+
         escapeHtml('Hay un borrador pendiente'+(draftOwner?' de '+draftOwner:'')+'.')+
         '</span></div></div>';
       buttons+='<button class="btn" id="welcomeDraftBtn" type="button">Ver borrador</button>';
@@ -2839,6 +2893,8 @@ async function showSessionWelcomeModal(){
     actions.innerHTML=buttons;
     modal.hidden=false;
 
+    const statsBtn=$('welcomeStatsBtn');
+    if(statsBtn) statsBtn.onclick=openStatisticsFromWelcome;
     const draftBtn=$('welcomeDraftBtn');
     if(draftBtn) draftBtn.onclick=openDraftFromWelcome;
     const recordBtn=$('welcomeRecordBtn');
@@ -3005,76 +3061,273 @@ function fillRegisterFormFromRecord(record){
   setTimeout(()=>{draftSuppressAutosave=false;}, 250);
   updateDailyRecordStatus();
 }
-async function checkSharedDraft(){
-  const snap=currentRegisterSnapshot();
-  if(!snap.date){setDraftStatus('<strong>Borrador compartido:</strong> selecciona una fecha para verificar.', true); return;}
-  if(!snap.token){
-    setDraftStatus('<strong>Borrador compartido:</strong> inicia la sesión de registro para verificar borradores entre dispositivos.', true);
+function statisticOwnerLabel(entry){
+  return String(entry?.updatedByName||entry?.updatedBy||'responsable no identificado').trim();
+}
+function statisticOwnerInitial(entry){
+  const raw=String(entry?.updatedByName||responsibleShort(entry?.updatedBy||'')||'').trim();
+  return (raw.match(/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/)?.[0]||'?').toUpperCase();
+}
+function lockedStatisticsCount(){
+  return DISCIPLINES.reduce((n,d)=>n+(partialStatistics.has(d)?1:0),0);
+}
+function allStatisticsLocked(){
+  return lockedStatisticsCount()===DISCIPLINES.length;
+}
+function renderStatisticFieldState(discipline){
+  const key=normalizeKey(discipline);
+  const input=$('reg_'+key);
+  if(!input) return;
+  const wrap=input.closest('.numeric-field');
+  const lock=wrap?.querySelector('.stat-lock');
+  const owner=lock?.querySelector('.stat-lock-owner');
+  const sum=wrap?.querySelector('.sum-control');
+  const undo=$('undo_reg_'+key);
+  const entry=partialStatistics.get(discipline)||null;
+  const editing=partialStatisticsEditing.has(discipline);
+  const locked=Boolean(entry && !editing);
+
+  wrap?.classList.toggle('stat-locked',locked);
+  wrap?.classList.toggle('stat-editing',Boolean(entry&&editing));
+  input.readOnly=locked;
+  input.setAttribute('aria-readonly',locked?'true':'false');
+  if(sum) sum.disabled=locked;
+  if(undo && locked) undo.classList.remove('show');
+
+  if(lock){
+    lock.classList.toggle('locked',locked);
+    lock.classList.toggle('editing',Boolean(entry&&editing));
+    lock.innerHTML=statisticLockSvg(locked)+`<span class="stat-lock-owner"${locked?'':' hidden'}>${locked?escapeHtml(statisticOwnerInitial(entry)):''}</span>`;
+    if(locked){
+      const who=statisticOwnerLabel(entry);
+      lock.title=`Registrado por ${who}. Toca el candado para editar.`;
+      lock.setAttribute('aria-label',`${discipline}: registrado por ${who}. Toca para editar.`);
+    }else if(entry&&editing){
+      lock.title='Guardar el cambio y volver a bloquear';
+      lock.setAttribute('aria-label',`${discipline}: guardar el cambio y volver a bloquear`);
+    }else{
+      lock.title='Guardar esta estadística y bloquearla';
+      lock.setAttribute('aria-label',`${discipline}: guardar y bloquear`);
+    }
+  }
+}
+function renderAllStatisticStates(){
+  DISCIPLINES.forEach(renderStatisticFieldState);
+}
+function collaborativeStatusHtml(){
+  const count=lockedStatisticsCount();
+  if(count===0){
+    return '<strong>Estadísticas llenas:</strong> todavía no hay disciplinas bloqueadas para esta fecha.';
+  }
+  if(count<DISCIPLINES.length){
+    return `<strong>Estadísticas llenas: ${count} de ${DISCIPLINES.length}.</strong><span class="log-muted">Los campos con candado ya fueron registrados. La letra identifica a la persona que llenó cada estadística; toca el candado si necesitas corregirla.</span>`;
+  }
+  return `<strong>Borrador completo.</strong><span class="log-muted">Las ${DISCIPLINES.length} disciplinas ya están llenas. Puedes revisarlas y guardar el registro final.</span>`;
+}
+function applyPartialStatisticsResult(result,date){
+  if(($('regFecha')?.value||'')!==date) return false;
+  partialStatistics.clear();
+  partialStatisticsEditing.clear();
+  partialStatisticsDate=date;
+  const entries=Array.isArray(result?.entries)?result.entries:[];
+  entries.forEach(entry=>{
+    const discipline=String(entry?.discipline||'');
+    if(!DISCIPLINES.includes(discipline)) return;
+    partialStatistics.set(discipline,entry);
+  });
+  DISCIPLINES.forEach(d=>{
+    const input=$('reg_'+normalizeKey(d));
+    if(!input) return;
+    const entry=partialStatistics.get(d);
+    input.value=entry ? String(entry.attendance) : '';
+    delete input.dataset.prevValue;
+    const undo=$('undo_reg_'+normalizeKey(d));
+    if(undo) undo.classList.remove('show');
+  });
+  renderAllStatisticStates();
+  return true;
+}
+async function loadPartialStatistics(options={}){
+  const date=$('regFecha')?.value||'';
+  const token=registerSessionToken;
+  const seq=++partialStatisticsLoadSeq;
+  if(!date){
+    partialStatistics.clear(); partialStatisticsEditing.clear(); partialStatisticsDate='';
+    renderAllStatisticStates();
+    if(!options.silent) setDraftStatus('<strong>Estadísticas llenas:</strong> selecciona una fecha para consultar el avance.',true);
+    return null;
+  }
+  if(!token){
+    partialStatistics.clear(); partialStatisticsEditing.clear(); partialStatisticsDate=date;
+    renderAllStatisticStates();
+    if(!options.silent) setDraftStatus('<strong>Estadísticas llenas:</strong> inicia sesión para consultar y compartir el avance.',true);
+    return null;
+  }
+  try{
+    const result=await cloudApi('/api/partial-statistics?date='+encodeURIComponent(date),{token});
+    if(seq!==partialStatisticsLoadSeq) return null;
+    if(!applyPartialStatisticsResult(result,date)) return null;
+    if(!options.silent) setDraftStatus(collaborativeStatusHtml(),true);
+    return result;
+  }catch(err){
+    if(err.message==='UNAUTHORIZED'){await clearRegisterSession(); openRegisterLoginModal();}
+    if(!options.silent) setDraftStatus(`<strong>No se pudo consultar el avance:</strong> ${escapeHtml(err.message==='UNAUTHORIZED'?'La sesión venció.':err.message)}`,true);
+    return null;
+  }
+}
+function markStatisticInputChanged(targetId){
+  const input=$(targetId); if(!input) return;
+  const wrap=input.closest('.numeric-field');
+  const discipline=wrap?.dataset.discipline||'';
+  if(discipline && partialStatistics.has(discipline) && !partialStatisticsEditing.has(discipline)) return;
+  if(wrap) wrap.classList.toggle('stat-editing',Boolean(partialStatistics.has(discipline)));
+}
+function unlockStatisticForEditing(discipline){
+  const entry=partialStatistics.get(discipline);
+  if(!entry) return;
+  partialStatisticsEditing.add(discipline);
+  renderStatisticFieldState(discipline);
+  const input=$('reg_'+normalizeKey(discipline));
+  setTimeout(()=>{input?.focus(); input?.select?.();},40);
+}
+async function saveStatisticAndLock(discipline){
+  if(!DISCIPLINES.includes(discipline)) return;
+  const date=$('regFecha')?.value||'';
+  const input=$('reg_'+normalizeKey(discipline));
+  const lock=input?.closest('.numeric-field')?.querySelector('.stat-lock');
+  if(!registerSessionToken){openRegisterLoginModal(); return;}
+  if(!date){setStatus('regStatus','Selecciona una fecha antes de bloquear una estadística.','err'); return;}
+  const raw=String(input?.value??'').trim();
+  if(raw===''){setStatus('regStatus',`Escribe un valor para ${discipline} antes de bloquearlo.`,'err'); input?.focus(); return;}
+  const value=Number(raw);
+  if(!Number.isInteger(value)||value<0||value>100000){setStatus('regStatus',`Escribe un número entero válido para ${discipline}.`,'err'); return;}
+
+  const previous=partialStatistics.get(discipline)||null;
+  lock?.classList.add('saving');
+  try{
+    const result=await cloudApi('/api/partial-statistics',{
+      method:'PUT',
+      token:registerSessionToken,
+      body:{
+        date,
+        discipline,
+        attendance:value,
+        expected_updated_at:previous?.updatedAt||''
+      }
+    });
+    if(result?.entry) partialStatistics.set(discipline,result.entry);
+    partialStatisticsEditing.delete(discipline);
+    partialStatisticsDate=date;
+    renderStatisticFieldState(discipline);
+    setStatus('regStatus','',false);
+
+    if(allStatisticsLocked()){
+      draftFormDirty=true;
+      await saveSharedDraft({quiet:true});
+      setDraftStatus(collaborativeStatusHtml(),true);
+    }else{
+      setDraftStatus(collaborativeStatusHtml(),true);
+    }
+  }catch(err){
+    if(err.code==='STATISTIC_ALREADY_FILLED'||err.code==='STATISTIC_CHANGED'){
+      await loadPartialStatistics({silent:true});
+      setStatus('regStatus','Esa estadística cambió desde otro dispositivo. Se cargó la versión más reciente.','err');
+      setDraftStatus(collaborativeStatusHtml(),true);
+    }else{
+      if(err.message==='UNAUTHORIZED'){await clearRegisterSession(); openRegisterLoginModal();}
+      setStatus('regStatus',err.message==='UNAUTHORIZED'?'La sesión venció. Inicia sesión nuevamente.':err.message,'err');
+    }
+  }finally{
+    lock?.classList.remove('saving');
+  }
+}
+function toggleStatisticLock(discipline){
+  if(!discipline) return;
+  if(partialStatistics.has(discipline) && !partialStatisticsEditing.has(discipline)){
+    unlockStatisticForEditing(discipline);
     return;
   }
-  setDraftStatus('<strong>Borrador compartido:</strong> verificando…', true);
+  saveStatisticAndLock(discipline);
+}
+async function checkSharedDraft(){
+  const snap=currentRegisterSnapshot();
+  if(!snap.date){setDraftStatus('<strong>Estado del llenado:</strong> selecciona una fecha para verificar.',true); return;}
+  if(!snap.token){setDraftStatus('<strong>Estado del llenado:</strong> inicia sesión para consultar el avance compartido.',true); return;}
+  setDraftStatus('<strong>Estado del llenado:</strong> verificando…',true);
   try{
-    const result=await cloudApi('/api/drafts?date='+encodeURIComponent(snap.date),{token:snap.token});
-    if(!result.draft){
-      setDraftStatus('<strong>Borrador compartido:</strong> no hay borrador activo para esta fecha.', true);
+    const [statsResult,draftResult]=await Promise.all([
+      cloudApi('/api/partial-statistics?date='+encodeURIComponent(snap.date),{token:snap.token}),
+      cloudApi('/api/drafts?date='+encodeURIComponent(snap.date),{token:snap.token})
+    ]);
+    applyPartialStatisticsResult(statsResult,snap.date);
+    const count=lockedStatisticsCount();
+
+    if(count>0){
+      setDraftStatus(collaborativeStatusHtml(),true);
+      return;
+    }
+
+    const draft=draftResult?.draft||null;
+    if(!draft){
+      setDraftStatus('<strong>Estado del llenado:</strong> no hay estadísticas llenas ni borrador activo para esta fecha.',true);
       draftLoadedId='';
       return;
     }
-    const draft=result.draft;
-    const updated = draft.updatedAt || '';
-    const by = draft.updatedByName || draft.updatedBy || 'responsable no identificado';
-    draftLoadedId = String(draft.version || '');
-    setDraftStatus(`<strong>Borrador compartido activo.</strong><span class="log-muted">Última actualización: ${escapeHtml(updated)} · Responsable: ${escapeHtml(by)}</span><div class="draft-actions"><button class="btn secondary" type="button" id="loadSharedDraftBtn">Cargar borrador</button><button class="btn secondary" type="button" id="discardSharedDraftBtn">Descartar borrador</button></div>`, true);
+
+    const updated=draft.updatedAt||'';
+    const by=draft.updatedByName||draft.updatedBy||'responsable no identificado';
+    draftLoadedId=String(draft.version||'');
+    setDraftStatus(`<strong>Borrador anterior disponible.</strong><span class="log-muted">Última actualización: ${escapeHtml(updated)} · Responsable: ${escapeHtml(by)}</span><div class="draft-actions"><button class="btn secondary" type="button" id="loadSharedDraftBtn">Cargar borrador</button><button class="btn secondary" type="button" id="discardSharedDraftBtn">Descartar borrador</button></div>`,true);
     const loadBtn=$('loadSharedDraftBtn');
     const discardBtn=$('discardSharedDraftBtn');
-    if(loadBtn) loadBtn.onclick=()=>{fillRegisterFormFromRecord(draft.record || {}); setDraftStatus('<strong>Borrador cargado.</strong><span class="log-muted">No se actualizará hasta que modifiques algún campo.</span>', true);};
+    if(loadBtn) loadBtn.onclick=()=>{fillRegisterFormFromRecord(draft.record||{}); setDraftStatus('<strong>Borrador cargado.</strong><span class="log-muted">Revísalo y continúa desde aquí.</span>',true);};
     if(discardBtn) discardBtn.onclick=()=>discardSharedDraft();
   }catch(err){
     if(err.message==='UNAUTHORIZED'){await clearRegisterSession(); openRegisterLoginModal();}
-    setDraftStatus(`<strong>Borrador compartido:</strong> ${escapeHtml(err.message==='UNAUTHORIZED'?'La sesión venció. Inicia sesión nuevamente.':err.message)}`, true);
+    setDraftStatus(`<strong>No se pudo verificar el estado:</strong> ${escapeHtml(err.message==='UNAUTHORIZED'?'La sesión venció.':err.message)}`,true);
   }
 }
 async function discardSharedDraft(){
   const snap=currentRegisterSnapshot();
-  if(!snap.token || !snap.date) return;
+  if(!snap.token||!snap.date) return;
   try{
     await cloudApi('/api/drafts?date='+encodeURIComponent(snap.date),{method:'DELETE',token:snap.token});
     draftLoadedId='';
     draftLastSavedSignature='';
-    setDraftStatus('<strong>Borrador descartado.</strong>', true);
+    setDraftStatus('<strong>Borrador descartado.</strong>',true);
   }catch(err){
     if(err.message==='UNAUTHORIZED'){await clearRegisterSession(); openRegisterLoginModal();}
-    setDraftStatus(`<strong>No se pudo descartar el borrador:</strong> ${escapeHtml(err.message==='UNAUTHORIZED'?'La sesión venció.':err.message)}`, true);
+    setDraftStatus(`<strong>No se pudo descartar el borrador:</strong> ${escapeHtml(err.message==='UNAUTHORIZED'?'La sesión venció.':err.message)}`,true);
   }
 }
 function markDraftDirty(delay=5000){
   if(draftSuppressAutosave) return;
-  draftFormDirty = true;
+  draftFormDirty=true;
   scheduleDraftAutosave(delay);
 }
 function scheduleDraftAutosave(delay=5000){
-  if(draftSuppressAutosave || !draftFormDirty) return;
+  if(draftSuppressAutosave||!draftFormDirty) return;
   clearTimeout(draftAutosaveTimer);
-  draftAutosaveTimer=setTimeout(saveSharedDraft, delay);
+  draftAutosaveTimer=setTimeout(saveSharedDraft,delay);
 }
-async function saveSharedDraft(){
+async function saveSharedDraft(options={}){
   if(!draftFormDirty) return;
   const snap=currentRegisterSnapshot();
-  if(!snap.token || !snap.date) return;
+  if(!snap.token||!snap.date) return;
+  if(!allStatisticsLocked()) return;
   if(!recordHasContent(snap.record)) return;
   const sig=draftSignature(snap.record);
-  if(sig===draftLastSavedSignature) return;
-  setDraftStatus('<strong>Borrador compartido:</strong> <span class="draft-autosave-dot">guardando cambios…</span>', true);
+  if(sig===draftLastSavedSignature){draftFormDirty=false; return;}
+  if(!options.quiet) setDraftStatus('<strong>Borrador completo:</strong> <span class="draft-autosave-dot">guardando cambios…</span>',true);
   try{
     const result=await cloudApi('/api/drafts',{method:'PUT',token:snap.token,body:{date:snap.date,record:snap.record}});
     draftLastSavedSignature=sig;
     draftFormDirty=false;
-    draftLoadedId=String(result.version || draftLoadedId || '');
-    const time=result.updatedAt || 'ahora';
-    setDraftStatus(`<strong>Borrador compartido guardado en Cloudflare.</strong><span class="log-muted">Última actualización: ${escapeHtml(time)}</span>`, true);
+    draftLoadedId=String(result.version||draftLoadedId||'');
+    if(!options.quiet) setDraftStatus(collaborativeStatusHtml(),true);
   }catch(err){
     if(err.message==='UNAUTHORIZED'){await clearRegisterSession(); openRegisterLoginModal();}
-    setDraftStatus(`<strong>No se pudo autoguardar:</strong> ${escapeHtml(err.message==='UNAUTHORIZED'?'La sesión venció.':err.message)}`, true);
+    if(!options.quiet) setDraftStatus(`<strong>No se pudo autoguardar:</strong> ${escapeHtml(err.message==='UNAUTHORIZED'?'La sesión venció.':err.message)}`,true);
   }
 }
 async function updateDayLogStatus(){
@@ -3101,7 +3354,7 @@ async function updateDayLogStatus(){
 function refreshRegisterDayPanels(){
   updateDailyRecordStatus();
   updateDayLogStatus();
-  setDraftStatus('', false);
+  loadPartialStatistics().catch(()=>{});
 }
 
 function clearRecordForm(){
@@ -3114,6 +3367,8 @@ function clearRecordForm(){
   draftLastSavedSignature='';
   draftFormDirty=false;
   clearTimeout(draftAutosaveTimer);
+  partialStatisticsEditing.clear();
+  renderAllStatisticStates();
   setStatus('regStatus','');
 }
 function legacyRecordFromBackupPayload(payload){
@@ -3327,6 +3582,10 @@ async function saveRecord(){
     draftFormDirty=false;
     draftLastSavedSignature='';
     draftLoadedId='';
+    partialStatistics.clear();
+    partialStatisticsEditing.clear();
+    partialStatisticsDate='';
+    renderAllStatisticStates();
     if(getRegisterPassword()) apiCall('discardDraft',{password:getRegisterPassword(),date}).catch(()=>{});
     loadData({keepFilters:true}).catch(()=>{});
     refreshRegisterDayPanels();
@@ -3895,6 +4154,7 @@ function adminAuditLabel(type){
     record_deleted:'Registro eliminado',
     draft_saved:'Borrador guardado',
     draft_deleted:'Borrador descartado',
+    partial_stat_saved:'Estadística bloqueada',
     edit_unlocked:'Edición habilitada',
     admin_unlocked:'Administración habilitada',
     user_created:'Usuario creado',
@@ -3916,6 +4176,7 @@ function adminAuditDetail(ev){
   if(t==='record_deleted') return d.record?.record_date ? 'Registro de '+d.record.record_date+' eliminado.' : 'Se eliminó un registro.';
   if(t==='draft_saved') return d.date ? 'Borrador de '+d.date+' · versión '+(d.version||'')+'.' : 'Borrador actualizado.';
   if(t==='draft_deleted') return d.date ? 'Borrador de '+d.date+' descartado.' : 'Borrador descartado.';
+  if(t==='partial_stat_saved') return d.date && d.discipline ? d.discipline+' · '+d.date+' · '+String(d.attendance??0)+'.' : 'Estadística parcial actualizada.';
   if(t==='user_created') return 'Usuario '+(d.name||d.email||'')+' · rol '+(d.role||'registrador')+'.';
   if(t==='user_updated') return 'Se modificó un usuario'+(d.pin_reset?' y se restableció su PIN.':'.');
   if(t==='edit_unlocked') return 'Se autorizó una sesión temporal de edición.';

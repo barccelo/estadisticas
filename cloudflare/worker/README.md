@@ -35,6 +35,8 @@ Aplicar en orden:
 
 1. `migrations/0001_initial.sql`
 2. `migrations/0002_auth_hardening.sql`
+3. `migrations/0003_passkeys.sql`
+4. `migrations/0004_collaborative_statistics.sql`
 
 La segunda migración agrega la huella única de PIN y el control de intentos de acceso.
 

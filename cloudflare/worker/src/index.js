@@ -749,6 +749,142 @@ async function session(request, env) {
   });
 }
 
+async function ensurePartialStatisticsSchema(env) {
+  if (!env.DB) return;
+  await env.DB.batch([
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS partial_statistics (
+      record_date TEXT NOT NULL,
+      discipline TEXT NOT NULL,
+      attendance INTEGER NOT NULL DEFAULT 0 CHECK (attendance >= 0),
+      updated_by_user_id TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      PRIMARY KEY (record_date, discipline),
+      FOREIGN KEY (updated_by_user_id) REFERENCES users(id)
+    )`),
+    env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_partial_statistics_date ON partial_statistics(record_date)")
+  ]);
+}
+
+async function getPartialStatistics(request, env) {
+  if (!env.DB) return json({ ok:false, error:"D1_NOT_BOUND" },503);
+  const auth=await requireSession(request,env);
+  if (!auth) return json({ ok:false, error:"UNAUTHORIZED" },401);
+  if (!accountRoleAllowed(auth,["registrador","editor","admin"])) return json({ok:false,error:"ROLE_FORBIDDEN"},403);
+
+  const url=new URL(request.url);
+  const date=String(url.searchParams.get("date")||"").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return json({ok:false,error:"INVALID_DATE"},400);
+
+  await ensurePartialStatisticsSchema(env);
+  const rows=await env.DB.prepare(
+    `SELECT p.discipline,p.attendance,p.updated_at,
+            u.email AS updated_by_email,u.display_name AS updated_by_name
+       FROM partial_statistics p
+       LEFT JOIN users u ON u.id=p.updated_by_user_id
+      WHERE p.record_date=?1
+      ORDER BY p.discipline ASC`
+  ).bind(date).all();
+
+  const entries=(rows.results||[])
+    .filter(row=>RECORD_DISCIPLINES.includes(String(row.discipline||"")))
+    .map(row=>({
+      discipline:String(row.discipline||""),
+      attendance:Number(row.attendance||0),
+      updatedAt:row.updated_at||"",
+      updatedBy:row.updated_by_email||"",
+      updatedByName:row.updated_by_name||""
+    }));
+
+  return json({
+    ok:true,
+    date,
+    entries,
+    complete:RECORD_DISCIPLINES.every(d=>entries.some(entry=>entry.discipline===d))
+  });
+}
+
+async function savePartialStatistic(request, env) {
+  if (!env.DB) return json({ ok:false, error:"D1_NOT_BOUND" },503);
+  const auth=await requireSession(request,env);
+  if (!auth) return json({ ok:false, error:"UNAUTHORIZED" },401);
+  if (!accountRoleAllowed(auth,["registrador","editor","admin"])) return json({ok:false,error:"ROLE_FORBIDDEN"},403);
+
+  let body;
+  try { body=await request.json(); }
+  catch { return json({ok:false,error:"INVALID_JSON"},400); }
+
+  const date=String(body?.date||"").trim();
+  const discipline=String(body?.discipline||"").trim();
+  const attendance=Number(body?.attendance);
+  const expectedUpdatedAt=String(body?.expected_updated_at||"").trim();
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return json({ok:false,error:"INVALID_DATE"},400);
+  if (!RECORD_DISCIPLINES.includes(discipline)) return json({ok:false,error:"INVALID_DISCIPLINE"},400);
+  if (!Number.isFinite(attendance)||attendance<0||!Number.isInteger(attendance)||attendance>100000) {
+    return json({ok:false,error:"INVALID_ATTENDANCE",discipline},400);
+  }
+
+  await ensurePartialStatisticsSchema(env);
+  const existing=await env.DB.prepare(
+    "SELECT attendance,updated_by_user_id,updated_at FROM partial_statistics WHERE record_date=?1 AND discipline=?2 LIMIT 1"
+  ).bind(date,discipline).first();
+
+  if (existing) {
+    if (!expectedUpdatedAt) return json({ok:false,error:"STATISTIC_ALREADY_FILLED"},409);
+    if (String(existing.updated_at||"")!==expectedUpdatedAt) return json({ok:false,error:"STATISTIC_CHANGED"},409);
+
+    const result=await env.DB.prepare(
+      `UPDATE partial_statistics
+          SET attendance=?1,updated_by_user_id=?2,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
+        WHERE record_date=?3 AND discipline=?4 AND updated_at=?5`
+    ).bind(attendance,auth.user_id,date,discipline,expectedUpdatedAt).run();
+    if (Number(result?.meta?.changes||0)!==1) return json({ok:false,error:"STATISTIC_CHANGED"},409);
+  } else {
+    if (expectedUpdatedAt) return json({ok:false,error:"STATISTIC_CHANGED"},409);
+    try {
+      await env.DB.prepare(
+        `INSERT INTO partial_statistics(record_date,discipline,attendance,updated_by_user_id,updated_at)
+         VALUES(?1,?2,?3,?4,strftime('%Y-%m-%dT%H:%M:%fZ','now'))`
+      ).bind(date,discipline,attendance,auth.user_id).run();
+    } catch (error) {
+      const raced=await env.DB.prepare(
+        "SELECT 1 AS found FROM partial_statistics WHERE record_date=?1 AND discipline=?2 LIMIT 1"
+      ).bind(date,discipline).first();
+      if (raced) return json({ok:false,error:"STATISTIC_ALREADY_FILLED"},409);
+      throw error;
+    }
+  }
+
+  const saved=await env.DB.prepare(
+    `SELECT p.discipline,p.attendance,p.updated_at,
+            u.email AS updated_by_email,u.display_name AS updated_by_name
+       FROM partial_statistics p
+       LEFT JOIN users u ON u.id=p.updated_by_user_id
+      WHERE p.record_date=?1 AND p.discipline=?2
+      LIMIT 1`
+  ).bind(date,discipline).first();
+
+  await env.DB.prepare(
+    "INSERT INTO app_log(event_type,user_id,details_json) VALUES('partial_stat_saved',?1,?2)"
+  ).bind(auth.user_id,JSON.stringify({date,discipline,attendance})).run();
+
+  const countRow=await env.DB.prepare(
+    "SELECT COUNT(*) AS count FROM partial_statistics WHERE record_date=?1"
+  ).bind(date).first();
+
+  return json({
+    ok:true,
+    entry:{
+      discipline,
+      attendance:Number(saved?.attendance||0),
+      updatedAt:saved?.updated_at||new Date().toISOString(),
+      updatedBy:saved?.updated_by_email||auth.email||"",
+      updatedByName:saved?.updated_by_name||auth.display_name||""
+    },
+    complete:Number(countRow?.count||0)>=RECORD_DISCIPLINES.length
+  });
+}
+
 async function getDraft(request, env) {
   if (!env.DB) return json({ ok: false, error: "D1_NOT_BOUND" }, 503);
   const auth = await requireSession(request, env);
@@ -793,6 +929,7 @@ async function saveDraft(request, env) {
   const auth = await requireSession(request, env);
   if (!auth) return json({ ok: false, error: "UNAUTHORIZED" }, 401);
   if (!accountRoleAllowed(auth, ["registrador","editor","admin"])) return json({ ok:false, error:"ROLE_FORBIDDEN" },403);
+  await ensurePartialStatisticsSchema(env);
 
   let body;
   try { body = await request.json(); }
@@ -1485,6 +1622,7 @@ async function createRecord(request, env) {
       ).bind(recordId, discipline, clean[discipline])
     ),
     env.DB.prepare("DELETE FROM drafts WHERE record_date = ?1").bind(date),
+    env.DB.prepare("DELETE FROM partial_statistics WHERE record_date = ?1").bind(date),
   ];
 
   try {
@@ -2073,6 +2211,10 @@ export default {
         response = await passkeyAuthenticationOptions(request, env);
       } else if (url.pathname === "/api/passkeys/authenticate/verify" && request.method === "POST") {
         response = await passkeyAuthenticationVerify(request, env, ctx);
+      } else if (url.pathname === "/api/partial-statistics" && request.method === "GET") {
+        response = await getPartialStatistics(request, env);
+      } else if (url.pathname === "/api/partial-statistics" && request.method === "PUT") {
+        response = await savePartialStatistic(request, env);
       } else if (url.pathname === "/api/drafts" && request.method === "GET") {
         response = await getDraft(request, env);
       } else if (url.pathname === "/api/drafts" && request.method === "PUT") {
