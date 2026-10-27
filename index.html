@@ -408,6 +408,8 @@ body{background:#f6f7fb;}
 .draft-autosave-dot::before{content:"";width:7px;height:7px;border-radius:50%;background:#991b1b;opacity:.75}
 .draft-check-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0 2px}
 .draft-check-row .compact{min-height:34px;padding:7px 10px;font-size:12px}
+.draft-clear-btn{color:#991b1b!important;border-color:#fecaca!important;background:#fff!important}
+.draft-clear-btn:hover{background:#fff7f7!important;border-color:#fca5a5!important}
 .draft-check-hint{font-size:12px;color:#6b7280;line-height:1.25}
 @media(max-width:650px){.draft-status .draft-actions .btn{flex:1 1 auto;width:auto}.day-log-status,.draft-status{font-size:13px}.draft-check-row{display:grid;grid-template-columns:1fr;gap:6px}.draft-check-row .btn{width:100%}.draft-check-hint{font-size:11px}}
 .stat-field-head{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:28px}
@@ -1472,7 +1474,7 @@ body.swipe-navigation-active{
                   <details class="register-secondary">
                     <summary>Estado del llenado</summary>
                     <div class="register-secondary-body">
-                      <div class="draft-check-row"><button class="btn secondary compact" id="checkDraftBtn" type="button">Actualizar estado</button><span class="draft-check-hint">Los candados muestran qué disciplinas ya fueron llenadas y quién registró cada dato.</span></div>
+                      <div class="draft-check-row"><button class="btn secondary compact" id="checkDraftBtn" type="button">Actualizar estado</button><button class="btn secondary compact draft-clear-btn" id="clearDraftBtn" type="button">Limpiar borrador</button><span class="draft-check-hint">Los candados muestran qué disciplinas ya fueron llenadas y quién registró cada dato.</span></div>
                       <div id="dayLogStatus" class="daily-record-status day-log-status" aria-live="polite"></div>
                       <div id="draftStatus" class="daily-record-status draft-status" aria-live="polite"></div>
                     </div>
@@ -3374,6 +3376,50 @@ async function discardSharedDraft(){
     setDraftStatus(`<strong>No se pudo descartar el borrador:</strong> ${escapeHtml(err.message==='UNAUTHORIZED'?'La sesión venció.':err.message)}`,true);
   }
 }
+async function clearCollaborativeDraft(){
+  const snap=currentRegisterSnapshot();
+  if(!snap.token){openRegisterLoginModal(); return;}
+  if(!snap.date){setDraftStatus('<strong>Selecciona una fecha antes de limpiar el borrador.</strong>',true); return;}
+  const ok=confirm('Se eliminarán las estadísticas parciales bloqueadas y el borrador pendiente de '+niceDate(snap.date)+'. Los registros ya guardados no se modificarán. ¿Continuar?');
+  if(!ok) return;
+
+  const btn=$('clearDraftBtn');
+  if(btn){btn.disabled=true;btn.textContent='Limpiando…';}
+  clearTimeout(draftAutosaveTimer);
+  draftFormDirty=false;
+  draftSuppressAutosave=true;
+
+  try{
+    await cloudApi('/api/partial-statistics?date='+encodeURIComponent(snap.date),{
+      method:'DELETE',
+      token:snap.token
+    });
+
+    draftLoadedId='';
+    draftLastSavedSignature='';
+    partialStatistics.clear();
+    partialStatisticsEditing.clear();
+    partialStatisticsDate=snap.date;
+
+    DISCIPLINES.forEach(d=>{
+      const key=normalizeKey(d);
+      const input=$('reg_'+key);
+      if(input){input.value='';delete input.dataset.prevValue;}
+      const undo=$('undo_reg_'+key);
+      if(undo) undo.classList.remove('show');
+    });
+    if($('regObs')) $('regObs').value='';
+    renderAllStatisticStates();
+    setStatus('regStatus','');
+    setDraftStatus('<strong>Borrador limpio.</strong><span class="log-muted">Se eliminaron las estadísticas parciales y el borrador pendiente de esta fecha.</span>',true);
+  }catch(err){
+    if(err.message==='UNAUTHORIZED'){await clearRegisterSession();openRegisterLoginModal();}
+    setDraftStatus(`<strong>No se pudo limpiar el borrador:</strong> ${escapeHtml(err.message==='UNAUTHORIZED'?'La sesión venció.':err.message)}`,true);
+  }finally{
+    setTimeout(()=>{draftSuppressAutosave=false;},150);
+    if(btn){btn.disabled=false;btn.textContent='Limpiar borrador';}
+  }
+}
 function markDraftDirty(delay=5000){
   if(draftSuppressAutosave) return;
   draftFormDirty=true;
@@ -4243,6 +4289,7 @@ function adminAuditLabel(type){
     draft_saved:'Borrador guardado',
     draft_deleted:'Borrador descartado',
     partial_stat_saved:'Estadística bloqueada',
+    partial_stats_cleared:'Borrador colaborativo limpiado',
     edit_unlocked:'Edición habilitada',
     admin_unlocked:'Administración habilitada',
     user_created:'Usuario creado',
@@ -4265,6 +4312,7 @@ function adminAuditDetail(ev){
   if(t==='draft_saved') return d.date ? 'Borrador de '+d.date+' · versión '+(d.version||'')+'.' : 'Borrador actualizado.';
   if(t==='draft_deleted') return d.date ? 'Borrador de '+d.date+' descartado.' : 'Borrador descartado.';
   if(t==='partial_stat_saved') return d.date && d.discipline ? d.discipline+' · '+d.date+' · '+String(d.attendance??0)+'.' : 'Estadística parcial actualizada.';
+  if(t==='partial_stats_cleared') return d.date ? 'Trabajo pendiente de '+d.date+' eliminado.' : 'Borrador colaborativo eliminado.';
   if(t==='user_created') return 'Usuario '+(d.name||d.email||'')+' · rol '+(d.role||'registrador')+'.';
   if(t==='user_updated') return 'Se modificó un usuario'+(d.pin_reset?' y se restableció su PIN.':'.');
   if(t==='edit_unlocked') return 'Se autorizó una sesión temporal de edición.';
@@ -4370,6 +4418,7 @@ function initAdminModule(){
   if($('adminChangeAdminKeyBtn')) $('adminChangeAdminKeyBtn').onclick=()=>changeAccessKey('admin');
   if($('adminChangeEditKeyBtn')) $('adminChangeEditKeyBtn').onclick=()=>changeAccessKey('edit');
   const checkBtn=$('checkDraftBtn'); if(checkBtn) checkBtn.onclick=()=>{if(!registerSessionToken){openRegisterLoginModal(); return;} checkSharedDraft();};
+  const clearDraftBtn=$('clearDraftBtn'); if(clearDraftBtn) clearDraftBtn.onclick=clearCollaborativeDraft;
   ['regFecha'].forEach(id=>{const el=$(id); if(!el) return; el.addEventListener('change',refreshRegisterDayPanels);});
   ['regEmail','regObs'].forEach(id=>{const el=$(id); if(!el) return; el.addEventListener('input',()=>markDraftDirty(5000)); el.addEventListener('change',()=>markDraftDirty(1000));});
   ['guardPersonFilter','guardPointFilter'].forEach(id=>{if($(id)) $(id).onchange=renderGuardFull;});

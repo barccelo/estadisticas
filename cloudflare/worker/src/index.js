@@ -885,6 +885,45 @@ async function savePartialStatistic(request, env) {
   });
 }
 
+async function deletePartialStatistics(request, env) {
+  if (!env.DB) return json({ ok:false, error:"D1_NOT_BOUND" },503);
+  const auth=await requireSession(request,env);
+  if (!auth) return json({ ok:false, error:"UNAUTHORIZED" },401);
+  if (!accountRoleAllowed(auth,["registrador","editor","admin"])) return json({ok:false,error:"ROLE_FORBIDDEN"},403);
+
+  const url=new URL(request.url);
+  const date=String(url.searchParams.get("date")||"").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return json({ok:false,error:"INVALID_DATE"},400);
+
+  await ensurePartialStatisticsSchema(env);
+  const partialCount=await env.DB.prepare(
+    "SELECT COUNT(*) AS count FROM partial_statistics WHERE record_date=?1"
+  ).bind(date).first();
+  const draftExists=await env.DB.prepare(
+    "SELECT 1 AS found FROM drafts WHERE record_date=?1 LIMIT 1"
+  ).bind(date).first();
+
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM partial_statistics WHERE record_date=?1").bind(date),
+    env.DB.prepare("DELETE FROM drafts WHERE record_date=?1").bind(date)
+  ]);
+
+  await env.DB.prepare(
+    "INSERT INTO app_log(event_type,user_id,details_json) VALUES('partial_stats_cleared',?1,?2)"
+  ).bind(auth.user_id,JSON.stringify({
+    date,
+    partialCount:Number(partialCount?.count||0),
+    draftDeleted:Boolean(draftExists)
+  })).run();
+
+  return json({
+    ok:true,
+    date,
+    partialDeleted:Number(partialCount?.count||0),
+    draftDeleted:Boolean(draftExists)
+  });
+}
+
 async function getDraft(request, env) {
   if (!env.DB) return json({ ok: false, error: "D1_NOT_BOUND" }, 503);
   const auth = await requireSession(request, env);
@@ -2232,6 +2271,8 @@ export default {
         response = await getPartialStatistics(request, env);
       } else if (url.pathname === "/api/partial-statistics" && request.method === "PUT") {
         response = await savePartialStatistic(request, env);
+      } else if (url.pathname === "/api/partial-statistics" && request.method === "DELETE") {
+        response = await deletePartialStatistics(request, env);
       } else if (url.pathname === "/api/drafts" && request.method === "GET") {
         response = await getDraft(request, env);
       } else if (url.pathname === "/api/drafts" && request.method === "PUT") {
