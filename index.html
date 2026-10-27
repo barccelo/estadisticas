@@ -412,13 +412,14 @@ body{background:#f6f7fb;}
 @media(max-width:650px){.draft-status .draft-actions .btn{flex:1 1 auto;width:auto}.day-log-status,.draft-status{font-size:13px}.draft-check-row{display:grid;grid-template-columns:1fr;gap:6px}.draft-check-row .btn{width:100%}.draft-check-hint{font-size:11px}}
 .stat-field-head{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:28px}
 .stat-field-head label{margin:0}
-.stat-lock{display:inline-flex;align-items:center;justify-content:center;gap:0;width:28px;min-width:28px;height:28px;padding:0;border:1px solid #d1d5db;border-radius:999px;background:#fff;color:#6b7280;cursor:pointer;transition:width .16s ease,min-width .16s ease,padding .16s ease,gap .16s ease,background .16s ease,border-color .16s ease,color .16s ease}
-.stat-lock svg{width:14px;height:14px;flex:0 0 14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.stat-lock{display:inline-flex;align-items:center;justify-content:center;gap:0;width:28px;min-width:28px;max-width:28px;height:28px;min-height:28px;max-height:28px;padding:0;border:1px solid #d1d5db;border-radius:50%;background:#fff;color:#6b7280;cursor:pointer;transition:width .16s ease,min-width .16s ease,max-width .16s ease,padding .16s ease,gap .16s ease,background .16s ease,border-color .16s ease,color .16s ease}
+.stat-lock svg{display:block;width:14px;height:14px;flex:0 0 14px;margin:0;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .stat-lock:hover{border-color:#9ca3af;color:#111827}
-.stat-lock.locked{width:auto;min-width:48px;padding:0 7px;gap:4px;background:#111827;border-color:#111827;color:#fff}
-.stat-lock.editing{width:28px;min-width:28px;padding:0;gap:0;background:#fff7ed;border-color:#fdba74;color:#9a3412}
+.stat-lock.locked{width:auto;min-width:48px;max-width:none;padding:0 7px;gap:4px;border-radius:999px;background:#111827;border-color:#111827;color:#fff}
+.stat-lock.editing{width:28px;min-width:28px;max-width:28px;padding:0;gap:0;border-radius:50%;background:#fff7ed;border-color:#fdba74;color:#9a3412}
 .stat-lock.saving{opacity:.55;pointer-events:none}
 .stat-lock-owner{display:inline-grid;place-items:center;min-width:16px;height:16px;border-radius:999px;background:rgba(255,255,255,.2);font-size:10px;font-weight:900;line-height:1}
+.stat-lock-owner[hidden]{display:none!important}
 .numeric-field.stat-locked .num-input-shell input{background:#f3f4f6;color:#374151;border-color:#e5e7eb;font-weight:800}
 .numeric-field.stat-locked .sum-control{opacity:.35;cursor:default}
 .numeric-field.stat-editing .num-input-shell input{border-color:#fdba74;box-shadow:0 0 0 2px rgba(251,146,60,.12)}
