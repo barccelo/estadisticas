@@ -2711,24 +2711,50 @@ function mergeRealtimePartialSnapshot(result,date){
   });
   setDraftStatus(collaborativeStatusHtml(),true);
 }
+function applyRealtimePartialEntry(payload){
+  const date=String(payload?.date||'');
+  const entry=payload?.entry||null;
+  const discipline=String(entry?.discipline||payload?.discipline||'');
+  if(!date || ($('regFecha')?.value||'')!==date) return;
+  if(!DISCIPLINES.includes(discipline) || !entry) return;
+  if(partialStatisticsEditing.has(discipline)) return;
+
+  partialStatisticsDate=date;
+  partialStatistics.set(discipline,entry);
+  const input=$('reg_'+normalizeKey(discipline));
+  if(input){
+    input.value=String(entry.attendance ?? 0);
+    delete input.dataset.prevValue;
+  }
+  const undo=$('undo_reg_'+normalizeKey(discipline));
+  if(undo) undo.classList.remove('show');
+  renderStatisticFieldState(discipline);
+  setDraftStatus(collaborativeStatusHtml(),true);
+}
+function applyRealtimePartialClear(payload){
+  const date=String(payload?.date||'');
+  if(!date || ($('regFecha')?.value||'')!==date) return;
+
+  partialStatistics.clear();
+  partialStatisticsEditing.clear();
+  partialStatisticsDate=date;
+  DISCIPLINES.forEach(discipline=>{
+    const input=$('reg_'+normalizeKey(discipline));
+    if(input){
+      input.value='';
+      delete input.dataset.prevValue;
+    }
+    const undo=$('undo_reg_'+normalizeKey(discipline));
+    if(undo) undo.classList.remove('show');
+    renderStatisticFieldState(discipline);
+  });
+  setDraftStatus('<strong>Estadísticas llenas:</strong> todavía no hay disciplinas bloqueadas para esta fecha.',true);
+}
 function scheduleRealtimeRefresh(type){
+  if(type!=='records-changed') return;
   clearTimeout(realtimeRefreshTimer);
-  realtimeRefreshTimer=setTimeout(async()=>{
-    if(type==='partial-statistics-changed'){
-      if(!registerSessionToken) return;
-      const date=$('regFecha')?.value||'';
-      if(!date) return;
-      try{
-        const result=await cloudApi('/api/partial-statistics?date='+encodeURIComponent(date),{token:registerSessionToken});
-        mergeRealtimePartialSnapshot(result,date);
-      }catch(err){
-        if(err.message==='UNAUTHORIZED') closeRealtimeSync();
-      }
-      return;
-    }
-    if(type==='records-changed'){
-      loadData({keepFilters:true}).catch(()=>{});
-    }
+  realtimeRefreshTimer=setTimeout(()=>{
+    loadData({keepFilters:true}).catch(()=>{});
   },120);
 }
 function closeRealtimeSync(){
@@ -2751,7 +2777,15 @@ function initRealtimeSync(){
     socket.onmessage=event=>{
       let payload;
       try{payload=JSON.parse(String(event.data||''));}catch(_e){return;}
-      if(payload?.type==='partial-statistics-changed' || payload?.type==='records-changed'){
+      if(payload?.type==='partial-statistic-updated'){
+        applyRealtimePartialEntry(payload);
+        return;
+      }
+      if(payload?.type==='partial-statistics-cleared'){
+        applyRealtimePartialClear(payload);
+        return;
+      }
+      if(payload?.type==='records-changed'){
         scheduleRealtimeRefresh(payload.type);
       }
     };

@@ -50,14 +50,14 @@ function realtimeRoom(env) {
   return env.REALTIME.getByName("club-deportivo");
 }
 
-async function broadcastRealtime(env, type) {
+async function broadcastRealtime(env, type, detail = {}) {
   const room = realtimeRoom(env);
   if (!room) return;
   try {
     await room.fetch("https://realtime.internal/broadcast", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ type, at: new Date().toISOString() }),
+      body: JSON.stringify({ type, at: new Date().toISOString(), ...detail }),
     });
   } catch (error) {
     console.warn("Realtime broadcast failed", error);
@@ -930,17 +930,20 @@ async function savePartialStatistic(request, env) {
     "SELECT COUNT(*) AS count FROM partial_statistics WHERE record_date=?1"
   ).bind(date).first();
 
-  await broadcastRealtime(env, "partial-statistics-changed");
+  const entry={
+    discipline,
+    attendance:Number(saved?.attendance||0),
+    updatedAt:saved?.updated_at||new Date().toISOString(),
+    updatedBy:saved?.updated_by_email||auth.email||"",
+    updatedByName:saved?.updated_by_name||auth.display_name||""
+  };
+
+  await broadcastRealtime(env, "partial-statistic-updated", { date, discipline, entry });
+  await broadcastRealtime(env, "partial-statistics-changed", { date });
 
   return json({
     ok:true,
-    entry:{
-      discipline,
-      attendance:Number(saved?.attendance||0),
-      updatedAt:saved?.updated_at||new Date().toISOString(),
-      updatedBy:saved?.updated_by_email||auth.email||"",
-      updatedByName:saved?.updated_by_name||auth.display_name||""
-    },
+    entry,
     complete:Number(countRow?.count||0)>=RECORD_DISCIPLINES.length
   });
 }
@@ -976,7 +979,8 @@ async function deletePartialStatistics(request, env) {
     draftDeleted:Boolean(draftExists)
   })).run();
 
-  await broadcastRealtime(env, "partial-statistics-changed");
+  await broadcastRealtime(env, "partial-statistics-cleared", { date });
+  await broadcastRealtime(env, "partial-statistics-changed", { date });
 
   return json({
     ok:true,
@@ -1776,8 +1780,9 @@ async function createRecord(request, env) {
     attendance:clean
   });
 
-  await broadcastRealtime(env, "records-changed");
-  await broadcastRealtime(env, "partial-statistics-changed");
+  await broadcastRealtime(env, "records-changed", { date });
+  await broadcastRealtime(env, "partial-statistics-cleared", { date });
+  await broadcastRealtime(env, "partial-statistics-changed", { date });
 
   return json({
     ok: true,
