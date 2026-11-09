@@ -1,3 +1,4 @@
+import { DurableObject } from "cloudflare:workers";
 import {
   generateRegistrationOptions,
   verifyRegistrationResponse,
@@ -15,10 +16,9 @@ const json = (data, status = 200, extra = {}) =>
     },
   });
 
-export class StatisticsRealtime {
+export class StatisticsRealtime extends DurableObject {
   constructor(ctx, env) {
-    this.ctx = ctx;
-    this.env = env;
+    super(ctx, env);
   }
 
   async fetch(request) {
@@ -47,8 +47,7 @@ export class StatisticsRealtime {
 
 function realtimeRoom(env) {
   if (!env?.REALTIME) return null;
-  const id = env.REALTIME.idFromName("club-deportivo");
-  return env.REALTIME.get(id);
+  return env.REALTIME.getByName("club-deportivo");
 }
 
 async function broadcastRealtime(env, type) {
