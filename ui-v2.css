@@ -530,7 +530,8 @@ body{-webkit-font-smoothing:antialiased!important;text-rendering:optimizeLegibil
   .landing-toggle{min-height:60px!important;padding:0 13px!important}
   .landing-toggle-copy strong{font-size:15.5px!important}
   .landing-toggle-copy small{font-size:11px!important}
-  .register-card-body{padding:11px 13px 13px!important}
+  .register-card-body{padding:7px 13px 13px!important}
+  .register-session-pill{margin-bottom:7px!important}
 }
 
 /* Guardias de hoy: 3 + 2, sin scroll horizontal */
