@@ -156,6 +156,11 @@ body{background:#f6f7fb;}
 .daily-record-status{display:none;margin:10px 0 6px;border:1px solid #e5e7eb;border-radius:14px;padding:10px 12px;background:#f9fafb;color:#4b5563;font-size:13px;line-height:1.35}
 .daily-record-status.active{display:block}
 .daily-record-status strong{color:#111827}
+.daily-record-link{appearance:none;border:0;background:none;padding:0;margin:0;color:inherit;font:inherit;font-weight:800;text-decoration:underline;text-underline-offset:2px;cursor:pointer}
+.daily-record-link:hover{color:#991b1b}
+.stat-lock.completed-view:disabled{opacity:1;cursor:default}
+.numeric-field.completed-record .num-input-shell input{background:#f3f4f6;color:#374151;border-color:#e5e7eb;font-weight:800}
+.completed-record-note{display:block;margin-top:4px;color:#6b7280;font-size:12px}
 .num-input-shell{position:relative;display:flex;align-items:center}
 .num-input-shell input{padding-right:74px}
 .sum-control{position:absolute;right:7px;top:50%;transform:translateY(-50%);border:1px solid #e5e7eb;background:#f9fafb;color:#6b7280;border-radius:999px;min-width:48px;height:30px;font-size:12px;font-weight:800;cursor:pointer;opacity:.82}
@@ -1811,6 +1816,9 @@ let realtimeSocket = null;
 let realtimeReconnectTimer = null;
 let realtimeRefreshTimer = null;
 let realtimeReconnectDelay = 1000;
+let realtimePopupDate = '';
+let completedRecordViewMode = false;
+let completedRecordViewRow = null;
 let registerSessionPassword = '';
 let registerSessionUser = null;
 let registerSessionToken = '';
@@ -2497,8 +2505,89 @@ function updateDailyRecordStatus(){
   const last=rows[0];
   const resp=last.email ? responsibleShort(last.email) : 'responsable no identificado';
   const total=fmt.format(rows.reduce((a,r)=>a+Number(r.total||0),0));
+  const existingLabel=rows.length===1?'existe 1 registro':'existen '+rows.length+' registros';
   box.classList.add('active');
-  box.innerHTML=`<strong>Estado del día:</strong> ya ${rows.length===1?'existe 1 registro':'existen '+rows.length+' registros'} para ${escapeHtml(niceDate(date))}. Último responsable: <strong>${escapeHtml(resp)}</strong>. Total registrado: <strong>${total}</strong>.`;
+  box.innerHTML=`<strong>Estado del día:</strong> ya <button class="daily-record-link" id="viewCompletedDayRecordBtn" type="button">${escapeHtml(existingLabel)}</button> para ${escapeHtml(niceDate(date))}. Último responsable: <strong>${escapeHtml(resp)}</strong>. Total registrado: <strong>${total}</strong>.`;
+  const viewBtn=$('viewCompletedDayRecordBtn');
+  if(viewBtn) viewBtn.onclick=()=>openCompletedRecordView(last);
+}
+function completedRecordOwnerEntry(row,discipline){
+  return {
+    discipline,
+    attendance:Number(row?.valores?.[discipline]||0),
+    updatedBy:String(row?.email||''),
+    updatedByName:String(row?.responsable||responsibleShort(row?.email||'')||'responsable')
+  };
+}
+function setCompletedRecordControls(){
+  const viewing=Boolean(completedRecordViewMode && completedRecordViewRow);
+  const date=$('regFecha');
+  const email=$('regEmail');
+  const obs=$('regObs');
+  const save=$('saveRecordBtn');
+  const clear=$('clearRecordFormBtn');
+  if(date) date.disabled=viewing;
+  if(email) email.disabled=true;
+  if(obs) obs.readOnly=viewing;
+  if(save) save.disabled=viewing;
+  if(clear) clear.textContent=viewing?'Cerrar vista':'Limpiar';
+}
+function openCompletedRecordView(row){
+  if(!row) return;
+  completedRecordViewMode=true;
+  completedRecordViewRow=row;
+  draftSuppressAutosave=true;
+  clearTimeout(draftAutosaveTimer);
+
+  if($('regFecha')) $('regFecha').value=String(row.fecha||'');
+  if($('regEmail')){
+    fillResponsibleSelect('regEmail',false,String(row.email||''));
+    $('regEmail').value=String(row.email||'');
+  }
+  if($('regObs')) $('regObs').value=String(row.observaciones||'');
+  DISCIPLINES.forEach(d=>{
+    const input=$('reg_'+normalizeKey(d));
+    if(input){
+      input.value=String(Number(row?.valores?.[d]||0));
+      delete input.dataset.prevValue;
+    }
+    const undo=$('undo_reg_'+normalizeKey(d));
+    if(undo) undo.classList.remove('show');
+  });
+  partialStatisticsEditing.clear();
+  setCompletedRecordControls();
+  renderAllStatisticStates();
+  setDraftStatus('<strong>Registro guardado · Solo lectura.</strong><span class="completed-record-note">Los datos mostrados ya fueron guardados definitivamente y no pueden modificarse desde esta vista.</span>',true);
+  setStatus('regStatus','');
+  setTimeout(()=>{draftSuppressAutosave=false;},150);
+}
+function closeCompletedRecordView(){
+  if(!completedRecordViewMode) return;
+  const date=String(completedRecordViewRow?.fecha||$('regFecha')?.value||todayISO());
+  completedRecordViewMode=false;
+  completedRecordViewRow=null;
+  draftSuppressAutosave=true;
+
+  if($('regFecha')){$('regFecha').disabled=false;$('regFecha').value=date;}
+  if($('regEmail')){
+    const sessionEmail=getRegisterSessionEmail();
+    fillResponsibleSelect('regEmail',false,sessionEmail);
+    $('regEmail').value=sessionEmail;
+    $('regEmail').disabled=true;
+    $('regEmail').classList.add('session-locked');
+  }
+  if($('regObs')){$('regObs').readOnly=false;$('regObs').value='';}
+  DISCIPLINES.forEach(d=>{
+    const input=$('reg_'+normalizeKey(d));
+    if(input){input.value='';delete input.dataset.prevValue;}
+  });
+  partialStatistics.clear();
+  partialStatisticsEditing.clear();
+  partialStatisticsDate='';
+  setCompletedRecordControls();
+  renderAllStatisticStates();
+  setStatus('regStatus','');
+  setTimeout(()=>{draftSuppressAutosave=false;refreshRegisterDayPanels();},80);
 }
 function applyTodayFilter(){
   const t=todayISO();
@@ -2711,6 +2800,52 @@ function mergeRealtimePartialSnapshot(result,date){
   });
   setDraftStatus(collaborativeStatusHtml(),true);
 }
+function openRealtimeStatisticsPopup(payload){
+  const modal=$('sessionWelcomeModal');
+  const summary=$('sessionWelcomeSummary');
+  const actions=$('sessionWelcomeActions');
+  const title=$('sessionWelcomeTitle');
+  if(!modal||!summary||!actions) return;
+
+  const entry=payload?.entry||{};
+  const actorEmail=String(entry.updatedBy||'').trim().toLowerCase();
+  const selfEmail=String(registerSessionUser?.email||'').trim().toLowerCase();
+  if(actorEmail && selfEmail && actorEmail===selfEmail) return;
+
+  const date=String(payload?.date||'');
+  const discipline=String(entry.discipline||payload?.discipline||'');
+  const who=statisticOwnerLabel(entry);
+  const count=(date===($('regFecha')?.value||'')) ? lockedStatisticsCount() : null;
+  realtimePopupDate=date;
+
+  if(title) title.textContent='Estadísticas actualizadas';
+  summary.innerHTML='<div class="welcome-summary-item attention">'+
+    '<div class="welcome-summary-icon">'+welcomeIcon('stats')+'</div>'+
+    '<div class="welcome-summary-copy"><strong>'+escapeHtml(who)+' registró '+escapeHtml(discipline)+'</strong><span>'+
+    escapeHtml(String(entry.attendance ?? 0)+' · '+niceDate(date)+(count!==null?' · '+count+' de '+DISCIPLINES.length+' llenas':''))+
+    '</span></div></div>';
+  actions.innerHTML='<button class="btn" id="realtimeStatsOpenBtn" type="button">Ver estadísticas</button><button class="btn secondary" id="realtimeStatsDismissBtn" type="button">Cerrar</button>';
+  modal.hidden=false;
+
+  const openBtn=$('realtimeStatsOpenBtn');
+  if(openBtn) openBtn.onclick=async()=>{
+    closeSessionWelcomeModal();
+    showView('inicio');
+    const target=$('registerCollapseContent');
+    const card=$('registerCollapseCard');
+    if(target) target.hidden=false;
+    if(card) card.classList.add('open');
+    if(date && $('regFecha') && $('regFecha').value!==date){
+      $('regFecha').value=date;
+      await loadPartialStatistics();
+    }else{
+      setDraftStatus(collaborativeStatusHtml(),true);
+    }
+    setTimeout(()=>card?.scrollIntoView({behavior:'smooth',block:'start'}),80);
+  };
+  const dismissBtn=$('realtimeStatsDismissBtn');
+  if(dismissBtn) dismissBtn.onclick=closeSessionWelcomeModal;
+}
 function applyRealtimePartialEntry(payload){
   const date=String(payload?.date||'');
   const entry=payload?.entry||null;
@@ -2779,6 +2914,7 @@ function initRealtimeSync(){
       try{payload=JSON.parse(String(event.data||''));}catch(_e){return;}
       if(payload?.type==='partial-statistic-updated'){
         applyRealtimePartialEntry(payload);
+        openRealtimeStatisticsPopup(payload);
         return;
       }
       if(payload?.type==='partial-statistics-cleared'){
@@ -3042,6 +3178,7 @@ async function showSessionWelcomeModal(){
   const actions=$('sessionWelcomeActions');
   if(!modal||!summary||!actions){welcomeLoading=false;return;}
   const today=todayISO();
+  if($('sessionWelcomeTitle')) $('sessionWelcomeTitle').textContent='Aviso';
   summary.innerHTML='';
   actions.innerHTML='';
 
@@ -3288,25 +3425,32 @@ function renderStatisticFieldState(discipline){
   if(!input) return;
   const wrap=input.closest('.numeric-field');
   const lock=wrap?.querySelector('.stat-lock');
-  const owner=lock?.querySelector('.stat-lock-owner');
   const sum=wrap?.querySelector('.sum-control');
   const undo=$('undo_reg_'+key);
-  const entry=partialStatistics.get(discipline)||null;
-  const editing=partialStatisticsEditing.has(discipline);
-  const locked=Boolean(entry && !editing);
+  const completed=Boolean(completedRecordViewMode && completedRecordViewRow);
+  const entry=completed ? completedRecordOwnerEntry(completedRecordViewRow,discipline) : (partialStatistics.get(discipline)||null);
+  const editing=completed ? false : partialStatisticsEditing.has(discipline);
+  const locked=completed || Boolean(entry && !editing);
 
   wrap?.classList.toggle('stat-locked',locked);
-  wrap?.classList.toggle('stat-editing',Boolean(entry&&editing));
+  wrap?.classList.toggle('stat-editing',Boolean(!completed&&entry&&editing));
+  wrap?.classList.toggle('completed-record',completed);
   input.readOnly=locked;
   input.setAttribute('aria-readonly',locked?'true':'false');
   if(sum) sum.disabled=locked;
   if(undo && locked) undo.classList.remove('show');
 
   if(lock){
+    lock.disabled=completed;
     lock.classList.toggle('locked',locked);
-    lock.classList.toggle('editing',Boolean(entry&&editing));
+    lock.classList.toggle('editing',Boolean(!completed&&entry&&editing));
+    lock.classList.toggle('completed-view',completed);
     lock.innerHTML=statisticLockSvg(locked)+`<span class="stat-lock-owner"${locked?'':' hidden'}>${locked?escapeHtml(statisticOwnerInitial(entry)):''}</span>`;
-    if(locked){
+    if(completed){
+      const who=statisticOwnerLabel(entry);
+      lock.title=`Registro final guardado por ${who}. Solo lectura.`;
+      lock.setAttribute('aria-label',`${discipline}: registro final guardado por ${who}; solo lectura`);
+    }else if(locked){
       const who=statisticOwnerLabel(entry);
       lock.title=`Registrado por ${who}. Toca el candado para editar.`;
       lock.setAttribute('aria-label',`${discipline}: registrado por ${who}. Toca para editar.`);
@@ -3450,6 +3594,7 @@ async function saveStatisticAndLock(discipline){
   }
 }
 function toggleStatisticLock(discipline){
+  if(completedRecordViewMode) return;
   if(!discipline) return;
   if(partialStatistics.has(discipline) && !partialStatisticsEditing.has(discipline)){
     unlockStatisticForEditing(discipline);
@@ -3610,6 +3755,7 @@ function refreshRegisterDayPanels(){
 }
 
 function clearRecordForm(){
+  if(completedRecordViewMode){closeCompletedRecordView();return;}
   $('regFecha').value=todayISO();
   if(getRegisterSessionEmail()){fillResponsibleSelect('regEmail', false, getRegisterSessionEmail()); $('regEmail').value=getRegisterSessionEmail(); $('regEmail').disabled=true; $('regEmail').classList.add('session-locked');}
   else $('regEmail').value='';
@@ -4551,7 +4697,7 @@ function initAdminModule(){
   if($('adminChangeEditKeyBtn')) $('adminChangeEditKeyBtn').onclick=()=>changeAccessKey('edit');
   const checkBtn=$('checkDraftBtn'); if(checkBtn) checkBtn.onclick=()=>{if(!registerSessionToken){openRegisterLoginModal(); return;} checkSharedDraft();};
   const clearDraftBtn=$('clearDraftBtn'); if(clearDraftBtn) clearDraftBtn.onclick=clearCollaborativeDraft;
-  ['regFecha'].forEach(id=>{const el=$(id); if(!el) return; el.addEventListener('change',refreshRegisterDayPanels);});
+  ['regFecha'].forEach(id=>{const el=$(id); if(!el) return; el.addEventListener('change',()=>{if(completedRecordViewMode){completedRecordViewMode=false;completedRecordViewRow=null;setCompletedRecordControls();renderAllStatisticStates();}refreshRegisterDayPanels();});});
   ['regEmail','regObs'].forEach(id=>{const el=$(id); if(!el) return; el.addEventListener('input',()=>markDraftDirty(5000)); el.addEventListener('change',()=>markDraftDirty(1000));});
   ['guardPersonFilter','guardPointFilter'].forEach(id=>{if($(id)) $(id).onchange=renderGuardFull;});
   document.querySelectorAll('[data-guard-week]').forEach(btn=>btn.onclick=()=>{setGuardSelection(Number(btn.dataset.guardWeek),Number($('guardDayFilter')?.value||1));renderGuardFull();});
