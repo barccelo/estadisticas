@@ -1807,6 +1807,10 @@ let partialStatistics = new Map();
 let partialStatisticsEditing = new Set();
 let partialStatisticsDate = '';
 let partialStatisticsLoadSeq = 0;
+let realtimeSocket = null;
+let realtimeReconnectTimer = null;
+let realtimeRefreshTimer = null;
+let realtimeReconnectDelay = 1000;
 let registerSessionPassword = '';
 let registerSessionUser = null;
 let registerSessionToken = '';
@@ -2680,9 +2684,99 @@ function passkeyErrorMessage(err){
   if(err?.name==='SecurityError') return 'El acceso biométrico sólo puede configurarse desde cd.losrobles.workers.dev.';
   return err?.message||'No se pudo completar el acceso biométrico.';
 }
+function realtimeSocketUrl(){
+  return String(CLOUD_API_URL||location.origin).replace(/^http/i,'ws').replace(/\/$/,'')+'/api/live';
+}
+function mergeRealtimePartialSnapshot(result,date){
+  if(($('regFecha')?.value||'')!==date) return;
+  const incoming=new Map();
+  (Array.isArray(result?.entries)?result.entries:[]).forEach(entry=>{
+    const discipline=String(entry?.discipline||'');
+    if(DISCIPLINES.includes(discipline)) incoming.set(discipline,entry);
+  });
+  partialStatisticsDate=date;
+  DISCIPLINES.forEach(discipline=>{
+    if(partialStatisticsEditing.has(discipline)) return;
+    const entry=incoming.get(discipline)||null;
+    const input=$('reg_'+normalizeKey(discipline));
+    if(entry) partialStatistics.set(discipline,entry);
+    else partialStatistics.delete(discipline);
+    if(input){
+      input.value=entry ? String(entry.attendance) : '';
+      delete input.dataset.prevValue;
+    }
+    const undo=$('undo_reg_'+normalizeKey(discipline));
+    if(undo) undo.classList.remove('show');
+    renderStatisticFieldState(discipline);
+  });
+  setDraftStatus(collaborativeStatusHtml(),true);
+}
+function scheduleRealtimeRefresh(type){
+  clearTimeout(realtimeRefreshTimer);
+  realtimeRefreshTimer=setTimeout(async()=>{
+    if(type==='partial-statistics-changed'){
+      if(!registerSessionToken) return;
+      const date=$('regFecha')?.value||'';
+      if(!date) return;
+      try{
+        const result=await cloudApi('/api/partial-statistics?date='+encodeURIComponent(date),{token:registerSessionToken});
+        mergeRealtimePartialSnapshot(result,date);
+      }catch(err){
+        if(err.message==='UNAUTHORIZED') closeRealtimeSync();
+      }
+      return;
+    }
+    if(type==='records-changed'){
+      loadData({keepFilters:true}).catch(()=>{});
+    }
+  },120);
+}
+function closeRealtimeSync(){
+  clearTimeout(realtimeReconnectTimer);
+  realtimeReconnectTimer=null;
+  if(realtimeSocket){
+    const socket=realtimeSocket;
+    realtimeSocket=null;
+    try{socket.onclose=null;socket.close(1000,'session closed');}catch(_e){}
+  }
+}
+function initRealtimeSync(){
+  if(!('WebSocket' in window)) return;
+  if(realtimeSocket && (realtimeSocket.readyState===WebSocket.OPEN || realtimeSocket.readyState===WebSocket.CONNECTING)) return;
+  clearTimeout(realtimeReconnectTimer);
+  try{
+    const socket=new WebSocket(realtimeSocketUrl());
+    realtimeSocket=socket;
+    socket.onopen=()=>{realtimeReconnectDelay=1000;};
+    socket.onmessage=event=>{
+      let payload;
+      try{payload=JSON.parse(String(event.data||''));}catch(_e){return;}
+      if(payload?.type==='partial-statistics-changed' || payload?.type==='records-changed'){
+        scheduleRealtimeRefresh(payload.type);
+      }
+    };
+    socket.onclose=()=>{
+      if(realtimeSocket===socket) realtimeSocket=null;
+      clearTimeout(realtimeReconnectTimer);
+      realtimeReconnectTimer=setTimeout(()=>{
+        realtimeReconnectDelay=Math.min(15000,realtimeReconnectDelay*1.7);
+        initRealtimeSync();
+      },realtimeReconnectDelay);
+    };
+    socket.onerror=()=>{};
+  }catch(_e){
+    clearTimeout(realtimeReconnectTimer);
+    realtimeReconnectTimer=setTimeout(initRealtimeSync,realtimeReconnectDelay);
+  }
+}
+document.addEventListener('visibilitychange',()=>{
+  if(!document.hidden) initRealtimeSync();
+});
+
 async function finishAuthenticatedSession(result,password=''){
   if(!result?.ok || !result?.user || !result?.token) throw new Error('No se pudo iniciar sesión.');
   setRegisterPasswordSession(password,result.user,result.token);
+  initRealtimeSync();
   welcomePending=true;
   unlockAppAfterLogin();
   closeRegisterLoginModal();
@@ -4878,6 +4972,7 @@ initAdminModule();
 window.addEventListener('beforeunload',()=>{try{saveSharedDraft();}catch(e){}});
 loadData();
 initGuardModule();
+initRealtimeSync();
 setTimeout(()=>maybeAutoPasskeyLogin(),250);
 </script>
 <script>

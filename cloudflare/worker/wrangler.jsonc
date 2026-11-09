@@ -11,7 +11,9 @@
     "directory": "../..",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*"]
+    "run_worker_first": [
+      "/api/*"
+    ]
   },
   "vars": {
     "ALLOWED_ORIGINS": "https://barccelo.github.io,https://cd.losrobles.workers.dev"
@@ -21,6 +23,22 @@
       "binding": "DB",
       "database_name": "club-deportivo-db",
       "database_id": "a3074782-a9bd-4db6-9f90-16e658eda43c"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "REALTIME",
+        "class_name": "StatisticsRealtime"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "StatisticsRealtime"
+      ]
     }
   ]
 }

@@ -15,6 +15,65 @@ const json = (data, status = 200, extra = {}) =>
     },
   });
 
+export class StatisticsRealtime {
+  constructor(ctx, env) {
+    this.ctx = ctx;
+    this.env = env;
+  }
+
+  async fetch(request) {
+    if ((request.headers.get("Upgrade") || "").toLowerCase() === "websocket") {
+      const pair = new WebSocketPair();
+      const [client, server] = Object.values(pair);
+      this.ctx.acceptWebSocket(server);
+      return new Response(null, { status: 101, webSocket: client });
+    }
+
+    if (request.method === "POST") {
+      const payload = await request.text();
+      for (const socket of this.ctx.getWebSockets()) {
+        try { socket.send(payload); } catch (_) {}
+      }
+      return new Response(null, { status: 204 });
+    }
+
+    return new Response("Not found", { status: 404 });
+  }
+
+  webSocketMessage() {}
+  webSocketClose() {}
+  webSocketError() {}
+}
+
+function realtimeRoom(env) {
+  if (!env?.REALTIME) return null;
+  const id = env.REALTIME.idFromName("club-deportivo");
+  return env.REALTIME.get(id);
+}
+
+async function broadcastRealtime(env, type) {
+  const room = realtimeRoom(env);
+  if (!room) return;
+  try {
+    await room.fetch("https://realtime.internal/broadcast", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ type, at: new Date().toISOString() }),
+    });
+  } catch (error) {
+    console.warn("Realtime broadcast failed", error);
+  }
+}
+
+async function openRealtimeSocket(request, env) {
+  const room = realtimeRoom(env);
+  if (!room) return json({ ok:false, error:"REALTIME_NOT_BOUND" },503);
+  if ((request.headers.get("Upgrade") || "").toLowerCase() !== "websocket") {
+    return json({ ok:false, error:"WEBSOCKET_REQUIRED" },426);
+  }
+  return room.fetch(request);
+}
+
 const corsHeaders = (request, env) => {
   const origin = request.headers.get("Origin") || "";
   const allowed = (env.ALLOWED_ORIGINS || "")
@@ -872,6 +931,8 @@ async function savePartialStatistic(request, env) {
     "SELECT COUNT(*) AS count FROM partial_statistics WHERE record_date=?1"
   ).bind(date).first();
 
+  await broadcastRealtime(env, "partial-statistics-changed");
+
   return json({
     ok:true,
     entry:{
@@ -915,6 +976,8 @@ async function deletePartialStatistics(request, env) {
     partialCount:Number(partialCount?.count||0),
     draftDeleted:Boolean(draftExists)
   })).run();
+
+  await broadcastRealtime(env, "partial-statistics-changed");
 
   return json({
     ok:true,
@@ -1714,6 +1777,9 @@ async function createRecord(request, env) {
     attendance:clean
   });
 
+  await broadcastRealtime(env, "records-changed");
+  await broadcastRealtime(env, "partial-statistics-changed");
+
   return json({
     ok: true,
     duplicate: false,
@@ -1782,6 +1848,7 @@ async function deleteRecord(request, env, recordId) {
 
   await env.DB.prepare("UPDATE app_log SET record_id=NULL WHERE record_id=?1").bind(recordId).run();
   await env.DB.prepare("DELETE FROM records WHERE id=?1").bind(recordId).run();
+  await broadcastRealtime(env, "records-changed");
   return json({ok:true,backup:{queued:Boolean(backupJobId),jobId:backupJobId},message:"Registro eliminado correctamente."});
 }
 
@@ -2193,6 +2260,7 @@ async function updateRecord(request, env, recordId) {
   ).bind(auth?.user_id || null, recordId, JSON.stringify({ before, after, authorization: "edit-key" })).run();
 
   const backupJobId=await enqueueBackupJob(env,"update",recordId,responsible.email,{before,after});
+  await broadcastRealtime(env, "records-changed");
 
   return json({
     ok: true,
@@ -2225,6 +2293,11 @@ async function logout(request, env) {
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+
+    if (url.pathname === "/api/live") {
+      return openRealtimeSocket(request, env);
+    }
+
     const cors = corsHeaders(request, env);
 
     if (request.method === "OPTIONS") {
